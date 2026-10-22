@@ -1,6 +1,12 @@
 import type { CategoryDef } from "../categories/types";
 
-const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
+// The free public Overpass instance is known to return 503 under load.
+// Try a couple of mirrors with backoff rather than failing the whole job
+// on one transient blip.
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 
 export interface OverpassCandidate {
   osmType: string;
@@ -26,6 +32,33 @@ function buildQuery(category: CategoryDef, bbox: [number, number, number, number
   return `[out:json][timeout:25];\n(\n${clauses.join("\n")}\n);\nout center tags;`;
 }
 
+async function fetchFromOverpass(query: string): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `data=${encodeURIComponent(query)}`,
+        });
+        if (res.ok) return res;
+        // 429/503 are the overload signals Overpass sends; worth a retry/backoff.
+        if (res.status !== 429 && res.status !== 503) {
+          throw new Error(`Overpass request failed: ${res.status} ${await res.text()}`);
+        }
+        lastError = new Error(`Overpass request failed: ${res.status} ${await res.text()}`);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+
+  throw lastError ?? new Error("Overpass request failed: no endpoints configured");
+}
+
 /**
  * Query Overpass for every tag combination in a category, within a tile's
  * bounding box. This is the zero-cost, zero-API-key collector — the MVP's
@@ -36,16 +69,7 @@ export async function runOverpassCollector(
   bbox: [number, number, number, number],
 ): Promise<OverpassCandidate[]> {
   const query = buildQuery(category, bbox);
-
-  const res = await fetch(OVERPASS_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Overpass request failed: ${res.status} ${await res.text()}`);
-  }
+  const res = await fetchFromOverpass(query);
 
   const json = (await res.json()) as {
     elements: Array<{
