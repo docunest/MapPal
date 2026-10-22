@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Every table/enum in this schema is prefixed "mappal_" because this app
+// shares one Supabase Postgres project (public schema) with other persona
+// apps. Convention + prefix registry: see docunest/shared-supabase.
+// Do not add an unprefixed model/enum here — it WILL collide with another
+// app's table of the same name.
+
 // --- Auth: tiny shared-family user list, no per-user data scoping ---
 model User {
   id           String   @id @default(cuid())
@@ -14,6 +20,8 @@ model User {
   name         String?
   passwordHash String
   createdAt    DateTime @default(now())
+
+  @@map("mappal_user")
 }
 
 // --- A region the user has asked the agent to index, e.g. "Galicia" ---
@@ -27,6 +35,7 @@ model Region {
   tiles       Tile[]
 
   @@index([name])
+  @@map("mappal_region")
 }
 
 // --- One H3 hex cell covering part of a region ---
@@ -45,6 +54,7 @@ model Tile {
   places Place[]
 
   @@index([regionId])
+  @@map("mappal_tile")
 }
 
 // --- A category definition, e.g. "waterfalls". Config lives in code
@@ -59,6 +69,8 @@ model Category {
 
   jobs   ScanJob[]
   places Place[]
+
+  @@map("mappal_category")
 }
 
 enum JobStatus {
@@ -66,6 +78,8 @@ enum JobStatus {
   RUNNING
   DONE
   ERROR
+
+  @@map("mappal_job_status")
 }
 
 // --- The anti-skipping ledger: one row per (tile, category). ---
@@ -85,6 +99,7 @@ model ScanJob {
 
   @@unique([tileId, categoryId])
   @@index([status])
+  @@map("mappal_scan_job")
 }
 
 enum PlaceVisitStatus {
@@ -92,6 +107,8 @@ enum PlaceVisitStatus {
   MUST_VISIT
   VISITED
   SKIPPED
+
+  @@map("mappal_place_visit_status")
 }
 
 // --- A discovered point of interest ---
@@ -121,6 +138,7 @@ model Place {
 
   @@index([categoryId])
   @@index([lat, lng])
+  @@map("mappal_place")
 }
 
 // --- Every source backing a place: no place without provenance ---
@@ -132,4 +150,6 @@ model PlaceSource {
   url       String?
   raw       Json? // raw snippet/tags fetched, for re-verification without re-fetching
   fetchedAt DateTime @default(now())
+
+  @@map("mappal_place_source")
 }
