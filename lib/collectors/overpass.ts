@@ -40,7 +40,12 @@ async function fetchFromOverpass(query: string): Promise<Response> {
       try {
         const res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            // Mirrors like overpass.kumi.systems rate-limit requests with no
+            // identifying User-Agent.
+            "User-Agent": "MapPal/0.1 (family POI indexer; contact: 1lukas1@gmail.com)",
+          },
           body: `data=${encodeURIComponent(query)}`,
         });
         if (res.ok) return res;
