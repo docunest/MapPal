@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth: tiny shared-family user list, no per-user data scoping ---
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+// --- A region the user has asked the agent to index, e.g. "Galicia" ---
+// boundary is a GeoJSON Polygon/MultiPolygon drawn on the map (or imported).
+model Region {
+  id          String   @id @default(cuid())
+  name        String
+  boundary    Json // GeoJSON geometry
+  h3Resolution Int     @default(7) // ~5km edge; tune per region size
+  createdAt   DateTime @default(now())
+  tiles       Tile[]
+
+  @@index([name])
+}
+
+// --- One H3 hex cell covering part of a region ---
+model Tile {
+  id        String   @id @default(cuid())
+  regionId  String
+  region    Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  h3Index   String   @unique
+  centerLat Float
+  centerLng Float
+  boundary  Json // GeoJSON polygon of the hex, for map rendering
+  note      String? // optional short "character of the area" note
+  createdAt DateTime @default(now())
+
+  jobs   ScanJob[]
+  places Place[]
+
+  @@index([regionId])
+}
+
+// --- A category definition, e.g. "waterfalls". Config lives in code
+// (lib/categories/*.ts); this row just lets jobs/places reference it stably
+// and lets the coverage dashboard list categories without redeploying.
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique // matches the key in lib/categories
+  label       String
+  description String
+  createdAt   DateTime @default(now())
+
+  jobs   ScanJob[]
+  places Place[]
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  ERROR
+}
+
+// --- The anti-skipping ledger: one row per (tile, category). ---
+model ScanJob {
+  id           String    @id @default(cuid())
+  tileId       String
+  tile         Tile      @relation(fields: [tileId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  status       JobStatus @default(PENDING)
+  sourcesTried Json? // which collectors ran (overpass, web, wikiloc, ...)
+  candidateCount Int     @default(0)
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([tileId, categoryId])
+  @@index([status])
+}
+
+enum PlaceVisitStatus {
+  UNKNOWN
+  MUST_VISIT
+  VISITED
+  SKIPPED
+}
+
+// --- A discovered point of interest ---
+model Place {
+  id            String   @id @default(cuid())
+  name          String
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  tileId        String?
+  tile          Tile?    @relation(fields: [tileId], references: [id])
+  lat           Float
+  lng           Float
+  description   String?
+  season        String? // e.g. best visited in; "dries up in summer"
+  accessNotes   String?
+  openingHours  String?
+  popularityScore Float?  // review counts / mentions / photo density
+  qualityScore    Float?  // rule match / richness
+  isHiddenGem     Boolean @default(false)
+  confidence      Float?  // 0-1, how sure the agent is this is real/correct
+  lastVerifiedAt  DateTime?
+  visitStatus     PlaceVisitStatus @default(UNKNOWN)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sources PlaceSource[]
+
+  @@index([categoryId])
+  @@index([lat, lng])
+}
+
+// --- Every source backing a place: no place without provenance ---
+model PlaceSource {
+  id        String   @id @default(cuid())
+  placeId   String
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  type      String // "osm" | "wikipedia" | "web" | "wikiloc" | "instagram-manual" | ...
+  url       String?
+  raw       Json? // raw snippet/tags fetched, for re-verification without re-fetching
+  fetchedAt DateTime @default(now())
+}
