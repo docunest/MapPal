@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Šeimos kino vakaras</title>
+  <link rel="stylesheet" href="deck.css">
+  <!-- Provided by Qt; on other hosts (Android WebView, a plain browser) it simply fails to load. -->
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">🍿 Šeimos kino vakaras</div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main id="stage" class="stage" aria-live="polite"></main>
+
+  <section class="actions" aria-label="Sprendimai">
+    <div class="row main">
+      <button class="act no" data-verdict="no" title="Ne (←)">
+        <span class="ico">✖</span><span class="lbl">Ne</span><kbd>←</kbd></button>
+      <button class="act super" data-verdict="super" title="Labai taip! (S arba Shift+→)">
+        <span class="ico">⭐</span><span class="lbl">Labai taip!</span><kbd>S</kbd></button>
+      <button class="act want" data-verdict="want" title="Taip (→)">
+        <span class="ico">❤</span><span class="lbl">Taip</span><kbd>→</kbd></button>
+    </div>
+    <div class="row minor">
+      <button class="act later" data-verdict="later" title="Nežinau – palikti vėliau (↓)">
+        <span class="ico">⏳</span><span class="lbl">Nežinau – vėliau</span><kbd>↓</kbd></button>
+      <button class="act seen" data-verdict="seen_liked" title="Matėm, patiko (↑)">
+        <span class="ico">👀</span><span class="lbl">Matėm, patiko</span><kbd>↑</kbd></button>
+      <button class="act me" data-verdict="me_yes_kid_no" title="Aš taip, vaikas – ne (A)">
+        <span class="ico">🧑</span><span class="lbl">Aš taip, vaikas – ne</span><kbd>A</kbd></button>
+      <button class="act kid" data-verdict="kid_yes_me_no" title="Vaikas taip, aš – ne (V)">
+        <span class="ico">🧒</span><span class="lbl">Vaikas taip, aš – ne</span><kbd>V</kbd></button>
+    </div>
+    <div class="row tools">
+      <button id="undo" class="tool" title="Atšaukti (Backspace / Ctrl+Z)">↶ Atšaukti</button>
+      <button id="more" class="tool" title="Paprašyti AI naujų pasiūlymų dabar">🤖 Daugiau pasiūlymų</button>
+    </div>
+  </section>
+
+  <script src="deck.js"></script>
+</body>
+</html>
