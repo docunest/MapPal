@@ -8,8 +8,10 @@ export default auth((req) => {
   // Has its own secret-header auth (see app/api/admin/users/route.ts) — must
   // be reachable before any session exists, to bootstrap the first login.
   const isAdminApi = req.nextUrl.pathname.startsWith("/api/admin");
+  // Public: this IS the sign-in mechanism for a magic-link token holder.
+  const isMagicLogin = req.nextUrl.pathname.startsWith("/api/magic-login");
 
-  if (isAuthApi || isAdminApi || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);

@@ -21,7 +21,25 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
+  loginTokens LoginToken[]
+
   @@map("mappal_user")
+}
+
+// --- Admin-minted, single-use magic-login links (30-day expiry by
+// convention, enforced by the minting endpoint, not the schema). Lets a
+// family member sign in without typing a password, and lets this session
+// log in to verify deploys without ever holding real credentials.
+model LoginToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("mappal_login_token")
 }
 
 // --- A region the user has asked the agent to index, e.g. "Galicia" ---

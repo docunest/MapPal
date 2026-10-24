@@ -29,5 +29,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: user.id, email: user.email, name: user.name };
       },
     }),
+    Credentials({
+      id: "magic-link",
+      credentials: { token: {} },
+      authorize: async (credentials) => {
+        const token = credentials?.token as string | undefined;
+        if (!token) return null;
+
+        const record = await prisma.loginToken.findUnique({ where: { token }, include: { user: true } });
+        if (!record || record.usedAt || record.expiresAt < new Date()) return null;
+
+        // Single-use: consume it before returning success.
+        await prisma.loginToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+
+        return { id: record.user.id, email: record.user.email, name: record.user.name };
+      },
+    }),
   ],
 });
