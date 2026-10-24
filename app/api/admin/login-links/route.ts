@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { describeDbError } from "@/lib/dbErrors";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -32,17 +33,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (!user) {
-    return NextResponse.json({ error: "No user with that email" }, { status: 404 });
+  try {
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (!user) {
+      return NextResponse.json({ error: "No user with that email" }, { status: 404 });
+    }
+
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+    await prisma.loginToken.create({ data: { token, userId: user.id, expiresAt } });
+
+    const url = new URL("/api/magic-login", req.url);
+    url.searchParams.set("token", token);
+
+    return NextResponse.json({ ok: true, url: url.toString(), expiresAt });
+  } catch (err) {
+    return NextResponse.json({ error: describeDbError(err) }, { status: 500 });
   }
-
-  const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
-  await prisma.loginToken.create({ data: { token, userId: user.id, expiresAt } });
-
-  const url = new URL("/api/magic-login", req.url);
-  url.searchParams.set("token", token);
-
-  return NextResponse.json({ ok: true, url: url.toString(), expiresAt });
 }

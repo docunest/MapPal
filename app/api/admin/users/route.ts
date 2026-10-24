@@ -3,6 +3,7 @@ import { z } from "zod";
 import { timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { describeDbError } from "@/lib/dbErrors";
 
 const upsertSchema = z.object({
   email: z.string().email(),
@@ -36,12 +37,16 @@ export async function POST(req: Request) {
   }
   const { email, password, name } = parsed.data;
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.upsert({
-    where: { email },
-    update: { name, passwordHash },
-    create: { email, name, passwordHash },
-  });
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.user.upsert({
+      where: { email },
+      update: { name, passwordHash },
+      create: { email, name, passwordHash },
+    });
+  } catch (err) {
+    return NextResponse.json({ error: describeDbError(err) }, { status: 500 });
+  }
 
   // Never echo back password/hash, even on success.
   return NextResponse.json({ ok: true, email });
