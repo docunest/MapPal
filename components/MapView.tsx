@@ -78,6 +78,7 @@ export default function MapView() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
 
   // Default the sidebar open on desktop-sized screens, closed on mobile —
   // only known client-side, so set it after mount rather than in render.
@@ -303,11 +304,12 @@ export default function MapView() {
   function locateMe() {
     const map = mapRef.current;
     if (!map || !navigator.geolocation) {
-      setError("Geolocation isn't available in this browser.");
+      setLocateError("Geolocation isn't available in this browser.");
       return;
     }
 
     setLocating(true);
+    setLocateError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
@@ -330,7 +332,15 @@ export default function MapView() {
       },
       (err) => {
         setLocating(false);
-        setError(`Couldn't get your location: ${err.message}`);
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocateError(
+            "Location access is blocked for this site. On iPhone: Settings → Privacy & Security → Location Services → make sure it's on, then find this browser in the list and set it to \"Ask Next Time\" or \"While Using\". If you already denied it once, tap the \"AA\" icon in the address bar → Website Settings → Location → Ask.",
+          );
+        } else if (err.code === err.TIMEOUT) {
+          setLocateError("Timed out getting your location — try again, ideally outdoors or near a window.");
+        } else {
+          setLocateError(`Couldn't get your location: ${err.message}`);
+        }
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -481,6 +491,24 @@ export default function MapView() {
         >
           ☰
         </button>
+      )}
+
+      {locateError && (
+        <div
+          role="alert"
+          className="fixed bottom-20 right-4 left-4 z-20 max-w-sm rounded-lg border border-red-200 bg-white p-3 text-sm text-red-700 shadow-lg md:left-auto"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <p>{locateError}</p>
+            <button
+              onClick={() => setLocateError(null)}
+              aria-label="Dismiss"
+              className="shrink-0 text-red-400"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
 
       <button
