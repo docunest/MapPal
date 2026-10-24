@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Map as MapLibreMap, Marker, Popup, type GeoJSONSource } from "maplibre-gl";
+import { circle as turfCircle } from "@turf/turf";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
@@ -55,6 +56,29 @@ const CATEGORY_COLORS: Record<string, string> = {
   factories: "#c75c1f",
 };
 
+function describeGeolocationError(err: GeolocationPositionError): string {
+  if (err.code === err.PERMISSION_DENIED) {
+    return "Location access is blocked for this site. On iPhone: Settings → Privacy & Security → Location Services → make sure it's on, then find this browser in the list and set it to \"Ask Next Time\" or \"While Using\". If you already denied it once, tap the \"AA\" icon in the address bar → Website Settings → Location → Ask.";
+  }
+  if (err.code === err.TIMEOUT) {
+    return "Timed out getting your location — try again, ideally outdoors or near a window.";
+  }
+  return `Couldn't get your location: ${err.message}`;
+}
+
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation isn't available in this browser."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+    });
+  });
+}
+
 export default function MapView() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -79,6 +103,8 @@ export default function MapView() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  const [radiusKm, setRadiusKm] = useState("10");
+  const [creatingRadiusRegion, setCreatingRadiusRegion] = useState(false);
 
   // Default the sidebar open on desktop-sized screens, closed on mobile —
   // only known client-side, so set it after mount rather than in render.
@@ -301,49 +327,82 @@ export default function MapView() {
     }
   }
 
-  function locateMe() {
+  async function locateMe() {
     const map = mapRef.current;
-    if (!map || !navigator.geolocation) {
-      setLocateError("Geolocation isn't available in this browser.");
-      return;
-    }
+    if (!map) return;
 
     setLocating(true);
     setLocateError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+    try {
+      const pos = await getCurrentPosition();
+      const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
 
-        if (!myLocationMarkerRef.current) {
-          const el = document.createElement("div");
-          el.style.width = "16px";
-          el.style.height = "16px";
-          el.style.borderRadius = "50%";
-          el.style.background = "#1d7fd4";
-          el.style.border = "3px solid #fff";
-          el.style.boxShadow = "0 0 0 2px rgba(29,127,212,0.4)";
-          myLocationMarkerRef.current = new Marker({ element: el }).setLngLat(lngLat).addTo(map);
-        } else {
-          myLocationMarkerRef.current.setLngLat(lngLat);
-        }
+      if (!myLocationMarkerRef.current) {
+        const el = document.createElement("div");
+        el.style.width = "16px";
+        el.style.height = "16px";
+        el.style.borderRadius = "50%";
+        el.style.background = "#1d7fd4";
+        el.style.border = "3px solid #fff";
+        el.style.boxShadow = "0 0 0 2px rgba(29,127,212,0.4)";
+        myLocationMarkerRef.current = new Marker({ element: el }).setLngLat(lngLat).addTo(map);
+      } else {
+        myLocationMarkerRef.current.setLngLat(lngLat);
+      }
 
-        map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), duration: 800 });
-      },
-      (err) => {
-        setLocating(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setLocateError(
-            "Location access is blocked for this site. On iPhone: Settings → Privacy & Security → Location Services → make sure it's on, then find this browser in the list and set it to \"Ask Next Time\" or \"While Using\". If you already denied it once, tap the \"AA\" icon in the address bar → Website Settings → Location → Ask.",
-          );
-        } else if (err.code === err.TIMEOUT) {
-          setLocateError("Timed out getting your location — try again, ideally outdoors or near a window.");
-        } else {
-          setLocateError(`Couldn't get your location: ${err.message}`);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+      map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), duration: 800 });
+    } catch (err) {
+      setLocateError(
+        err instanceof GeolocationPositionError
+          ? describeGeolocationError(err)
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      );
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  async function scanNearMe() {
+    const radius = Number(radiusKm);
+    if (!Number.isFinite(radius) || radius <= 0) {
+      setLocateError("Enter a radius in km greater than 0.");
+      return;
+    }
+
+    setCreatingRadiusRegion(true);
+    setLocateError(null);
+    try {
+      const pos = await getCurrentPosition();
+      const center: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+      const circlePolygon = turfCircle(center, radius, { steps: 64, units: "kilometers" });
+
+      const res = await fetch("/api/regions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Near me (${radius}km)`,
+          boundary: circlePolygon.geometry,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ? JSON.stringify(data.error) : "Failed to create region");
+
+      await loadRegions();
+      setSelectedRegionId(data.region.id);
+      setSidebarOpen(false);
+    } catch (err) {
+      setLocateError(
+        err instanceof GeolocationPositionError
+          ? describeGeolocationError(err)
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      );
+    } finally {
+      setCreatingRadiusRegion(false);
+    }
   }
 
   function toggleCategory(slug: string) {
@@ -408,8 +467,34 @@ export default function MapView() {
             onClick={toggleDrawing}
             className={`w-full rounded px-2 py-1 border ${drawing ? "bg-neutral-900 text-white" : ""}`}
           >
-            {drawing ? "Drawing… click to finish polygon" : "Draw new region on map"}
+            {drawing ? "Drawing… tap points, then tap the first point again to close" : "Draw new region on map"}
           </button>
+          {drawing && (
+            <p className="text-xs text-neutral-500">
+              This traces a shape point by point — tap to place each corner, don&apos;t drag. Dragging pans
+              the map instead.
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 border rounded p-2 bg-neutral-50">
+            <span className="text-neutral-600">Scan</span>
+            <input
+              type="number"
+              min="0.1"
+              step="0.5"
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(e.target.value)}
+              className="w-16 border rounded px-1 py-1"
+            />
+            <span className="text-neutral-600">km around me</span>
+            <button
+              onClick={scanNearMe}
+              disabled={creatingRadiusRegion}
+              className="ml-auto rounded bg-blue-600 text-white px-2 py-1 disabled:opacity-50"
+            >
+              {creatingRadiusRegion ? "…" : "Go"}
+            </button>
+          </div>
 
           {pendingBoundary && (
             <div className="space-y-2 border rounded p-2 bg-neutral-50">
