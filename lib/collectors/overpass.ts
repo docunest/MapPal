@@ -3,9 +3,17 @@ import type { CategoryDef } from "../categories/types";
 // The free public Overpass instance is known to return 503 under load.
 // Try a couple of mirrors with backoff rather than failing the whole job
 // on one transient blip.
+//
+// NOT overpass.osm.ch despite the name — confirmed by testing (2026-10-24)
+// to be a Switzerland-only regional mirror (hundreds of results for a
+// Zurich bbox, zero for anywhere in Spain). It responds successfully, so a
+// bare "did the request succeed" check won't catch this — it just silently
+// has no data for most of the world. Do not add it back without verifying
+// coverage for your actual region first.
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
 export interface OverpassCandidate {
