@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Map as MapLibreMap, Popup, type GeoJSONSource } from "maplibre-gl";
+import { Map as MapLibreMap, Marker, Popup, type GeoJSONSource } from "maplibre-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
@@ -59,6 +59,7 @@ export default function MapView() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
+  const myLocationMarkerRef = useRef<Marker | null>(null);
 
   const [regions, setRegions] = useState<Region[]>([]);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
@@ -75,6 +76,15 @@ export default function MapView() {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  // Default the sidebar open on desktop-sized screens, closed on mobile —
+  // only known client-side, so set it after mount rather than in render.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSidebarOpen(window.innerWidth >= 768);
+  }, []);
 
   const loadRegions = useCallback(async () => {
     const res = await fetch("/api/regions");
@@ -290,6 +300,42 @@ export default function MapView() {
     }
   }
 
+  function locateMe() {
+    const map = mapRef.current;
+    if (!map || !navigator.geolocation) {
+      setError("Geolocation isn't available in this browser.");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+
+        if (!myLocationMarkerRef.current) {
+          const el = document.createElement("div");
+          el.style.width = "16px";
+          el.style.height = "16px";
+          el.style.borderRadius = "50%";
+          el.style.background = "#1d7fd4";
+          el.style.border = "3px solid #fff";
+          el.style.boxShadow = "0 0 0 2px rgba(29,127,212,0.4)";
+          myLocationMarkerRef.current = new Marker({ element: el }).setLngLat(lngLat).addTo(map);
+        } else {
+          myLocationMarkerRef.current.setLngLat(lngLat);
+        }
+
+        map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), duration: 800 });
+      },
+      (err) => {
+        setLocating(false);
+        setError(`Couldn't get your location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
   function toggleCategory(slug: string) {
     setActiveCategories((prev) => {
       const next = new Set(prev);
@@ -300,16 +346,37 @@ export default function MapView() {
   }
 
   return (
-    <div className="flex h-screen w-full">
-      <aside className="w-80 shrink-0 border-r bg-white overflow-y-auto p-4 space-y-5 text-sm">
+    <div className="relative flex h-screen w-full overflow-hidden">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-10 bg-black/30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-20 w-80 max-w-[85vw] transform overflow-y-auto border-r bg-white p-4 space-y-5 text-sm transition-transform duration-200 md:static md:z-auto md:translate-x-0 md:shrink-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-lg font-semibold">MapPal</h1>
             <p className="text-neutral-500">Local points-of-interest indexer</p>
           </div>
-          <button onClick={() => signOut()} className="text-xs text-neutral-400 underline">
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => signOut()} className="text-xs text-neutral-400 underline">
+              Sign out
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+              className="rounded border px-2 py-1 text-neutral-500 md:hidden"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <section className="space-y-2">
@@ -405,6 +472,26 @@ export default function MapView() {
 
         {error && <p className="text-red-600 text-xs">{error}</p>}
       </aside>
+
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open sidebar"
+          className="fixed top-3 left-3 z-20 flex h-10 w-10 items-center justify-center rounded bg-white border shadow md:hidden"
+        >
+          ☰
+        </button>
+      )}
+
+      <button
+        onClick={locateMe}
+        disabled={locating}
+        aria-label="Use my location"
+        title="Use my location"
+        className="fixed bottom-6 right-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white border shadow-lg disabled:opacity-50"
+      >
+        {locating ? "…" : "📍"}
+      </button>
 
       <div ref={mapContainer} className="flex-1" />
     </div>
