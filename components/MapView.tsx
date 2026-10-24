@@ -224,12 +224,19 @@ export default function MapView() {
         const f = e.features?.[0];
         if (!f) return;
         const p = f.properties as Record<string, string>;
+        const [lng, lat] = (f.geometry as GeoJSON.Point).coordinates as [number, number];
+        const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        const wazeUrl = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
         new Popup()
-          .setLngLat((f.geometry as GeoJSON.Point).coordinates as [number, number])
+          .setLngLat([lng, lat])
           .setHTML(
             `<strong>${escapeHtml(p.name)}</strong><br/>${escapeHtml(p.categoryLabel)}<br/>` +
               `${p.description ? escapeHtml(p.description) + "<br/>" : ""}` +
-              `<span style="color:#888;font-size:11px">${escapeHtml(p.sourceLabel)}</span>`,
+              `<span style="color:#888;font-size:11px">${escapeHtml(p.sourceLabel)}</span><br/>` +
+              `<div style="margin-top:6px;display:flex;gap:8px">` +
+              `<a href="${googleUrl}" target="_blank" rel="noopener noreferrer" style="color:#1d7fd4">Google Maps</a>` +
+              `<a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="color:#1d7fd4">Waze</a>` +
+              `</div>`,
           )
           .addTo(map);
       });

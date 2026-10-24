@@ -54,6 +54,13 @@ export async function runJob(jobId: string): Promise<void> {
     candidateCount = candidates.length;
 
     for (const c of candidates) {
+      // Unnamed OSM nodes for this kind of tag are usually noise — a
+      // speculative/duplicate pin, not a real, known destination. Skip
+      // creating a Place for them; they still count in candidateCount so
+      // the coverage ledger shows the true discovery count, not a
+      // silently-filtered one.
+      if (!c.tags.name?.trim()) continue;
+
       const osmKey = `${c.osmType}/${c.osmId}`;
 
       const existingSource = await prisma.placeSource.findFirst({
