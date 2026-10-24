@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled (transaction mode, port 6543) for the app's own runtime queries —
+  // required on serverless, where every request may be a fresh connection.
+  url       = env("DATABASE_URL")
+  // Unpooled/session mode (port 5432) for `prisma migrate deploy`, which
+  // needs features (advisory locks, DDL) a transaction-mode pooler can't do.
+  directUrl = env("DIRECT_URL")
 }
 
 // Every table/enum in this schema is prefixed "mappal_" because this app
