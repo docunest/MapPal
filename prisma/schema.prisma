@@ -80,15 +80,37 @@ model Tile {
   @@map("mappal_tile")
 }
 
-// --- A category definition, e.g. "waterfalls". Config lives in code
-// (lib/categories/*.ts); this row just lets jobs/places reference it stably
-// and lets the coverage dashboard list categories without redeploying.
+// --- A category definition, e.g. "waterfalls". Editable via /categories —
+// this IS the source of truth (lib/categories/*.ts only seeds first-run
+// defaults, it isn't read at scan time).
+//
+// IMPORTANT, re: what's AI vs. static lookup — today every field below
+// except overpassFilters/elementTypes is inert. Only overpassFilters drives
+// results, via a deterministic OSM/Overpass tag match: no judgment, no AI,
+// same query every time. include/exclude/searchPhrases/extractFields are
+// captured for a future LLM verification/web-search pass that doesn't exist
+// yet (see aiAssisted below, always false until that's built). The
+// /categories UI must keep saying so — don't let it imply these rules
+// already filter anything.
 model Category {
   id          String   @id @default(cuid())
-  slug        String   @unique // matches the key in lib/categories
+  slug        String   @unique
   label       String
   description String
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // --- Static lookup (live): actually drives the Overpass collector ---
+  elementTypes    Json // string[] of "node"|"way"|"relation"
+  overpassFilters Json // {key: string, value?: string}[]
+
+  // --- Captured for a future AI-assisted pass (NOT used by any collector
+  // yet — see the model comment above) ---
+  include       Json // string[]
+  exclude       Json // string[]
+  searchPhrases Json // string[]
+  extractFields Json // string[]
+  aiAssisted    Boolean @default(false)
 
   jobs   ScanJob[]
   places Place[]

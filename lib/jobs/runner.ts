@@ -1,5 +1,5 @@
 import { prisma } from "../db";
-import { categoryBySlug } from "../categories";
+import type { CategoryDef, OverpassElementType, OverpassTagFilter } from "../categories/types";
 import { bboxOfHex } from "../tiles";
 import { runOverpassCollector } from "../collectors/overpass";
 
@@ -15,11 +15,25 @@ export async function runJob(jobId: string): Promise<void> {
     include: { tile: true, category: true },
   });
 
-  const categoryDef = categoryBySlug[job.category.slug];
-  if (!categoryDef) {
+  // Category rules live in the DB now (editable via /categories), not in
+  // code — only elementTypes/overpassFilters are actually read here; the
+  // rest (include/exclude/searchPhrases) isn't used by any collector yet.
+  const categoryDef: CategoryDef = {
+    slug: job.category.slug,
+    label: job.category.label,
+    description: job.category.description,
+    elementTypes: job.category.elementTypes as unknown as OverpassElementType[],
+    overpassFilters: job.category.overpassFilters as unknown as OverpassTagFilter[],
+    include: job.category.include as unknown as string[],
+    exclude: job.category.exclude as unknown as string[],
+    searchPhrases: job.category.searchPhrases as unknown as string[],
+    extractFields: job.category.extractFields as unknown as string[],
+  };
+
+  if (!categoryDef.elementTypes?.length || !categoryDef.overpassFilters?.length) {
     await prisma.scanJob.update({
       where: { id: jobId },
-      data: { status: "ERROR", error: `Unknown category slug: ${job.category.slug}` },
+      data: { status: "ERROR", error: `Category "${job.category.slug}" has no OSM tag filters configured` },
     });
     return;
   }

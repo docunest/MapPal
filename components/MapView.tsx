@@ -29,7 +29,14 @@ interface Place {
   description: string | null;
   category: Category;
   confidence: number | null;
+  sources: { type: string }[];
 }
+
+// Every current collector is a static lookup (no AI judgment) — keeps the
+// map popup honest about where a place actually came from.
+const SOURCE_LABELS: Record<string, string> = {
+  osm: "OpenStreetMap (static tag lookup)",
+};
 
 interface Tile {
   id: string;
@@ -55,6 +62,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   waterfalls: "#1d7fd4",
   factories: "#c75c1f",
 };
+
+function escapeHtml(s: string | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function describeGeolocationError(err: GeolocationPositionError): string {
   if (err.code === err.PERMISSION_DENIED) {
@@ -209,7 +226,11 @@ export default function MapView() {
         const p = f.properties as Record<string, string>;
         new Popup()
           .setLngLat((f.geometry as GeoJSON.Point).coordinates as [number, number])
-          .setHTML(`<strong>${p.name}</strong><br/>${p.categoryLabel}<br/>${p.description ?? ""}`)
+          .setHTML(
+            `<strong>${escapeHtml(p.name)}</strong><br/>${escapeHtml(p.categoryLabel)}<br/>` +
+              `${p.description ? escapeHtml(p.description) + "<br/>" : ""}` +
+              `<span style="color:#888;font-size:11px">${escapeHtml(p.sourceLabel)}</span>`,
+          )
           .addTo(map);
       });
     });
@@ -259,6 +280,7 @@ export default function MapView() {
           categoryLabel: p.category.label,
           description: p.description,
           color: CATEGORY_COLORS[p.category.slug] ?? "#444",
+          sourceLabel: `Source: ${p.sources.map((s) => SOURCE_LABELS[s.type] ?? s.type).join(", ") || "unknown"}`,
         },
       })),
     });
@@ -433,6 +455,9 @@ export default function MapView() {
           <div>
             <h1 className="text-lg font-semibold">MapPal</h1>
             <p className="text-neutral-500">Local points-of-interest indexer</p>
+            <Link href="/categories" className="text-blue-600 underline text-xs">
+              Manage categories
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => signOut()} className="text-xs text-neutral-400 underline">

@@ -10,9 +10,16 @@ interface Job {
   candidateCount: number;
   error: string | null;
   finishedAt: string | null;
+  sourcesTried: string[] | null;
   category: { label: string; slug: string };
   tile: { h3Index: string };
 }
+
+// Every collector today is a static lookup, not AI — label it that way
+// wherever sourcesTried is shown.
+const SOURCE_LABELS: Record<string, string> = {
+  "osm-overpass": "OSM/Overpass (static)",
+};
 
 function CoverageContent() {
   const params = useSearchParams();
@@ -71,6 +78,7 @@ function CoverageContent() {
             <th>Category</th>
             <th>Status</th>
             <th>Candidates</th>
+            <th>Sources</th>
             <th>Finished</th>
             <th>Error</th>
           </tr>
@@ -86,6 +94,9 @@ function CoverageContent() {
                 </span>
               </td>
               <td>{j.candidateCount}</td>
+              <td className="text-xs text-neutral-500">
+                {(j.sourcesTried ?? []).map((s) => SOURCE_LABELS[s] ?? s).join(", ") || "—"}
+              </td>
               <td className="text-xs text-neutral-500">
                 {j.finishedAt ? new Date(j.finishedAt).toLocaleString() : "—"}
               </td>
