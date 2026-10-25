@@ -8,6 +8,7 @@ import {
   UTILITY_TAGS,
   utilityBadges,
 } from "../nearby/utilityKinds";
+import { buildSightsQuery, sightCandidatesFromElements } from "./osmSights";
 import type { Source, UtilitiesQuery, UtilityCategory, UtilityPlace } from "./types";
 
 export function buildUtilitiesQuery(q: UtilitiesQuery): string {
@@ -74,5 +75,9 @@ export const osmSource: Source = {
     // to Photon rather than keeping the driver waiting.
     const elements = await overpassQuery(buildUtilitiesQuery(q), { timeoutMs: 6000, totalBudgetMs: 6000 });
     return elements.map(utilityFromElement).filter((p): p is UtilityPlace => !!p);
+  },
+  async sights(q) {
+    const elements = await overpassQuery(buildSightsQuery(q.center, q.radius), { timeoutMs: 12000, totalBudgetMs: 15000 });
+    return sightCandidatesFromElements(q.center, elements);
   },
 };

@@ -1,23 +1,41 @@
-// Which Wikipedia covers a country's local sights best. Local-language
+// Which Wikipedias describe the sights around a point best. Local-language
 // Wikipedias have far more geotagged articles about local factories, mines
-// and bridges than English does (e.g. Ostrava-Vítkovice: 50 cs vs 21 en
-// within 2.5 km, and the en ones are mostly districts and dioceses).
+// and bridges than English (seen in testing: Puerto de Sagunto has a power
+// station article only in es/ca). In Spain the co-official languages matter
+// too: Catalan in Catalonia/Valencia/Balearics, Galician in Galicia, Basque
+// in the Basque Country and Navarre.
+import type { Region } from "../nominatim";
+
 const COUNTRY_WIKI_LANG: Record<string, string> = {
-  AD: "ca", AL: "sq", AT: "de", BA: "bs", BE: "nl", BG: "bg", BY: "be", CH: "de", CY: "el", CZ: "cs",
-  DE: "de", DK: "da", EE: "et", ES: "es", FI: "fi", FR: "fr", GB: "en", GR: "el", HR: "hr", HU: "hu",
-  IE: "en", IS: "is", IT: "it", LI: "de", LT: "lt", LU: "lb", LV: "lv", MC: "fr", MD: "ro", ME: "sr",
-  MK: "mk", MT: "mt", NL: "nl", NO: "no", PL: "pl", PT: "pt", RO: "ro", RS: "sr", RU: "ru", SE: "sv",
-  SI: "sl", SK: "sk", SM: "it", TR: "tr", UA: "uk", VA: "it", XK: "sq",
-  AR: "es", AU: "en", BR: "pt", CA: "en", CL: "es", CN: "zh", CO: "es", EG: "ar", IL: "he", IN: "en",
-  JP: "ja", KR: "ko", MA: "fr", MX: "es", NZ: "en", PE: "es", TH: "th", TN: "fr", US: "en", ZA: "en",
+  ES: "es", PT: "pt", AD: "ca", FR: "fr", IT: "it", DE: "de", AT: "de", CH: "de", GB: "en", IE: "en",
+  NL: "nl", BE: "nl", LU: "fr", CZ: "cs", SK: "sk", PL: "pl", MA: "fr", US: "en",
 };
 
-export function wikiLangForCountry(iso2: string | undefined): string | undefined {
-  return iso2 ? COUNTRY_WIKI_LANG[iso2.toUpperCase()] : undefined;
+const SPANISH_REGION_LANG: Record<string, string> = {
+  "ES-CT": "ca",
+  "ES-VC": "ca",
+  "ES-IB": "ca",
+  "ES-GA": "gl",
+  "ES-PV": "eu",
+  "ES-NC": "eu",
+};
+
+/** Local Wikipedia languages for a region, most important first (max 2). */
+export function localLangsFor(region: Region): string[] {
+  const langs: string[] = [];
+  const main = region.country ? COUNTRY_WIKI_LANG[region.country] : undefined;
+  if (main) langs.push(main);
+  const coOfficial = region.region ? SPANISH_REGION_LANG[region.region] : undefined;
+  if (coOfficial) langs.push(coOfficial);
+  return langs.slice(0, 2);
 }
 
-/** Normalize a BCP-47-ish tag ("en-GB", "cs") to a Wikipedia subdomain. */
+/** Normalize a BCP-47-ish tag ("en-GB", "pt") to a Wikipedia subdomain. */
 export function normalizeLang(lang: string | null | undefined, fallback = "en"): string {
   const base = (lang ?? "").toLowerCase().split(/[-_]/)[0];
   return /^[a-z]{2,3}$/.test(base) ? base : fallback;
 }
+
+export const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", es: "Spanish", pt: "Portuguese", ca: "Catalan", gl: "Galician", eu: "Basque", fr: "French",
+};

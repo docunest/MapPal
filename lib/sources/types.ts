@@ -193,11 +193,23 @@ export interface Source {
   configured(): boolean;
   utilities?(q: UtilitiesQuery, ctx: SourceContext): Promise<UtilityPlace[]>;
   sights?(q: SightsQuery, ctx: SourceContext): Promise<SightCandidate[]>;
+  /** Extra facts for sights by Wikidata id. */
+  enrich?(qids: string[], q: SightsQuery, ctx: SourceContext): Promise<Record<string, Enrichment>>;
   details?(place: PlaceRef, ctx: SourceContext): Promise<DetailBlock[]>;
   explain?(input: ExplainInput, ctx: SourceContext): Promise<ExplainOutput>;
 }
 
-export type Capability = "utilities" | "sights" | "details" | "explain";
+export type Capability = "utilities" | "sights" | "enrich" | "details" | "explain";
+
+/** What an enrichment source (Wikidata) adds to a sight it recognises. */
+export interface Enrichment {
+  label?: string;
+  description?: string;
+  /** Wikipedia sitelinks — how widely written-about (fame). */
+  fame?: number;
+  image?: string;
+  wiki: WikiRef[];
+}
 
 /** Thrown by a source when its usage cap stops it; orchestrators report it as "capped". */
 export class SourceCappedError extends Error {}

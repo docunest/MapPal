@@ -1,6 +1,6 @@
 // OpenStreetMap's Nominatim geocoder (free; policy: identify yourself,
-// ≤1 request/second, no autocomplete-per-keystroke). Used for place search
-// in route planning, and as the country lookup when Overpass is down.
+// ≤1 request/second). Used for "which region are we in" (→ which local
+// Wikipedias to read) and for a place's street address.
 import { MAPPAL_USER_AGENT } from "./overpass";
 import type { LatLng } from "./geo";
 
@@ -18,39 +18,41 @@ async function nominatimGet<T>(path: string, params: Record<string, string>, cac
   return (await res.json()) as T;
 }
 
-/** ISO 3166-1 alpha-2 country code for a point, e.g. "CZ". */
-export async function reverseCountry({ lat, lng }: LatLng): Promise<string | undefined> {
-  // Rounded to ~10 km so nearby lookups share one cache entry.
-  const data = await nominatimGet<{ address?: { country_code?: string } }>(
+interface ReverseResult {
+  display_name?: string;
+  address?: Record<string, string>;
+}
+
+export interface Region {
+  /** ISO 3166-1 alpha-2, e.g. "ES". */
+  country?: string;
+  /** ISO 3166-2 first-level region, e.g. "ES-CT" (Catalonia). */
+  region?: string;
+}
+
+/** Country + first-level region for a point (rounded to ~10 km, cached for a month). */
+export async function reverseRegion({ lat, lng }: LatLng): Promise<Region> {
+  const data = await nominatimGet<ReverseResult>(
     "/reverse",
-    { lat: lat.toFixed(1), lon: lng.toFixed(1), zoom: "3", addressdetails: "1" },
+    { lat: lat.toFixed(1), lon: lng.toFixed(1), zoom: "5", addressdetails: "1" },
     60 * 60 * 24 * 30,
   );
-  return data.address?.country_code?.toUpperCase();
+  return {
+    country: data.address?.country_code?.toUpperCase(),
+    region: data.address?.["ISO3166-2-lvl4"] ?? data.address?.["ISO3166-2-lvl3"],
+  };
 }
 
-export interface GeocodeHit {
-  name: string;
-  detail: string;
-  lat: number;
-  lng: number;
-}
-
-export async function geocode(query: string, near?: LatLng, lang = "en"): Promise<GeocodeHit[]> {
-  const params: Record<string, string> = { q: query, limit: "6", "accept-language": lang };
-  if (near) {
-    // Prefer (don't restrict to) results around where the user is looking.
-    params.viewbox = `${near.lng - 3},${near.lat + 2},${near.lng + 3},${near.lat - 2}`;
-  }
-  const rows = await nominatimGet<Array<{ name?: string; display_name: string; lat: string; lon: string }>>(
-    "/search",
-    params,
-    60 * 60 * 24,
+/** Human street address of a place ("Rua Brito Capelo 120, Matosinhos"). */
+export async function reverseAddress({ lat, lng }: LatLng, lang = "en"): Promise<string | undefined> {
+  const data = await nominatimGet<ReverseResult>(
+    "/reverse",
+    { lat: lat.toFixed(5), lon: lng.toFixed(5), zoom: "18", addressdetails: "1", "accept-language": lang },
+    60 * 60 * 24 * 30,
   );
-  return rows.map((r) => ({
-    name: r.name || r.display_name.split(",")[0],
-    detail: r.display_name,
-    lat: Number(r.lat),
-    lng: Number(r.lon),
-  }));
+  const a = data.address ?? {};
+  const street = [a.road ?? a.pedestrian ?? a.square, a.house_number].filter(Boolean).join(" ");
+  const town = a.city ?? a.town ?? a.village ?? a.hamlet ?? a.municipality;
+  const parts = [street, a.suburb && a.suburb !== town ? a.suburb : undefined, town, a.state ?? a.province].filter(Boolean);
+  return parts.length ? parts.join(", ") : data.display_name;
 }

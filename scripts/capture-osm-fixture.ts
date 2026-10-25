@@ -66,7 +66,7 @@ async function main() {
   const relevant = elements.filter((e) => {
     const t = e.tags as Record<string, string>;
     return Object.keys(t).some((k) =>
-      /^(amenity|shop|tourism|historic|man_made|natural|waterway|railway|power|landuse|industrial|craft|leisure|aeroway|aerialway|wikidata|wikipedia|place|bridge:name)$/.test(k),
+      /^(amenity|shop|office|tourism|historic|man_made|natural|waterway|railway|power|landuse|industrial|craft|leisure|aeroway|aerialway|wikidata|wikipedia|place|bridge:name)$/.test(k),
     ) && !(t.highway && !t.name && !t.wikidata);
   });
 
