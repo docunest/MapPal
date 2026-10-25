@@ -23,6 +23,8 @@ function describe(err: GeolocationPositionError): string {
   return `Couldn't get your location: ${err.message}`;
 }
 
+// Stable contract with the Android button (android/README.md): it opens
+// /?lat=..&lng=..&acc=.. — keep these names; the APK is installed once.
 function fromUrl(): Located | null {
   const p = new URLSearchParams(window.location.search);
   const lat = Number(p.get("lat"));
