@@ -200,3 +200,43 @@ shows the obvious landmark in the first row.
 **Build order**: N1 web Utilities + Sightseeing on free data → N2 Google
 secondary source with guardrails (needs API key) → N3 Android floating
 button.
+
+### 7a. Pluggable sources framework (built first, before features)
+- Every data tool is one module implementing a common `Source` interface:
+  id, label, type (map data / encyclopedia / photos / reviews / AI),
+  cost (free / paid), what it can answer (utilities list, sights list,
+  place details, explain), timeout, and its own usage caps.
+- A source is on when its key is configured and it's enabled in the app.
+  Paid sources count every call in the DB (per day and month) and stop at
+  their cap.
+- Results from all enabled sources are merged; **every field keeps its
+  source** (id + link). The UI shows source tags from that, and likes use it.
+- Adding a new tool = one new module + registering it; no UI changes.
+- First sources: OpenStreetMap (places), Nominatim (addresses), Wikipedia
+  (es/pt/ca/gl/eu/en), Wikidata (facts), Commons (photos), Google Places
+  (optional, capped at the free tier), DeepSeek (optional, labelled AI).
+
+### 7b. Prompt templates — shared, editable by the owner and by agents
+- Stored in the DB (one shared set for all users), seeded once from code
+  defaults; after that the DB is the source of truth (same pattern as
+  categories).
+- Edited in the app at `/prompts`, with a **preview of exactly what will be
+  sent** to the AI. Agents edit through the same API with the admin secret.
+- Every save is a new version recording who made it (person or agent); any
+  version can be restored.
+- Templates can only use place-level placeholders: place name, place
+  coordinates, nearby address, nearby objects, public source text, language.
+  **There is no placeholder for the user's position, route or family**, so
+  that can't leak by accident.
+
+### 7c. Source tags and likes
+- Each place and each piece of info shows where it came from; AI-written
+  text is marked as AI.
+- 👍 on a place saves it to the shared family list. 👍/👎 on a source records
+  whether it was useful; liked kinds and sources rank higher later; a small
+  stats page shows which sources helped.
+
+### 7d. DeepSeek privacy rule
+DeepSeek may receive: the place name, the place's coordinates, its nearby
+address and nearby objects, and public text about it. Never the user's own
+position, route, saved list or anything about the family.
