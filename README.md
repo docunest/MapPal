@@ -1,11 +1,56 @@
 # MapPal
 
-A family points-of-interest indexer. You draw a region on a map, pick categories
-(waterfalls, factories, ...), and the app breaks the region into tiles and scans
-each tile × category independently — so coverage is explicit instead of hoping
-an LLM didn't skip the "boring" parts of a region in favor of top-10 lists.
+A family camper-van travel app for Spain and Portugal. Product goals and the
+plan live in `AGENTS.md` and `docs/PLAN.md`.
 
-## How it works (MVP)
+## Nearby (home screen)
+
+Two tabs, around your current position (browser GPS, or the `?lat=&lng=`
+link the Android floating button opens):
+
+- **Utilities** — fuel, restaurants, groceries; nearest first, "open now"
+  checked on the device, one-tap navigate.
+- **Sightseeing** — photo grid of interesting things within 0.5–3 km; tap
+  for the story (Wikipedia in your language + the local one), facts,
+  photos, YouTube how-it-works videos, and an optional AI explanation.
+
+Every place and info block shows which **source** it came from; 👍 saves a
+place to the shared family list (`/saved`), 👍/👎 rates a source.
+
+### Sources (pluggable — `lib/sources/`)
+
+| Source | Cost | Needs |
+| --- | --- | --- |
+| OpenStreetMap via Overpass (places, hours, landmarks) | free | — |
+| Photon (OSM backup when Overpass is down) | free | — |
+| Wikipedia, Wikidata, Wikimedia Commons, YouTube links, Nominatim | free | — |
+| Google Places (ratings, reviews, current hours, fuel prices; fills gaps) | paid, capped | `GOOGLE_MAPS_API_KEY` |
+| DeepSeek (AI explanations from shared prompt templates) | paid, capped | `DEEPSEEK_API_KEY` (`DEEPSEEK_MODEL` optional, default `deepseek-flash`) |
+
+Switch sources on/off and see usage vs caps at `/sources`. Edit the AI
+prompt templates at `/prompts` (shared; every save is a restorable version;
+agents use `/api/admin/prompts` with the `x-admin-secret` header). Templates
+can only use place-level placeholders — the AI never receives your position.
+
+### Cost guardrails (Google)
+
+1. **App caps** (`lib/sources/usage.ts`): Place Details 30/day, 900/month;
+   Nearby Search 120/day, 4,500/month — inside Google's free monthly
+   allowance (1,000 and 5,000). Lower them with env vars like
+   `CAP_GOOGLE_PLACE_DETAILS_ATMOSPHERE_DAILY=10`.
+2. **Hard cap in Google Cloud** (do this too): APIs & Services → Places API
+   (New) → Quotas → set "requests per day" for Place Details and Nearby
+   Search to about the app caps. Google then refuses extra calls itself.
+3. **Budget alert** at $1 in Billing → Budgets (email only).
+
+Google is called only when you tap a place (or when free sources found too
+few results), never for every list item.
+
+## Region indexer (`/regions`)
+
+The original batch indexer, kept as-is.
+
+### How it works
 
 1. **Draw a region** on the map (polygon tool, bottom-right of the map).
 2. On submit, the region's shape is tiled into **H3 hexagons** (~5km edge by
@@ -48,7 +93,8 @@ npx tsx prisma/seed.ts   # creates family login(s) — edit FAMILY_USERS in pris
 npm run dev
 ```
 
-Open http://localhost:3000, log in, draw a region, pick categories, hit Scan.
+Open http://localhost:3000 and log in for Nearby; the region indexer is at /regions.
+Run `npm test` for the tests (real OSM/Wikipedia captures from Iberian points in `test/fixtures`).
 
 ### Auth
 

@@ -3,6 +3,7 @@
 // orchestrators and the /sources page pick it up automatically.
 import { commonsSource } from "./commons";
 import { deepseekSource } from "./deepseek";
+import { googleSource } from "./google";
 import { nominatimSource } from "./nominatim";
 import { osmSource } from "./osm";
 import { photonSource } from "./photon";
@@ -19,6 +20,7 @@ export const ALL_SOURCES: Source[] = [
   commonsSource,
   youtubeSource,
   nominatimSource,
+  googleSource,
   deepseekSource,
 ];
 
