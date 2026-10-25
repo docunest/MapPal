@@ -173,7 +173,7 @@ export default function CategoriesPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-6 text-sm">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Categories</h1>
-        <Link href="/" className="text-blue-600 underline">
+        <Link href="/regions" className="text-blue-600 underline">
           ← Back to map
         </Link>
       </div>

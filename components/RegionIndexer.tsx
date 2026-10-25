@@ -96,7 +96,7 @@ function getCurrentPosition(): Promise<GeolocationPosition> {
   });
 }
 
-export default function MapView() {
+export default function RegionIndexer() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
@@ -462,9 +462,14 @@ export default function MapView() {
           <div>
             <h1 className="text-lg font-semibold">MapPal</h1>
             <p className="text-neutral-500">Local points-of-interest indexer</p>
-            <Link href="/categories" className="text-blue-600 underline text-xs">
-              Manage categories
-            </Link>
+            <div className="flex gap-3">
+              <Link href="/" className="text-blue-600 underline text-xs">
+                ← Nearby
+              </Link>
+              <Link href="/categories" className="text-blue-600 underline text-xs">
+                Manage categories
+              </Link>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => signOut()} className="text-xs text-neutral-400 underline">

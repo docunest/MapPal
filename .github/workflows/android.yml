@@ -1,0 +1,46 @@
+name: Android APK
+
+# Builds the MapPal floating-button app. The APK is a thin shell (GPS → open
+# a link), so it should rarely need rebuilding — only when android/ changes.
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Optional fixed signing key, so a new build installs over the old one.
+      # Without these secrets each build gets a throwaway debug key (then an
+      # update needs uninstall + install).
+      - name: Signing key (optional)
+        env:
+          KEYSTORE_B64: ${{ secrets.MAPPAL_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/mappal.keystore"
+            echo "MAPPAL_KEYSTORE=$RUNNER_TEMP/mappal.keystore" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          MAPPAL_KEYSTORE_PASSWORD: ${{ secrets.MAPPAL_KEYSTORE_PASSWORD }}
+          MAPPAL_KEY_ALIAS: ${{ secrets.MAPPAL_KEY_ALIAS }}
+          MAPPAL_KEY_PASSWORD: ${{ secrets.MAPPAL_KEY_PASSWORD }}
+        run: ./gradlew assembleDebug --no-daemon -PmappalUrl="${{ vars.MAPPAL_URL }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mappal-button-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

@@ -10,11 +10,19 @@ export default auth((req) => {
   const isAdminApi = req.nextUrl.pathname.startsWith("/api/admin");
   // Public: this IS the sign-in mechanism for a magic-link token holder.
   const isMagicLogin = req.nextUrl.pathname.startsWith("/api/magic-login");
+  // Public: the login screen reports missing server settings before anyone
+  // can log in (names only — see app/api/health/route.ts).
+  const isHealth = req.nextUrl.pathname === "/api/health";
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
+    // Keep where they were going — the Android button's ?lat=&lng= link
+    // must survive the login screen. API calls just get the redirect.
+    if (!req.nextUrl.pathname.startsWith("/api/")) {
+      loginUrl.searchParams.set("next", `${req.nextUrl.pathname}${req.nextUrl.search}`);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
