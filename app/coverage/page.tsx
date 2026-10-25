@@ -50,7 +50,7 @@ function CoverageContent() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">Coverage ledger</h1>
-        <Link href="/" className="text-blue-600 underline text-sm">
+        <Link href="/regions" className="text-blue-600 underline text-sm">
           ← Back to map
         </Link>
       </div>

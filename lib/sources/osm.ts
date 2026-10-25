@@ -77,7 +77,7 @@ export const osmSource: Source = {
     return elements.map(utilityFromElement).filter((p): p is UtilityPlace => !!p);
   },
   async sights(q) {
-    const elements = await overpassQuery(buildSightsQuery(q.center, q.radius), { timeoutMs: 12000, totalBudgetMs: 15000 });
+    const elements = await overpassQuery(buildSightsQuery(q.center, q.radius), { timeoutMs: 8000, totalBudgetMs: 10000 });
     return sightCandidatesFromElements(q.center, elements);
   },
 };
