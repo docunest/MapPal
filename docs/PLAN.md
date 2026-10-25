@@ -142,3 +142,61 @@ Real proof comes from **your family's own trips**, so step 1 collects them:
   access check, saved-spots table, optional AI endpoints). It's what produced
   the evidence above. Keep it as the starting point for phase 3 (pushed as
   WIP to the branch), or discard it?
+
+## 7. First build: Nearby (draft, waiting for approval)
+
+Owner's direction (2026-10-25): build Nearby first, as two modes.
+
+**UI** — two tabs at the top:
+- **Utilities**: Fuel · Restaurants · Groceries only. Nearest first, "open
+  now" filter, diesel/LPG flags, one-tap navigate (Google Maps / Waze).
+  Tap a place → details, with Google rating/reviews/hours/fuel prices when
+  available.
+- **Sightseeing**: photo grid of interesting things within ~3 km ("Factory ·
+  1.2 km", "Fish market · 600 m"). Tap → live deep dive (Wikipedia story,
+  history, facts, photos, YouTube how-it's-made); Google rating/reviews as
+  fallback when there's no Wikipedia article.
+
+**Location**: `?lat=&lng=` in the URL wins (used by the Android button);
+otherwise the browser's GPS.
+
+**Data — no pre-indexing for Nearby.** Small-radius live queries:
+OpenStreetMap (free, primary), Wikipedia/Wikidata (free), Google Places
+(secondary/fallback). Risk: public OSM servers are slow/flaky (seen in
+testing) → mirrors + short timeouts + Google fallback for Utilities.
+
+**Google Places cost guardrails** (prices checked 2026-10-25, Places API New):
+
+| Use | SKU | Free / month | After free |
+| --- | --- | --- | --- |
+| Find the Google place for an OSM place | Text Search IDs Only | unlimited | $0 |
+| Rating, hours (tap) | Place Details Enterprise | 1,000 | $20 / 1,000 |
+| Reviews, fuel prices (tap) | Place Details Enterprise + Atmosphere | 1,000 | $25 / 1,000 |
+| Fallback list when OSM is empty | Nearby Search Pro | 5,000 | $32 / 1,000 |
+
+1. **Hard daily quotas set in Google Cloud console** per API (e.g. Details
+   30/day, Nearby 150/day) — Google itself refuses beyond that, so the
+   monthly total stays inside the free tier → expected bill **$0**.
+2. **App-side counter** in our DB per SKU per day/month; stops calling Google
+   before the console quota, shows "Google limit reached today".
+3. **Budget alert** at $1 in Google Cloud billing (email only; the quotas are
+   the real cap).
+4. Google is only called on a **tap**, never for every list item on load;
+   only the needed fields are requested (field masks), place IDs cached
+   (allowed by Google's terms), content not stored.
+
+**Android**: small native app with a **floating button** (overlay, needs the
+"display over other apps" permission). Tap → current GPS fix → opens the
+web app at `?lat=&lng=`. Delivered as an APK to install directly (not Play
+Store), built by GitHub Actions.
+
+**Proof / acceptance** — run on real points and screenshot: Arenas de
+Cabrales and Mértola (rural), Matosinhos (port: lota, bridge, lighthouse),
+Puerto de Sagunto (blast furnace), one Lisbon and one Madrid city point, plus
+the owner's 5 hard-to-find-food/fuel places. Pass: fuel + ≥3 restaurants +
+≥3 groceries in each, under ~3 s, nothing closed shown as open; Sightseeing
+shows the obvious landmark in the first row.
+
+**Build order**: N1 web Utilities + Sightseeing on free data → N2 Google
+secondary source with guardrails (needs API key) → N3 Android floating
+button.
