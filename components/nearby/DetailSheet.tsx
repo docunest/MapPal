@@ -111,6 +111,15 @@ export function DetailSheet({ sel, onClose }: { sel: Selected; onClose: () => vo
   }, []);
 
   useEffect(() => {
+    // The prompt editor previews templates against the last place you opened.
+    try {
+      if (ref.mode === "sight") localStorage.setItem("mappal.lastPlace", JSON.stringify(ref));
+    } catch {
+      // storage unavailable — the editor falls back to a sample place
+    }
+  }, [ref]);
+
+  useEffect(() => {
     let cancelled = false;
     getJson<DetailsResponse>("/api/nearby/details", {
       method: "POST",

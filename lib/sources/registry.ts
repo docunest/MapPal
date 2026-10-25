@@ -2,6 +2,7 @@
 // implementing `Source` (lib/sources/types.ts) and list it here; the
 // orchestrators and the /sources page pick it up automatically.
 import { commonsSource } from "./commons";
+import { deepseekSource } from "./deepseek";
 import { nominatimSource } from "./nominatim";
 import { osmSource } from "./osm";
 import { photonSource } from "./photon";
@@ -18,6 +19,7 @@ export const ALL_SOURCES: Source[] = [
   commonsSource,
   youtubeSource,
   nominatimSource,
+  deepseekSource,
 ];
 
 export function sourceById(id: string): Source | undefined {
