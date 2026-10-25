@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
@@ -24,6 +24,16 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Missing server settings (e.g. no database) would make every login fail
+  // with a confusing "wrong password" — say what's actually wrong instead.
+  const [setupProblems, setSetupProblems] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((d: { problems?: string[] }) => setSetupProblems(d.problems ?? []))
+      .catch(() => {});
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +70,16 @@ function LoginForm() {
           className="w-full rounded border px-3 py-2"
           required
         />
+        {setupProblems.length > 0 && (
+          <div role="alert" className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">
+            <p className="font-medium">The server isn&apos;t set up yet:</p>
+            <ul className="list-disc pl-5">
+              {setupProblems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

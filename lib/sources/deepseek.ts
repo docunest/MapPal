@@ -3,12 +3,13 @@
 // address, nearby objects, Wikipedia/Wikidata text). Never the family's
 // position — see lib/prompts/placeholders.ts. Off unless DEEPSEEK_API_KEY
 // is set; capped per day/month like every paid source.
+import { envPresent } from "../env";
 import type { Source } from "./types";
 import { SourceCappedError } from "./types";
 
 const ENDPOINT = "https://api.deepseek.com/chat/completions";
 // DeepSeek renames models often; override with DEEPSEEK_MODEL when it does.
-const model = () => process.env.DEEPSEEK_MODEL || "deepseek-flash";
+const model = () => process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
 
 export const deepseekSource: Source = {
   meta: {
@@ -22,14 +23,14 @@ export const deepseekSource: Source = {
     description: "AI explanations written from the public sources only (no personal data sent). Labelled AI.",
     priority: 10,
   },
-  configured: () => !!process.env.DEEPSEEK_API_KEY,
+  configured: () => envPresent("DEEPSEEK_API_KEY"),
   async explain(input, ctx) {
     if (!(await ctx.usage.take("deepseek", "chat"))) {
       throw new SourceCappedError("DeepSeek daily/monthly limit reached");
     }
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY?.trim()}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: model(),
         messages: [{ role: "user", content: input.prompt }],

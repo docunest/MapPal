@@ -8,6 +8,7 @@
 // Every call goes through the usage guard first; defaults keep the month
 // inside Google's free allowance (lib/sources/usage.ts). Content is shown,
 // never stored (Google's terms); field masks request only what's shown.
+import { envPresent } from "../env";
 import { distanceMeters } from "../geo";
 import type { DetailBlock, PlaceRef, Source, SourceContext, UtilityCategory, UtilityPlace } from "./types";
 import { SourceCappedError } from "./types";
@@ -31,7 +32,7 @@ async function call<T>(path: string, init: RequestInit & { fieldMask: string }):
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-Goog-Api-Key": process.env.GOOGLE_MAPS_API_KEY ?? "",
+      "X-Goog-Api-Key": process.env.GOOGLE_MAPS_API_KEY?.trim() ?? "",
       "X-Goog-FieldMask": init.fieldMask,
     },
     signal: AbortSignal.timeout(10000),
@@ -198,7 +199,7 @@ export const googleSource: Source = {
     priority: 90,
     nearestFirst: true,
   },
-  configured: () => !!process.env.GOOGLE_MAPS_API_KEY,
+  configured: () => envPresent("GOOGLE_MAPS_API_KEY"),
   async utilities(q, ctx) {
     const out: UtilityPlace[] = [];
     for (const [cat, radius] of Object.entries(q.radius) as Array<[UtilityCategory, number]>) {

@@ -17,11 +17,31 @@ interface SourceRow {
   likes: { up: number; down: number };
 }
 
+interface EnvCheck {
+  name: string;
+  ok: boolean;
+  effect: string;
+}
+
+interface ServerConfig {
+  required: EnvCheck[];
+  optional: EnvCheck[];
+  database: { ok: boolean; error?: string };
+}
+
 // Every pluggable source: on/off, paid usage vs caps, and how useful people
-// found it (👍/👎 on details blocks).
+// found it (👍/👎 on details blocks). Plus which server settings are set.
 export default function SourcesPage() {
   const [rows, setRows] = useState<SourceRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<ServerConfig | null>(null);
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then(setConfig)
+      .catch(() => {});
+  }, []);
 
   const load = () =>
     fetch("/api/sources")
@@ -53,6 +73,23 @@ export default function SourcesPage() {
         allowances), so they can&apos;t run up a bill.
       </p>
       {error && <p className="text-sm text-red-700">{error}</p>}
+      {config && (
+        <section className="space-y-1 rounded-lg border bg-white p-3 text-sm">
+          <h2 className="font-medium">Server setup</h2>
+          <p className="text-xs text-neutral-500">Set in the hosting dashboard (Vercel → Settings → Environment Variables). Names only — values are never shown.</p>
+          <ul className="space-y-1">
+            <li className={config.database.ok ? "text-emerald-700" : "text-red-700"}>
+              {config.database.ok ? "✓" : "✗"} Database {config.database.ok ? "reachable, up to date" : `— ${config.database.error}`}
+            </li>
+            {[...config.required.map((c) => ({ ...c, required: true })), ...config.optional.map((c) => ({ ...c, required: false }))].map((c) => (
+              <li key={c.name} className={c.ok ? "text-emerald-700" : c.required ? "text-red-700" : "text-amber-800"}>
+                {c.ok ? "✓" : "✗"} <code>{c.name}</code>
+                {!c.ok && <span className="text-neutral-600"> — {c.required ? "required. " : ""}{c.effect}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <ul className="space-y-2">
         {rows?.map((s) => (
           <li key={s.id} className="space-y-2 rounded-lg border bg-white p-3">

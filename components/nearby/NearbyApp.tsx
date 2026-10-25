@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { ConfigBanner } from "./ConfigBanner";
 import { DetailSheet } from "./DetailSheet";
 import { SightsTab } from "./SightsTab";
 import { SourcesProvider } from "./sources";
@@ -54,6 +55,7 @@ export default function NearbyApp() {
   return (
     <SourcesProvider>
       <div className="min-h-screen bg-neutral-50 text-neutral-900">
+        <ConfigBanner />
         <header className="sticky top-0 z-20 border-b bg-white">
           <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 pt-2">
             <p className="font-semibold">MapPal</p>
