@@ -19,8 +19,8 @@ import {
   type WikidataEntity,
   type WikidataSnakValue,
 } from "../wikimedia";
-import type { WikiRef } from "./lens";
-import { classifyDescription } from "./lensKinds";
+import type { WikiRef } from "../sources/types";
+import { classifyDescription } from "./sightKinds";
 
 // Per kind of thing: a general article ("about steel mills in general", for
 // places with no article of their own) and what to search YouTube for.

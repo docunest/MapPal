@@ -222,3 +222,80 @@ model SavedSpot {
   @@index([status])
   @@map("mappal_saved_spot")
 }
+
+// --- Sources framework (docs/PLAN.md §7a) ---------------------------------
+
+// Calls made per paid source/SKU per day — the app-side cost guardrail.
+// lib/sources/usage.ts refuses a call once a daily or monthly cap is hit.
+model SourceUsage {
+  id     String @id @default(cuid())
+  source String // SourceId, e.g. "google"
+  sku    String // e.g. "place-details-atmosphere"
+  day    String // "YYYY-MM-DD" (UTC)
+  count  Int    @default(0)
+
+  @@unique([source, sku, day])
+  @@map("mappal_source_usage")
+}
+
+// On/off switch per source, set on /sources. No row = on (if configured).
+model SourceSetting {
+  source    String   @id
+  enabled   Boolean
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("mappal_source_setting")
+}
+
+// 👍/👎 on places and on the sources that informed them (§7c).
+// targetType "place": targetKey = place key, value +1 only (also saved to
+// the family list). targetType "source": targetKey = source id, placeKey =
+// the place it was shown for, value +1/-1.
+model Feedback {
+  id         String   @id @default(cuid())
+  userEmail  String
+  targetType String
+  targetKey  String
+  placeKey   String   @default("") // "" for place likes (NULLs aren't unique in Postgres)
+  placeKind  String?
+  value      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userEmail, targetType, targetKey, placeKey])
+  @@index([targetType, targetKey])
+  @@map("mappal_feedback")
+}
+
+// --- Shared, editable prompt templates (§7b) ------------------------------
+
+// Seeded once from lib/prompts/defaults.ts; after that the DB is the source
+// of truth. Edited on /prompts (people) or /api/admin/prompts (agents).
+model PromptTemplate {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  title       String
+  description String
+  body        String
+  updatedBy   String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  versions    PromptVersion[]
+
+  @@map("mappal_prompt_template")
+}
+
+// Every save, so any earlier version can be restored.
+model PromptVersion {
+  id         String         @id @default(cuid())
+  templateId String
+  template   PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  body       String
+  createdBy  String
+  note       String?
+  createdAt  DateTime       @default(now())
+
+  @@index([templateId, createdAt])
+  @@map("mappal_prompt_version")
+}
