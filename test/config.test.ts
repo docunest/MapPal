@@ -18,8 +18,10 @@ test("the report lists every required and optional setting by name, never values
   const report = envChecks({ DATABASE_URL: "postgres://secret@host/db", AUTH_SECRET: " ", GOOGLE_MAPS_API_KEY: "" });
   assert.deepEqual(
     report.required.map((c) => [c.name, c.ok]),
-    [["DATABASE_URL", true], ["AUTH_SECRET", false]],
+    [["DATABASE_URL", true], ["AUTH_SECRET (or NEXTAUTH_SECRET)", false]],
   );
+  // The legacy name next-auth also accepts counts too.
+  assert.equal(envChecks({ NEXTAUTH_SECRET: "x" }).required[1].ok, true);
   assert.equal(report.optional.find((c) => c.name === "GOOGLE_MAPS_API_KEY")?.ok, false);
   assert.ok(!JSON.stringify(report).includes("secret@host"), "values never leak into the report");
   for (const c of [...report.required, ...report.optional]) assert.ok(c.effect.length > 10, `${c.name} explains its effect`);

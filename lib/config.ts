@@ -14,22 +14,39 @@ export interface EnvCheck {
   effect: string;
 }
 
-export const REQUIRED_ENV: Array<Omit<EnvCheck, "ok">> = [
+interface EnvSpec {
+  name: string;
+  effect: string;
+  /** Other names that work just as well (legacy aliases). */
+  aliases?: string[];
+}
+
+export const REQUIRED_ENV: EnvSpec[] = [
   { name: "DATABASE_URL", effect: "Nothing works: logins, saved places, prompts and settings all live in the database." },
-  { name: "AUTH_SECRET", effect: "Nobody can log in (sessions can't be signed)." },
+  // next-auth reads AUTH_SECRET and falls back to the older NEXTAUTH_SECRET.
+  { name: "AUTH_SECRET", aliases: ["NEXTAUTH_SECRET"], effect: "Nobody can log in (sessions can't be signed)." },
 ];
 
-export const OPTIONAL_ENV: Array<Omit<EnvCheck, "ok">> = [
+export const OPTIONAL_ENV: EnvSpec[] = [
   { name: "GOOGLE_MAPS_API_KEY", effect: "Google ratings, reviews, current opening hours and fuel prices are off." },
   { name: "DEEPSEEK_API_KEY", effect: "AI \"Explain it\" buttons are off." },
   { name: "ADMIN_SEED_SECRET", effect: "Agents can't edit prompt templates or create logins via the admin API." },
   { name: "DIRECT_URL", effect: "Database migrations can't run during deploys (the build step needs it)." },
 ];
 
+function check(spec: EnvSpec, env: Record<string, string | undefined>): EnvCheck {
+  const names = [spec.name, ...(spec.aliases ?? [])];
+  return {
+    name: spec.aliases?.length ? `${spec.name} (or ${spec.aliases.join(" / ")})` : spec.name,
+    ok: names.some((n) => envPresent(n, env)),
+    effect: spec.effect,
+  };
+}
+
 export function envChecks(env: Record<string, string | undefined> = process.env) {
   return {
-    required: REQUIRED_ENV.map((c) => ({ ...c, ok: envPresent(c.name, env) })),
-    optional: OPTIONAL_ENV.map((c) => ({ ...c, ok: envPresent(c.name, env) })),
+    required: REQUIRED_ENV.map((c) => check(c, env)),
+    optional: OPTIONAL_ENV.map((c) => check(c, env)),
   };
 }
 
@@ -40,7 +57,13 @@ export async function databaseCheck(): Promise<{ ok: boolean; error?: string }> 
     await prisma.$queryRaw`SELECT 1 FROM "mappal_source_setting" LIMIT 1`;
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: describeDbError(err) };
+    const error = describeDbError(err);
+    return {
+      ok: false,
+      error: error.startsWith("Table missing")
+        ? `${error} Fix: make sure DIRECT_URL is set for this environment so the build's \`prisma migrate deploy\` runs, then redeploy — or POST /api/admin/run-migrations with the x-admin-secret header.`
+        : error,
+    };
   }
 }
 
