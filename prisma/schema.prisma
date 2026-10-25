@@ -198,3 +198,27 @@ model PlaceSource {
 
   @@map("mappal_place_source")
 }
+
+// --- The family's shared trip list: spots saved from Scout (or Lens) to
+// visit later. Shared by everyone, like the rest of the data; savedBy is
+// just "who found this".
+model SavedSpot {
+  id        String           @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  kind      String // Scout/Lens kind slug, e.g. "waterfall", "lost-place"
+  // Stable identity of the underlying thing ("osm:node/123", "wd:Q1") so
+  // saving the same spot twice doesn't duplicate it.
+  sourceKey String           @unique
+  wikidata  String?
+  imageUrl  String?
+  note      String?
+  status    PlaceVisitStatus @default(MUST_VISIT)
+  savedBy   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([status])
+  @@map("mappal_saved_spot")
+}

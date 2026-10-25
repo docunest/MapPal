@@ -17,6 +17,8 @@ import { describeDbError } from "@/lib/dbErrors";
 const MIGRATIONS: Array<{ name: string; file: string }> = [
   { name: "20261022105458_init_prefixed", file: "20261022105458_init_prefixed/migration.sql" },
   { name: "20261024171028_add_login_token", file: "20261024171028_add_login_token/migration.sql" },
+  { name: "20261024194717_category_editing", file: "20261024194717_category_editing/migration.sql" },
+  { name: "20261025081754_saved_spots", file: "20261025081754_saved_spots/migration.sql" },
 ];
 
 function isAuthorized(req: Request): boolean {
