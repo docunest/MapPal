@@ -38,6 +38,11 @@ Today she spends hours hand-browsing Instagram and Google Maps to find stops.
   how it works / how what's made there is made. Factories, railways, gorges,
   bridges, mines, ports, castles are the interesting things.
 
+## G4 — Car dock backend (owner-approved 2026-10-26)
+MapPal is also the backend for the car head-unit dock app
+(docunest/android-apps → `dock/`): phones share map links to
+`/api/dock/inbox`, the head unit polls `/api/dock/items`. See `docs/PLAN.md` §8.
+
 ## Region and languages
 Spain and Portugal first. Local sources matter more than English ones:
 Spanish, Portuguese, Catalan, Galician and Basque Wikipedias, OSM tags with
