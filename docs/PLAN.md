@@ -273,3 +273,13 @@ Lora del Río). The server fetches as a desktop browser — a phone user agent
 gets an `intent://` app redirect instead of the map link.
 Parser tests: `test/dock.test.ts` (Noja, Lagoa, Ribadeo, Lisboa, Sevilla,
 València, Porto, A Coruña, Granada).
+
+### Migrations (2026-10-26)
+Production's database was missing tables from two deploys although the build
+runs `prisma migrate deploy` — that step isn't reaching the runtime database on
+Vercel. Now every server start applies pending migrations itself
+(`instrumentation.ts` → `lib/migrate.ts`, same `_prisma_migrations`
+bookkeeping as the Prisma CLI, advisory lock so concurrent instances don't
+race). After adding a migration run `npm run migrations:bundle`
+(`test/migrations.test.ts` fails if you forget). Supabase's dashboard
+"Last migration" only counts Supabase-CLI migrations, so it stays empty.
