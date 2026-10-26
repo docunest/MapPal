@@ -20,6 +20,7 @@ const MIGRATIONS: Array<{ name: string; file: string }> = [
   { name: "20261024194717_category_editing", file: "20261024194717_category_editing/migration.sql" },
   { name: "20261025081754_saved_spots", file: "20261025081754_saved_spots/migration.sql" },
   { name: "20261025093949_nearby_framework", file: "20261025093949_nearby_framework/migration.sql" },
+  { name: "20261026120000_dock_items", file: "20261026120000_dock_items/migration.sql" },
 ];
 
 function isAuthorized(req: Request): boolean {
