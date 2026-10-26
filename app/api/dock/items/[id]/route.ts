@@ -49,3 +49,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return NextResponse.json({ error: describeDbError(err) }, { status: 500 });
   }
 }
+
+// Android's HttpURLConnection can't send PATCH — the head unit POSTs the same body.
+export const POST = PATCH;
