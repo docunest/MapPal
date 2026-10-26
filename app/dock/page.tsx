@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { gmapsUrl, wazeUrl } from "@/components/DockMap";
+
+// MapLibre touches `window` at import time — client-only.
+const DockMap = dynamic(() => import("@/components/DockMap"), { ssr: false });
 
 interface DockItem {
   id: string;
@@ -12,6 +17,7 @@ interface DockItem {
   locatedBy: "link" | "search" | "gps" | "none";
   address: string | null;
   sourceUrl: string | null;
+  resolvedUrl: string | null;
   seenAt: string | null;
   openCount: number;
   createdAt: string;
@@ -25,13 +31,16 @@ const LOCATED: Record<DockItem["locatedBy"], string> = {
 };
 
 // Send a place to the car (fallback for when the phone shortcut isn't to
-// hand) + everything sent/bookmarked so far. The car head unit polls
-// /api/dock/items for the same list.
+// hand) + everything sent/bookmarked so far, previewed on a map so a wrong
+// pin is caught before driving. The car head unit polls /api/dock/items for
+// the same list.
 export default function DockPage() {
   const [items, setItems] = useState<DockItem[] | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const select = useCallback((id: string) => setSelected(id), []);
 
   function load() {
     return fetch("/api/dock/items")
@@ -56,7 +65,11 @@ export default function DockPage() {
         body: JSON.stringify({ text }),
       }).then((r) => r.json());
       if (d.error) setError(JSON.stringify(d.error));
-      else setText("");
+      else {
+        setText("");
+        // Show where it landed straight away.
+        setSelected(d.item.id);
+      }
       await load();
     } finally {
       setBusy(false);
@@ -69,7 +82,7 @@ export default function DockPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4 space-y-4">
+    <main className="mx-auto max-w-5xl space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Send to car</h1>
         <Link href="/" className="text-sm underline">
@@ -92,27 +105,60 @@ export default function DockPage() {
       {items === null ? (
         <p className="text-sm text-gray-500">Loading…</p>
       ) : (
-        <ul className="divide-y">
-          {items.map((i) => (
-            <li key={i.id} className="flex items-start justify-between gap-2 py-2">
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {i.kind === "bookmark" ? "★ " : ""}
-                  {i.title}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {new Date(i.createdAt).toLocaleString()} · {LOCATED[i.locatedBy]}
-                  {i.kind === "link" && !i.seenAt ? " · not in the car yet" : ""}
-                  {i.openCount ? ` · driven to ${i.openCount}×` : ""}
-                </p>
-                {i.address && <p className="truncate text-xs text-gray-500">{i.address}</p>}
-              </div>
-              <button className="text-xs text-red-600" onClick={() => remove(i.id)}>
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="grid gap-4 md:grid-cols-5">
+          <div className="md:col-span-3 md:sticky md:top-4 md:self-start">
+            <DockMap items={items} selectedId={selected} onSelect={select} />
+            <p className="mt-1 text-xs text-gray-500">
+              <span className="text-amber-500">●</span> not in the car yet · <span className="text-blue-600">●</span> sent ·{" "}
+              <span className="text-green-600">●</span> saved in the car · faded = approximate (found by name)
+            </p>
+          </div>
+          <ul className="divide-y md:col-span-2">
+            {items.map((i) => (
+              <li
+                key={i.id}
+                className={`flex cursor-pointer items-start justify-between gap-2 px-2 py-2 ${selected === i.id ? "bg-blue-50 dark:bg-blue-950" : ""}`}
+                onClick={() => setSelected(i.id)}
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {i.kind === "bookmark" ? "★ " : ""}
+                    {i.title}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(i.createdAt).toLocaleString()} ·{" "}
+                    <span className={i.locatedBy === "search" || i.locatedBy === "none" ? "text-amber-600" : ""}>{LOCATED[i.locatedBy]}</span>
+                    {i.kind === "link" && !i.seenAt ? " · not in the car yet" : ""}
+                    {i.openCount ? ` · driven to ${i.openCount}×` : ""}
+                  </p>
+                  {i.address && <p className="truncate text-xs text-gray-500">{i.address}</p>}
+                  <p className="mt-1 flex gap-3 text-xs" onClick={(e) => e.stopPropagation()}>
+                    <a className="text-sky-600 underline" href={wazeUrl(i)} target="_blank" rel="noreferrer">
+                      Waze
+                    </a>
+                    <a className="text-green-600 underline" href={gmapsUrl(i)} target="_blank" rel="noreferrer">
+                      Google Maps
+                    </a>
+                    {i.sourceUrl && (
+                      <a className="text-gray-500 underline" href={i.resolvedUrl ?? i.sourceUrl} target="_blank" rel="noreferrer">
+                        Original link
+                      </a>
+                    )}
+                  </p>
+                </div>
+                <button
+                  className="text-xs text-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove(i.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </main>
   );

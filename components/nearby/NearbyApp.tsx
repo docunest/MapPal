@@ -84,6 +84,7 @@ export default function NearbyApp() {
               {menu && (
                 <div className="absolute right-0 top-9 z-30 w-48 rounded-lg border bg-white py-1 text-sm shadow-lg">
                   <Link href="/saved" className="block px-3 py-2 hover:bg-neutral-50">👍 Family list</Link>
+                  <Link href="/dock" className="block px-3 py-2 hover:bg-neutral-50">🚐 Send to car</Link>
                   <Link href="/prompts" className="block px-3 py-2 hover:bg-neutral-50">✏️ Prompt templates</Link>
                   <Link href="/sources" className="block px-3 py-2 hover:bg-neutral-50">🔌 Sources</Link>
                   <Link href="/regions" className="block px-3 py-2 hover:bg-neutral-50">🗺️ Region indexer</Link>
