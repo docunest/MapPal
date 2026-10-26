@@ -155,3 +155,9 @@ test("Google's empty-map default (centre of the USA) is never taken as the place
   assert.equal(h.point, undefined);
   assert.equal(h.title, undefined);
 });
+
+test("a generic 'Google Maps' page never lends its centre (it follows the visitor, not the place)", () => {
+  // What Vercel (US) got for the LORAMAR id-only link: centred near the server.
+  const html = `<meta content="https://maps.google.com/maps/api/staticmap?center=39.0267995%2C-77.844326&amp;zoom=8" property="og:image"><meta content="Google Maps" property="og:title">`;
+  assert.equal(pageHints(html).point, undefined);
+});
