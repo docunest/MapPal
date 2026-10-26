@@ -240,3 +240,46 @@ button.
 DeepSeek may receive: the place name, the place's coordinates, its nearby
 address and nearby objects, and public text about it. Never the user's own
 position, route, saved list or anything about the family.
+
+## 8. Car dock backend (G4 — owner asked for it directly, 2026-10-26)
+
+The head unit (rooted Android 10, docunest/android-apps `dock/`) replaces
+the stock floating dock: app shortcuts + places to drive to. MapPal stores
+and resolves the places.
+
+- **Send from phone, any time** — `POST /api/dock/inbox` with the Google
+  Maps share (`{"text": "<whatever the share sheet gave>"}` or `{"url": …}`).
+  Short links (`maps.app.goo.gl`) are expanded server-side; coordinates come
+  from the URL (`!3d!4d` place pin, `q=`, `ll=`, Waze/Apple/geo:/OSM), then
+  the Google page itself, then a Nominatim search of the place name.
+  `locatedBy` records which ("link" / "search" / "none") and the head unit
+  marks searched pins as approximate.
+- **Head unit polls** `GET /api/dock/items?since=` (Vercel can't hold
+  sockets open; a 20 s poll + immediate poll on wake/network is the same
+  experience and costs one indexed query). New links pop up on screen.
+- **Bookmark here** — `POST /api/dock/items {lat,lng,clientId}`; named from
+  OSM (nearest named campsite/beach/viewpoint) then Nominatim reverse.
+- **Auth** — one shared token (`lib/dock/auth.ts`, committed default,
+  `DOCK_INBOX_TOKEN` env overrides). Owner's call: 2 users, ~3 weeks.
+- History is never deleted automatically; the head unit sorts new/unopened
+  first, then recently used.
+
+Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
+→ 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".
+Real `maps.app.goo.gl` links (13, harvested from Stack Overflow) all resolve
+to the right place, including directions links and id-only links
+(`/maps/place//data=…!1s0x…:0x…` → Google's place data, e.g. "LORAMAR",
+Lora del Río). The server fetches as a desktop browser — a phone user agent
+gets an `intent://` app redirect instead of the map link.
+Parser tests: `test/dock.test.ts` (Noja, Lagoa, Ribadeo, Lisboa, Sevilla,
+València, Porto, A Coruña, Granada).
+
+### Migrations (2026-10-26)
+Production's database was missing tables from two deploys although the build
+runs `prisma migrate deploy` — that step isn't reaching the runtime database on
+Vercel. Now every server start applies pending migrations itself
+(`instrumentation.ts` → `lib/migrate.ts`, same `_prisma_migrations`
+bookkeeping as the Prisma CLI, advisory lock so concurrent instances don't
+race). After adding a migration run `npm run migrations:bundle`
+(`test/migrations.test.ts` fails if you forget). Supabase's dashboard
+"Last migration" only counts Supabase-CLI migrations, so it stays empty.

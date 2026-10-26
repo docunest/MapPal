@@ -299,3 +299,42 @@ model PromptVersion {
   @@index([templateId, createdAt])
   @@map("mappal_prompt_version")
 }
+
+// --- Car dock (docunest/android-apps: dock app on the head unit) ----------
+
+// A place the head unit can drive to. "link": sent from a phone's share
+// button (Google Maps / Waze / Apple Maps link, or plain coordinates) — kept
+// forever as history, newest first. "bookmark": "I like this place", saved
+// on the head unit from its own GPS. Coordinates come from parsing the link
+// (static lookup, no AI); when a link has none, from a Nominatim search of
+// its place name — `locatedBy` says which, so the app never shows a guessed
+// pin as exact.
+model DockItem {
+  id        String    @id @default(cuid())
+  kind      String // "link" | "bookmark"
+  title     String
+  // What the phone sent (link or text) and where it ended up after
+  // following redirects (maps.app.goo.gl → google.com/maps/place/...).
+  sourceUrl   String?
+  resolvedUrl String?
+  lat       Float?
+  lng       Float?
+  // "link" (coordinates were in the URL), "search" (geocoded from the place
+  // name), "gps" (head-unit bookmark), "none" (couldn't place it: the app
+  // can still open the original link)
+  locatedBy String
+  address   String?
+  note      String?
+  sentBy    String? // which phone/shortcut sent it, free text
+  pinned    Boolean   @default(false)
+  // First time the head unit saw it — "new link" pop-up until then.
+  seenAt    DateTime?
+  openedAt  DateTime?
+  openCount Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("mappal_dock_item")
+}

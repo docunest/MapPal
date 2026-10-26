@@ -56,3 +56,44 @@ export async function reverseAddress({ lat, lng }: LatLng, lang = "en"): Promise
   const parts = [street, a.suburb && a.suburb !== town ? a.suburb : undefined, town, a.state ?? a.province].filter(Boolean);
   return parts.length ? parts.join(", ") : data.display_name;
 }
+
+interface SearchResult {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name?: string;
+}
+
+/**
+ * Best match for a place name or address ("Camping Playa Joyel, Noja").
+ * Iberia (and neighbours we drive through) first, then anywhere.
+ */
+export async function searchPlace(query: string): Promise<{ point: LatLng; name?: string; address?: string } | undefined> {
+  for (const countrycodes of ["es,pt,fr,ad,gi", undefined]) {
+    const params: Record<string, string> = { q: query, limit: "1", "accept-language": "es,pt,en" };
+    if (countrycodes) params.countrycodes = countrycodes;
+    const [hit] = await nominatimGet<SearchResult[]>("/search", params, 60 * 60 * 24 * 7);
+    if (hit) {
+      return {
+        point: { lat: Number(hit.lat), lng: Number(hit.lon) },
+        name: hit.name || undefined,
+        address: hit.display_name,
+      };
+    }
+  }
+  return undefined;
+}
+
+/** What's right here: the named thing (a campsite, a beach) if OSM has one, plus an address. */
+export async function reversePlace({ lat, lng }: LatLng): Promise<{ name?: string; address?: string }> {
+  const data = await nominatimGet<ReverseResult & { name?: string }>(
+    "/reverse",
+    { lat: lat.toFixed(5), lon: lng.toFixed(5), zoom: "18", addressdetails: "1", "accept-language": "es,pt,en" },
+    60 * 60 * 24 * 30,
+  );
+  const a = data.address ?? {};
+  const street = [a.road ?? a.pedestrian ?? a.square ?? a.track, a.house_number].filter(Boolean).join(" ");
+  const town = a.city ?? a.town ?? a.village ?? a.hamlet ?? a.municipality;
+  const address = [street, town, a.state ?? a.province].filter(Boolean).join(", ") || data.display_name;
+  return { name: data.name || undefined, address };
+}

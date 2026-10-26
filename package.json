@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts",
+    "migrations:bundle": "tsx scripts/bundle-migrations.ts"
   },
   "dependencies": {
     "@mapbox/mapbox-gl-draw": "^1.5.2",

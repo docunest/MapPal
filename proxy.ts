@@ -13,8 +13,11 @@ export default auth((req) => {
   // Public: the login screen reports missing server settings before anyone
   // can log in (names only — see app/api/health/route.ts).
   const isHealth = req.nextUrl.pathname === "/api/health";
+  // Own token auth (lib/dock/auth.ts): the phone's share shortcut and the
+  // car head unit can't do the login screen.
+  const isDockApi = req.nextUrl.pathname.startsWith("/api/dock");
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
