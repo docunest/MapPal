@@ -292,13 +292,19 @@ export function pageHints(html: string): ParsedLink {
     out.point ??= p.point;
     out.title ??= p.title;
   }
-  const pin = unescape(html).match(new RegExp(`!3d${NUM}!4d${NUM}`));
-  if (pin) out.point ??= pt(pin[1], pin[2]);
-  const center = unescape(meta("og:image") ?? "").match(new RegExp(`center=${NUM}(?:%2C|,)${NUM}`));
-  if (center) out.point ??= pt(center[1], center[2]);
-
+  // A page titled just "Google Maps" didn't render the place: its preview
+  // image is centred on wherever the *visitor* is (seen live: the Vercel
+  // server's Virginia, not the shared Andalusian shop). Only a page showing
+  // the place itself may lend its pin or preview centre.
+  const ogTitle = meta("og:title")?.trim();
+  const showsPlace = !!ogTitle && !/^google maps$/i.test(ogTitle);
+  if (showsPlace) {
+    const pin = unescape(html).match(new RegExp(`!3d${NUM}!4d${NUM}`));
+    if (pin) out.point ??= pt(pin[1], pin[2]);
+    const center = unescape(meta("og:image") ?? "").match(new RegExp(`center=${NUM}(?:%2C|,)${NUM}`));
+    if (center) out.point ??= pt(center[1], center[2]);
+    out.title ??= clean(unescape(ogTitle).split(" · ")[0]);
+  }
   if (isGoogleDefaultCenter(out.point)) out.point = undefined;
-  const ogTitle = meta("og:title");
-  if (ogTitle && !/^google maps$/i.test(ogTitle.trim())) out.title ??= clean(unescape(ogTitle).split(" · ")[0]);
   return out;
 }
