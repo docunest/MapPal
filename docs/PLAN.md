@@ -254,9 +254,15 @@ and resolves the places.
   the Google page itself, then a Nominatim search of the place name.
   `locatedBy` records which ("link" / "search" / "none") and the head unit
   marks searched pins as approximate.
-- **Head unit polls** `GET /api/dock/items?since=` (Vercel can't hold
-  sockets open; a 20 s poll + immediate poll on wake/network is the same
-  experience and costs one indexed query). New links pop up on screen.
+- **Head unit long-polls** `GET /api/dock/items?since=…&wait=1`: the server
+  holds the request until something changes (checks every 1 s, ≤25 s) and
+  answers with `next` (when to ask again) — rhythm set by env
+  `DOCK_LONGPOLL_SECONDS`, `DOCK_LONGPOLL_CHECK_MS`, `DOCK_POLL_DELAY_MS`,
+  no APK update needed. Measured: link answered 1.1 s after sending.
+  Cost note: a waiting request keeps a Vercel function alive; if that shows
+  up on the bill, set `DOCK_LONGPOLL_SECONDS=0` + `DOCK_POLL_DELAY_MS=15000`.
+  Upgrade path: Supabase Realtime Broadcast (needs the anon key + RLS on
+  the mappal_* tables first — they're unrestricted today).
 - **Bookmark here** — `POST /api/dock/items {lat,lng,clientId}`; named from
   OSM (nearest named campsite/beach/viewpoint) then Nominatim reverse.
 - **Auth** — one shared token (`lib/dock/auth.ts`, committed default,

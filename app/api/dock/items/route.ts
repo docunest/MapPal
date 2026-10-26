@@ -6,25 +6,59 @@ import { dockCaller } from "@/lib/dock/auth";
 import { dockItemJson } from "@/lib/dock/items";
 import { nameForPoint } from "@/lib/dock/resolve";
 
-// GET /api/dock/items[?since=<ISO>] — the head unit's poll. Without `since`:
-// everything (history is kept forever). With it: only items created or
-// changed after it, so a poll every few seconds costs one indexed query.
-// `now` is the server clock to send back as the next `since`.
+// Long-poll settings, controlled here (not in the APK): how long a request
+// may wait for news, how often it checks the DB meanwhile, and how long the
+// device pauses before asking again. Change via env without reinstalling.
+export const maxDuration = 60;
+function longPollConfig() {
+  const num = (name: string, def: number, min: number, max: number) => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && process.env[name]?.trim() ? Math.min(max, Math.max(min, v)) : def;
+  };
+  return {
+    waitSeconds: num("DOCK_LONGPOLL_SECONDS", 25, 0, 50),
+    checkMs: num("DOCK_LONGPOLL_CHECK_MS", 1000, 250, 10_000),
+    delayMs: num("DOCK_POLL_DELAY_MS", 0, 0, 600_000),
+  };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// GET /api/dock/items[?since=<ISO>&wait=1] — the head unit's poll. Without
+// `since`: everything (history is kept forever). With it: only items created
+// or changed after it. With `wait=1` it's a long-poll: the server holds the
+// request until something changes (checked every `checkMs` with one indexed
+// query) or `waitSeconds` pass, so a link sent from the phone reaches the car
+// in ~1 s. `now` is the server clock to send back as the next `since`; `next`
+// tells the device when to ask again.
 export async function GET(req: Request) {
   if (!(await dockCaller(req))) return NextResponse.json({ error: "Wrong or missing dock token" }, { status: 401 });
-  const sinceRaw = new URL(req.url).searchParams.get("since");
+  const params = new URL(req.url).searchParams;
+  const sinceRaw = params.get("since");
   const since = sinceRaw ? new Date(sinceRaw) : null;
   if (since && Number.isNaN(since.getTime())) return NextResponse.json({ error: "Bad since" }, { status: 400 });
+  const cfg = longPollConfig();
+  const deadline = Date.now() + (since && params.get("wait") ? cfg.waitSeconds * 1000 : 0);
 
   try {
-    const now = new Date();
-    const items = await prisma.dockItem.findMany({
-      where: since ? { updatedAt: { gt: since } } : undefined,
-      orderBy: { createdAt: "desc" },
-      take: since ? 500 : 5000,
-    });
-    // Deletions: the head unit drops ids it no longer sees in a full sync.
-    return NextResponse.json({ now: now.toISOString(), full: !since, items: items.map(dockItemJson) });
+    for (;;) {
+      const now = new Date();
+      const items = await prisma.dockItem.findMany({
+        where: since ? { updatedAt: { gt: since } } : undefined,
+        orderBy: { createdAt: "desc" },
+        take: since ? 500 : 5000,
+      });
+      if (items.length || Date.now() + cfg.checkMs > deadline || req.signal.aborted) {
+        // Deletions: the head unit drops ids it no longer sees in a full sync.
+        return NextResponse.json({
+          now: now.toISOString(),
+          full: !since,
+          items: items.map(dockItemJson),
+          next: { waitSeconds: cfg.waitSeconds, delayMs: cfg.delayMs },
+        });
+      }
+      await sleep(cfg.checkMs);
+    }
   } catch (err) {
     return NextResponse.json({ error: describeDbError(err) }, { status: 500 });
   }
