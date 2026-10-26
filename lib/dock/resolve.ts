@@ -5,7 +5,7 @@
 import { distanceMeters, type LatLng } from "../geo";
 import { searchPlace, reversePlace } from "../nominatim";
 import { elementLatLng, overpassQuery } from "../overpass";
-import { isShortLink, pageHints, parseMapUrl, splitSharedText, unwrapConsent, coordsFromText, type ParsedLink } from "./parse";
+import { googlePreviewPath, isShortLink, pageHints, parseGooglePreview, parseMapUrl, splitSharedText, unwrapConsent, coordsFromText, type ParsedLink } from "./parse";
 
 export type LocatedBy = "link" | "search" | "gps" | "none";
 
@@ -18,14 +18,16 @@ export interface ResolvedLink {
   address?: string;
 }
 
-const BROWSER_UA = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36";
+// Desktop on purpose: a phone user agent gets an intent:// "open the app"
+// redirect instead of the map link (seen on real maps.app.goo.gl links).
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 /**
  * Follows redirects by hand so we see each hop (and can read the real URL
  * behind consent pages). If the last stop is a page rather than a redirect,
  * also reads it for the place's coordinates (see pageHints).
  */
-export async function expandUrl(url: string, maxHops = 8): Promise<{ url: string; page?: ParsedLink }> {
+export async function expandUrl(url: string, maxHops = 8): Promise<{ url: string; page?: ParsedLink & { address?: string } }> {
   let current = url;
   for (let i = 0; i < maxHops; i++) {
     let res: Response;
@@ -53,7 +55,20 @@ export async function expandUrl(url: string, maxHops = 8): Promise<{ url: string
       current = unwrapConsent(refresh.replace(/&amp;/g, "&"));
       continue;
     }
-    return { url: current, page: pageHints(html) };
+    const page: ParsedLink & { address?: string } = pageHints(html);
+    // Link with only Google's place id: ask Google's place data, as the page itself does.
+    const preview = !page.point ? googlePreviewPath(html) : undefined;
+    if (preview) {
+      const data = await fetch(new URL(preview, current), {
+        headers: { "User-Agent": BROWSER_UA, "Accept-Language": "es,en;q=0.8" },
+        signal: AbortSignal.timeout(6000),
+      })
+        .then((r) => (r.ok ? r.text() : ""))
+        .catch(() => "");
+      const p = parseGooglePreview(data);
+      if (p.point) return { url: current, page: { ...p, title: p.title ?? page.title } };
+    }
+    return { url: current, page };
   }
   return { url: current };
 }
@@ -68,7 +83,7 @@ export async function resolveShared(input: { text?: string; url?: string; title?
   }
 
   let resolvedUrl = url;
-  let page: ParsedLink | undefined;
+  let page: (ParsedLink & { address?: string }) | undefined;
   if (url && isShortLink(url)) ({ url: resolvedUrl, page } = await expandUrl(url));
   const parsed: ParsedLink = resolvedUrl ? parseMapUrl(resolvedUrl) : {};
   // A full Google link with no coordinates (?q=Name&ftid=…, ?cid=…): its page may have them.
@@ -77,10 +92,11 @@ export async function resolveShared(input: { text?: string; url?: string; title?
   }
   if (!parsed.point && page?.point) parsed.point = page.point;
   parsed.title ??= page?.title;
+  const pageAddress = page?.point && parsed.point === page.point ? page.address : undefined;
   const title = input.title?.trim() || parsed.title || hint;
   let point = parsed.point;
   let locatedBy: LocatedBy = point ? "link" : "none";
-  let address: string | undefined;
+  let address: string | undefined = pageAddress;
 
   // No coordinates anywhere: search OSM for the name the link (or the share
   // text) gives — "Camping Playa Joyel, Noja" is usually enough.

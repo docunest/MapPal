@@ -266,5 +266,10 @@ and resolves the places.
 
 Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
 → 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".
+Real `maps.app.goo.gl` links (13, harvested from Stack Overflow) all resolve
+to the right place, including directions links and id-only links
+(`/maps/place//data=…!1s0x…:0x…` → Google's place data, e.g. "LORAMAR",
+Lora del Río). The server fetches as a desktop browser — a phone user agent
+gets an `intent://` app redirect instead of the map link.
 Parser tests: `test/dock.test.ts` (Noja, Lagoa, Ribadeo, Lisboa, Sevilla,
 València, Porto, A Coruña, Granada).

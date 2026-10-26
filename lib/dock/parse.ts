@@ -73,8 +73,15 @@ export function isShortLink(url: string): boolean {
   }
 }
 
-/** Google sends EU visitors via consent.google.com?continue=<real url>. */
+/**
+ * Google sends EU visitors via consent.google.com?continue=<real url>, and
+ * phones via intent://<url>#Intent;…;S.browser_fallback_url=<url>;end.
+ */
 export function unwrapConsent(url: string): string {
+  if (url.startsWith("intent://")) {
+    const fallback = url.match(/;S\.browser_fallback_url=([^;]+)/)?.[1];
+    return fallback ? decode(fallback) : "https://" + url.slice("intent://".length).split("#")[0];
+  }
   try {
     const u = new URL(url);
     if (u.hostname.startsWith("consent.")) return u.searchParams.get("continue") ?? url;
@@ -125,12 +132,21 @@ function parseGoogle(u: URL): ParsedLink {
     if (p) out.point ??= p;
     else out.query ??= clean(destParam);
   } else if (dir) {
-    const stops = dir.split("/").filter((s) => s && !s.startsWith("@") && !s.startsWith("data="));
+    // /maps/dir/<origin>/<destination>/@view/am=t/data=… — skip the view and
+    // option segments ("am=t", "data=…"), the last stop is where we drive.
+    const stops = dir.split("/").filter((s) => s && !s.startsWith("@") && !s.includes("="));
     const dest = stops.at(-1);
     if (dest) {
       const p = coordsFromText(decode(dest));
       if (p) out.point ??= p;
       else out.title ??= clean(decode(dest));
+    }
+    // A named stop's exact spot is in data= as !1d<lng>!2d<lat> (one per
+    // named stop, in order) — the last one is the destination's.
+    if (!out.point && dest && !coordsFromText(decode(dest))) {
+      const stopsAt = [...href.matchAll(new RegExp(`!1d${NUM}!2d${NUM}`, "g"))];
+      const last = stopsAt.at(-1);
+      if (last) out.point = pt(last[2], last[1]);
     }
   }
 
@@ -232,6 +248,37 @@ export function parseMapUrl(raw: string): ParsedLink {
  * for the place itself: the place pin (!3d!4d), the preview image centre,
  * and og:/canonical URLs that parse like any other link.
  */
+/** Google's "nothing selected" map view (middle of the USA) — never a destination. */
+export function isGoogleDefaultCenter(p: LatLng | undefined): boolean {
+  return !!p && Math.abs(p.lat - 37.0625) < 0.001 && Math.abs(p.lng + 95.677068) < 0.001;
+}
+
+/** The place-data request a Google Maps place page makes for itself (relative URL), if any. */
+export function googlePreviewPath(html: string): string | undefined {
+  return html.match(/href="(\/maps\/preview\/place\?[^"]+)"/)?.[1]?.replace(/&amp;/g, "&");
+}
+
+/**
+ * Name/address/pin from Google's place-data reply. Used for share links
+ * that carry only Google's place id (/maps/place//data=…!1s0x…:0x…) — the
+ * data is Google's own record of the shared place, so it's exact. Read
+ * defensively: it's an internal format and may change (then: name search).
+ */
+export function parseGooglePreview(text: string): ParsedLink & { address?: string } {
+  try {
+    const json = JSON.parse(text.replace(/^\)\]\}'\s*/, ""));
+    const place = json?.[6];
+    if (!Array.isArray(place)) return {};
+    const at = place[9];
+    const point = Array.isArray(at) ? pt(at[2], at[3]) : undefined;
+    const title = typeof place[11] === "string" ? clean(place[11]) : undefined;
+    const address = typeof place[39] === "string" ? place[39] : Array.isArray(place[2]) ? place[2].join(", ") : undefined;
+    return { point: isGoogleDefaultCenter(point) ? undefined : point, title, address };
+  } catch {
+    return {};
+  }
+}
+
 export function pageHints(html: string): ParsedLink {
   const out: ParsedLink = {};
   const meta = (prop: string) =>
@@ -250,6 +297,7 @@ export function pageHints(html: string): ParsedLink {
   const center = unescape(meta("og:image") ?? "").match(new RegExp(`center=${NUM}(?:%2C|,)${NUM}`));
   if (center) out.point ??= pt(center[1], center[2]);
 
+  if (isGoogleDefaultCenter(out.point)) out.point = undefined;
   const ogTitle = meta("og:title");
   if (ogTitle && !/^google maps$/i.test(ogTitle.trim())) out.title ??= clean(unescape(ogTitle).split(" · ")[0]);
   return out;
