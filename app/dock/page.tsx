@@ -160,6 +160,65 @@ export default function DockPage() {
           </ul>
         </div>
       )}
+      <InboxLog />
     </main>
+  );
+}
+
+interface InboxLogEntry {
+  id: string;
+  at: string;
+  method: string;
+  contentType: string | null;
+  query: string | null;
+  headers: Record<string, string>;
+  body: string | null;
+  status: number;
+  outcome: string;
+}
+
+// What the phone's share shortcut actually sent (secrets hidden) — for
+// setting up iPhone Shortcuts / Android share apps. Refreshes by itself.
+function InboxLog() {
+  const [logs, setLogs] = useState<InboxLogEntry[] | null>(null);
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/dock/inbox/log")
+        .then((r) => r.json())
+        .then((d) => setLogs(d.logs ?? []))
+        .catch(() => undefined);
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <details className="rounded border p-3" open={!!logs?.some((l) => l.status >= 400)}>
+      <summary className="cursor-pointer font-semibold">
+        Phone requests (debug) — {logs === null ? "…" : `${logs.length} recent`}
+        {logs?.[0] && (
+          <span className={`ml-2 text-sm font-normal ${logs[0].status >= 400 ? "text-red-600" : "text-green-600"}`}>
+            last: {new Date(logs[0].at).toLocaleTimeString()} · {logs[0].outcome}
+          </span>
+        )}
+      </summary>
+      <p className="mt-2 text-xs text-gray-500">
+        Every request to /api/dock/inbox, newest first, refreshed every 5 s. Token, Authorization and cookies are hidden.
+      </p>
+      <ul className="mt-2 space-y-2">
+        {logs?.map((l) => (
+          <li key={l.id} className="rounded bg-gray-50 p-2 text-xs dark:bg-gray-900">
+            <p className={l.status >= 400 ? "font-semibold text-red-600" : "font-semibold text-green-700"}>
+              {new Date(l.at).toLocaleString()} · {l.method} · {l.status} · {l.outcome}
+            </p>
+            <p className="font-mono break-all">content-type: {l.contentType ?? "(none)"} · query: {l.query || "(none)"}</p>
+            <p className="font-mono break-all whitespace-pre-wrap">body: {l.body ?? "(none)"}</p>
+            <details>
+              <summary className="cursor-pointer text-gray-500">headers</summary>
+              <pre className="font-mono whitespace-pre-wrap break-all">{JSON.stringify(l.headers, null, 2)}</pre>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

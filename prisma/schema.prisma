@@ -338,3 +338,23 @@ model DockItem {
   @@index([updatedAt])
   @@map("mappal_dock_item")
 }
+
+// Every request that reached /api/dock/inbox — raw, for setting up phone
+// share shortcuts (iPhone Shortcuts are hard to debug from the phone).
+// Secrets are stripped before saving (token, Authorization, cookies).
+// Only the newest 100 are kept.
+model DockInboxLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  method      String
+  contentType String?
+  query       String? // URL query, token removed
+  headers     Json // safe headers only
+  body        String? // raw body (first 8 KB); multipart fields as JSON
+  status      Int // HTTP status we answered
+  outcome     String // "created <title>", "401 …", "400 …"
+  itemId      String?
+
+  @@index([createdAt])
+  @@map("mappal_dock_inbox_log")
+}

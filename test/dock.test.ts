@@ -161,3 +161,19 @@ test("a generic 'Google Maps' page never lends its centre (it follows the visito
   const html = `<meta content="https://maps.google.com/maps/api/staticmap?center=39.0267995%2C-77.844326&amp;zoom=8" property="og:image"><meta content="Google Maps" property="og:title">`;
   assert.equal(pageHints(html).point, undefined);
 });
+
+// What real share shortcuts send — field names vary, the inbox must cope.
+import { normalizeInbox } from "../lib/dock/inbox";
+
+test("inbox accepts what iPhone Shortcuts / Android share apps actually send", () => {
+  const link = "Camping Playa Joyel\nhttps://maps.app.goo.gl/AbCdEf12345";
+  assert.deepEqual(normalizeInbox({ text: link }), { text: link });
+  assert.deepEqual(normalizeInbox({ "Shortcut Input": link }), { text: link });
+  assert.deepEqual(normalizeInbox({ URL: "https://maps.app.goo.gl/x" }), { url: "https://maps.app.goo.gl/x" });
+  assert.deepEqual(normalizeInbox({ text: ["https://maps.app.goo.gl/x"] }), { text: "https://maps.app.goo.gl/x" });
+  assert.deepEqual(normalizeInbox(link), { text: link });
+  assert.deepEqual(normalizeInbox({ lat: "43.48", lng: -3.52, title: "Parking" }), { lat: 43.48, lng: -3.52, title: "Parking" });
+  // Unknown key names: every string value is searched for a link.
+  assert.deepEqual(normalizeInbox({ whatever: { deep: ["Hola", "https://maps.app.goo.gl/y"] } }), { text: "Hola\nhttps://maps.app.goo.gl/y" });
+  assert.deepEqual(normalizeInbox(null), {});
+});

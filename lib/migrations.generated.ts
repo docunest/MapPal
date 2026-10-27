@@ -23,5 +23,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261026120000_dock_items",
     "sql": "-- CreateTable\nCREATE TABLE \"mappal_dock_item\" (\n    \"id\" TEXT NOT NULL,\n    \"kind\" TEXT NOT NULL,\n    \"title\" TEXT NOT NULL,\n    \"sourceUrl\" TEXT,\n    \"resolvedUrl\" TEXT,\n    \"lat\" DOUBLE PRECISION,\n    \"lng\" DOUBLE PRECISION,\n    \"locatedBy\" TEXT NOT NULL,\n    \"address\" TEXT,\n    \"note\" TEXT,\n    \"sentBy\" TEXT,\n    \"pinned\" BOOLEAN NOT NULL DEFAULT false,\n    \"seenAt\" TIMESTAMP(3),\n    \"openedAt\" TIMESTAMP(3),\n    \"openCount\" INTEGER NOT NULL DEFAULT 0,\n    \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"updatedAt\" TIMESTAMP(3) NOT NULL,\n\n    CONSTRAINT \"mappal_dock_item_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE INDEX \"mappal_dock_item_createdAt_idx\" ON \"mappal_dock_item\"(\"createdAt\");\n\n-- CreateIndex\nCREATE INDEX \"mappal_dock_item_updatedAt_idx\" ON \"mappal_dock_item\"(\"updatedAt\");\n"
+  },
+  {
+    "name": "20261027090000_dock_inbox_log",
+    "sql": "-- CreateTable\nCREATE TABLE \"mappal_dock_inbox_log\" (\n    \"id\" TEXT NOT NULL,\n    \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"method\" TEXT NOT NULL,\n    \"contentType\" TEXT,\n    \"query\" TEXT,\n    \"headers\" JSONB NOT NULL,\n    \"body\" TEXT,\n    \"status\" INTEGER NOT NULL,\n    \"outcome\" TEXT NOT NULL,\n    \"itemId\" TEXT,\n\n    CONSTRAINT \"mappal_dock_inbox_log_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE INDEX \"mappal_dock_inbox_log_createdAt_idx\" ON \"mappal_dock_inbox_log\"(\"createdAt\");\n"
   }
 ];
