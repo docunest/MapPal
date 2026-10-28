@@ -280,6 +280,46 @@ gets an `intent://` app redirect instead of the map link.
 Parser tests: `test/dock.test.ts` (Noja, Lagoa, Ribadeo, Lisboa, Sevilla,
 València, Porto, A Coruña, Granada).
 
+### 8a. Dock app version + logs (draft, waiting for approval — 2026-10-28)
+
+Why: the dock now has a GPS doctor, Wi-Fi doctor and self-updates; when
+something goes wrong on the road nobody can see it from here. Goal: know
+which build each head unit runs, and read what the app recorded (Wi-Fi
+drops and their cause, GPS glitches, update results, crashes) without
+anyone copying screenshots — an agent can `curl` it in a later session.
+
+- **Version tracking, no extra requests** — every dock API call already
+  goes to MapPal; it adds headers `X-Dock-Device` (random install id),
+  `X-Dock-Version`, `X-Dock-Android`, `X-Dock-Root`. Server upserts
+  `mappal_dock_device` (id, version, android, root, firstSeen, lastSeen,
+  versionSince) — written at most once a minute per device or when the
+  version changes, so the long-poll doesn't hammer the database.
+- **Logs** — `POST /api/dock/logs` `{device, version, entries: [{at, kind,
+  level, msg, data}]}` (≤ 200 entries / 64 KB per call). Kinds: `crash`
+  (uncaught exception + stack, saved to a file and sent on next start),
+  `update` (check / install result / failure reason), `wifi` (drop + cause,
+  back, no-internet spell, frozen link, rejoin tries, Android auto-join
+  state), `gps` (glitches, doctor runs), `service` (start / boot).
+  The app keeps a local queue (≤ 2000 entries, survives restarts and no
+  signal), sends every 5 min when online, at once for crashes and failed
+  updates. Table `mappal_dock_log` (device, at, receivedAt, version, kind,
+  level, msg, data json), rows older than 60 days dropped on insert.
+- **Reading** — `GET /api/dock/logs?device=&kind=&since=&limit=` (dock token
+  or login) for agents; the `/dock` page gets a Devices box (build, last
+  seen, Android, root) and the latest log lines with a kind filter.
+- **Privacy** — logs contain coordinates (GPS glitches) and Wi-Fi names.
+  They stay in MapPal's own database with the same access as the places
+  (dock token or login) and are never sent anywhere else. Note the dock
+  token is committed in the repo, so repo access = log access, as for
+  places today.
+- **Cost** — one small request per 5 min while the car is on; a few KB/day.
+
+Acceptance: (1) after an update, `/dock` and the API show the new build
+within a minute; (2) a test crash on the emulator appears in the logs
+after restart; (3) a Wi-Fi drop recorded by the Wi-Fi doctor can be read
+with `curl`; (4) entries made offline arrive after the network returns,
+including across an app restart; (5) wrong token → 401, nothing stored.
+
 ### Migrations (2026-10-26)
 Production's database was missing tables from two deploys although the build
 runs `prisma migrate deploy` — that step isn't reaching the runtime database on
