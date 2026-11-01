@@ -358,3 +358,27 @@ model DockInboxLog {
   @@index([createdAt])
   @@map("mappal_dock_inbox_log")
 }
+
+// Camper control (G5): the Z1 wall screen pushes its state here and picks up
+// commands sent from the /camper page, so the camper can be controlled from
+// outside its Wi-Fi. One state row ("camper"); commands are a small queue.
+model CamperState {
+  id        String   @id
+  state     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("mappal_camper_state")
+}
+
+model CamperCommand {
+  id        String    @id @default(cuid())
+  body      Json
+  sentBy    String?
+  takenAt   DateTime?
+  ok        Boolean?
+  error     String?
+  createdAt DateTime  @default(now())
+
+  @@index([takenAt, createdAt])
+  @@map("mappal_camper_command")
+}

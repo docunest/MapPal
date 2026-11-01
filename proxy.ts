@@ -16,8 +16,11 @@ export default auth((req) => {
   // Own token auth (lib/dock/auth.ts): the phone's share shortcut and the
   // car head unit can't do the login screen.
   const isDockApi = req.nextUrl.pathname.startsWith("/api/dock");
+  // Camper control (lib/camper/auth.ts): the Z1 and the owner's link use a
+  // token; the /camper page asks for it when there's no session.
+  const isCamper = req.nextUrl.pathname.startsWith("/api/camper") || req.nextUrl.pathname === "/camper";
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
