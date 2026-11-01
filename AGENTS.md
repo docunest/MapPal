@@ -43,6 +43,11 @@ MapPal is also the backend for the car head-unit dock app
 (docunest/android-apps → `dock/`): phones share map links to
 `/api/dock/inbox`, the head unit polls `/api/dock/items`. See `docs/PLAN.md` §8.
 
+## G5 — Camper control backend (owner-approved 2026-11-01)
+The Z1 wall screen (docunest/android-apps → `camper/`) pushes its state to
+`/api/camper/state` and long-polls `/api/camper/commands`; the `/camper` page
+shows status and controls from anywhere. Token: only its SHA-256 is in the repo.
+
 ## Region and languages
 Spain and Portugal first. Local sources matter more than English ones:
 Spanish, Portuguese, Catalan, Galician and Basque Wikipedias, OSM tags with
