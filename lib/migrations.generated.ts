@@ -27,5 +27,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261027090000_dock_inbox_log",
     "sql": "-- CreateTable\nCREATE TABLE \"mappal_dock_inbox_log\" (\n    \"id\" TEXT NOT NULL,\n    \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"method\" TEXT NOT NULL,\n    \"contentType\" TEXT,\n    \"query\" TEXT,\n    \"headers\" JSONB NOT NULL,\n    \"body\" TEXT,\n    \"status\" INTEGER NOT NULL,\n    \"outcome\" TEXT NOT NULL,\n    \"itemId\" TEXT,\n\n    CONSTRAINT \"mappal_dock_inbox_log_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE INDEX \"mappal_dock_inbox_log_createdAt_idx\" ON \"mappal_dock_inbox_log\"(\"createdAt\");\n"
+  },
+  {
+    "name": "20261101220000_camper_remote",
+    "sql": "-- CreateTable\nCREATE TABLE \"mappal_camper_state\" (\n    \"id\" TEXT NOT NULL,\n    \"state\" JSONB NOT NULL,\n    \"updatedAt\" TIMESTAMP(3) NOT NULL,\n\n    CONSTRAINT \"mappal_camper_state_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateTable\nCREATE TABLE \"mappal_camper_command\" (\n    \"id\" TEXT NOT NULL,\n    \"body\" JSONB NOT NULL,\n    \"sentBy\" TEXT,\n    \"takenAt\" TIMESTAMP(3),\n    \"ok\" BOOLEAN,\n    \"error\" TEXT,\n    \"createdAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\n    CONSTRAINT \"mappal_camper_command_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE INDEX \"mappal_camper_command_takenAt_createdAt_idx\" ON \"mappal_camper_command\"(\"takenAt\", \"createdAt\");\n"
   }
 ];
