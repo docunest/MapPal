@@ -382,3 +382,26 @@ model CamperCommand {
   @@index([takenAt, createdAt])
   @@map("mappal_camper_command")
 }
+
+// Camper history: a sample every 5 min and an event per on/off change or
+// command, recorded on the Z1 and uploaded with its state pushes (so gaps while
+// the camper is offline fill in later). Sample fields: see the Z1's
+// Controller.sampleRow (inside, outside, floor_on, ac_on, diesel_on, battery_v…).
+model CamperSample {
+  ts   DateTime @id
+  data Json
+
+  @@map("mappal_camper_sample")
+}
+
+model CamperEvent {
+  id     String   @id // "<epoch s>-<device>-<what>": re-uploads are ignored
+  ts     DateTime
+  device String
+  what   String
+  value  String?
+  by     String?
+
+  @@index([ts])
+  @@map("mappal_camper_event")
+}
