@@ -265,6 +265,201 @@ function History({ call, devices }: { call: (path: string) => Promise<Any>; devi
   );
 }
 
+// ---------- rules: stored and evaluated on the Z1, edited here ----------
+
+type Field = { id: string; label: string; kind: "number" | "bool" | "choice" | "text"; unit?: string | null; options?: Opt[]; min?: number; max?: number; step?: number; value: unknown };
+type Cond = { device?: string; field?: string; op?: string; value?: unknown; time?: { from: string; to: string } };
+type Act = { device: string; control?: string; value?: unknown; action?: string; params?: Record<string, string> };
+type Rule = { id?: string; name: string; enabled: boolean; when: Cond[]; then: Act[]; for_min: number; cooldown_min: number;
+  holds?: boolean; waiting_min?: number | null; fired?: boolean; last_fired?: number | null; last_result?: string | null };
+
+function fieldsOf(d?: Device): Field[] {
+  if (!d) return [];
+  const out: Field[] = [];
+  for (const r of d.readings) out.push({ id: r.id, label: r.label, unit: r.unit, value: r.value,
+    kind: typeof r.value === "number" ? "number" : typeof r.value === "boolean" ? "bool" : "text" });
+  for (const c of d.controls) out.push({ id: c.id, label: c.label, unit: c.unit, value: c.value, options: c.options, min: c.min, max: c.max, step: c.step,
+    kind: c.type === "toggle" ? "bool" : c.type === "number" ? "number" : "choice" });
+  out.push({ id: "online", label: "Online", kind: "bool", value: d.online });
+  return out;
+}
+
+const inputStyle = { height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: "#171B21", color: C.ink, padding: "0 8px", fontSize: 14 };
+const smallSelect = { ...inputStyle, maxWidth: 200 };
+
+/** A value picker for one field/control: number box, on/off, or its options. */
+function ValueInput({ f, value, onChange }: { f?: Field; value: unknown; onChange: (v: unknown) => void }) {
+  if (!f) return null;
+  if (f.kind === "bool") return (
+    <select value={value === true ? "true" : "false"} onChange={(e) => onChange(e.target.value === "true")} style={smallSelect}>
+      <option value="true">on</option><option value="false">off</option>
+    </select>
+  );
+  if (f.kind === "choice") return (
+    <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} style={smallSelect}>
+      <option value="" disabled>pick…</option>
+      {(f.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+  if (f.kind === "number") return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <input type="number" value={typeof value === "number" ? value : ""} min={f.min} max={f.max} step={f.step ?? "any"}
+        onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))} style={{ ...inputStyle, width: 80 }} />
+      <span style={{ fontSize: 12, color: C.mute }}>{f.unit ?? ""}{f.min !== undefined ? ` ${f.min}–${f.max}` : ""}</span>
+    </span>
+  );
+  return <input value={String(value ?? "")} placeholder={f.value != null ? `now: ${f.value}` : ""} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, width: 130 }} />;
+}
+
+function DeviceSelect({ devices, value, onChange, filter }: { devices: Device[]; value?: string; onChange: (v: string) => void; filter?: (d: Device) => boolean }) {
+  return (
+    <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={smallSelect}>
+      <option value="" disabled>device…</option>
+      {devices.filter(filter ?? (() => true)).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+    </select>
+  );
+}
+
+function describeRule(r: Rule, devices: Device[]) {
+  const dev = (id?: string) => devices.find((d) => d.id === id);
+  const fld = (c: Cond) => fieldsOf(dev(c.device)).find((f) => f.id === c.field);
+  const val = (f: Field | undefined, v: unknown) => f?.kind === "choice" ? f.options?.find((o) => o.value === v)?.label ?? String(v) : fmt(v, f?.unit);
+  const when = r.when.map((c) => c.time ? `${c.time.from}–${c.time.to}` : `${dev(c.device)?.name ?? c.device} ${fld(c)?.label ?? c.field} ${c.op} ${val(fld(c), c.value)}`).join(" and ");
+  const then = r.then.map((a) => {
+    const d = dev(a.device);
+    if (a.control) { const c = d?.controls.find((x) => x.id === a.control); return `${d?.name ?? a.device}: ${c?.label ?? a.control} → ${val(c ? fieldsOf(d).find((f) => f.id === c.id) : undefined, a.value)}`; }
+    const ac = d?.actions.find((x) => x.id === a.action);
+    const ps = Object.entries(a.params ?? {}).map(([k, v]) => ac?.params.find((p) => p.id === k)?.options?.find((o) => o.value === v)?.label ?? v).join(" ");
+    return `${d?.name ?? a.device}: ${ac?.label ?? a.action}${ps ? ` (${ps})` : ""}`;
+  }).join(", ");
+  return `When ${when}${r.for_min ? ` for ${r.for_min} min` : ""} → ${then}`;
+}
+
+/** Every action any device offers in any state (devices only list the ones available right now). */
+function allActions(d?: Device): Action[] {
+  return d?.actions ?? [];
+}
+
+function RuleEditor({ initial, devices, onSave, onCancel }: { initial: Rule; devices: Device[]; onSave: (r: Rule) => void; onCancel: () => void }) {
+  const [r, setR] = useState<Rule>(initial);
+  const dev = (id?: string) => devices.find((d) => d.id === id);
+  const setCond = (i: number, c: Cond) => setR({ ...r, when: r.when.map((x, j) => (j === i ? c : x)) });
+  const setAct = (i: number, a: Act) => setR({ ...r, then: r.then.map((x, j) => (j === i ? a : x)) });
+  const row = { display: "flex", gap: 6, flexWrap: "wrap" as const, alignItems: "center" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: `1px solid ${C.line}`, paddingTop: 10 }}>
+      <input value={r.name} placeholder="Rule name, e.g. Low battery: AC off" onChange={(e) => setR({ ...r, name: e.target.value })} style={{ ...inputStyle, width: "100%" }} />
+
+      <div style={{ fontSize: 13, fontWeight: 600, color: C.mute }}>WHEN (all of these)</div>
+      {r.when.map((c, i) => (
+        <div key={i} style={row}>
+          {c.time ? <>
+            <span style={{ fontSize: 13 }}>Time between</span>
+            <input type="time" value={c.time.from} onChange={(e) => setCond(i, { time: { ...c.time!, from: e.target.value } })} style={inputStyle} />
+            <span style={{ fontSize: 13 }}>and</span>
+            <input type="time" value={c.time.to} onChange={(e) => setCond(i, { time: { ...c.time!, to: e.target.value } })} style={inputStyle} />
+          </> : (() => {
+            const fields = fieldsOf(dev(c.device)), f = fields.find((x) => x.id === c.field);
+            const ops = f?.kind === "number" ? ["<", "<=", ">", ">=", "==", "!="] : ["==", "!="];
+            return <>
+              <DeviceSelect devices={devices} value={c.device} onChange={(v) => setCond(i, { device: v, op: "==" })} />
+              <select value={c.field ?? ""} onChange={(e) => { const nf = fields.find((x) => x.id === e.target.value); setCond(i, { ...c, field: e.target.value, op: nf?.kind === "number" ? "<" : "==", value: nf?.value ?? null }); }} style={smallSelect}>
+                <option value="" disabled>value…</option>
+                {fields.map((x) => <option key={x.id} value={x.id}>{x.label}{x.unit ? ` (${x.unit})` : ""}</option>)}
+              </select>
+              {f && <select value={c.op} onChange={(e) => setCond(i, { ...c, op: e.target.value })} style={{ ...inputStyle, width: 56 }}>{ops.map((o) => <option key={o}>{o}</option>)}</select>}
+              <ValueInput f={f} value={c.value} onChange={(v) => setCond(i, { ...c, value: v })} />
+            </>;
+          })()}
+          <Btn small label="✕" onClick={() => setR({ ...r, when: r.when.filter((_, j) => j !== i) })} />
+        </div>
+      ))}
+      <div style={row}>
+        <Btn small label="+ Condition" onClick={() => setR({ ...r, when: [...r.when, { op: "<" }] })} />
+        <Btn small label="+ Time window" onClick={() => setR({ ...r, when: [...r.when, { time: { from: "22:00", to: "07:00" } }] })} />
+      </div>
+      <div style={row}>
+        <span style={{ fontSize: 13 }}>for at least</span>
+        <input type="number" min={0} value={r.for_min} onChange={(e) => setR({ ...r, for_min: Number(e.target.value) || 0 })} style={{ ...inputStyle, width: 70 }} />
+        <span style={{ fontSize: 13 }}>min · then wait at least</span>
+        <input type="number" min={0} value={r.cooldown_min} onChange={(e) => setR({ ...r, cooldown_min: Number(e.target.value) || 0 })} style={{ ...inputStyle, width: 70 }} />
+        <span style={{ fontSize: 13 }}>min before firing again</span>
+      </div>
+
+      <div style={{ fontSize: 13, fontWeight: 600, color: C.mute }}>THEN</div>
+      {r.then.map((a, i) => {
+        const d = dev(a.device);
+        const target = a.control ? `c:${a.control}` : a.action ? `a:${a.action}` : "";
+        const ctl = d?.controls.find((x) => x.id === a.control);
+        const act = allActions(d).find((x) => x.id === a.action);
+        return (
+          <div key={i} style={row}>
+            <DeviceSelect devices={devices} value={a.device} onChange={(v) => setAct(i, { device: v })} filter={(x) => x.controls.length + x.actions.length > 0} />
+            <select value={target} onChange={(e) => {
+              const [k, id] = [e.target.value.slice(0, 1), e.target.value.slice(2)];
+              if (k === "c") setAct(i, { device: a.device, control: id, value: d?.controls.find((x) => x.id === id)?.value ?? null });
+              else { const ac = allActions(d).find((x) => x.id === id); setAct(i, { device: a.device, action: id, params: Object.fromEntries((ac?.params ?? []).map((p) => [p.id, String(p.value ?? "")])) }); }
+            }} style={smallSelect}>
+              <option value="" disabled>do…</option>
+              {(d?.controls ?? []).map((c) => <option key={c.id} value={`c:${c.id}`}>Set {c.label}</option>)}
+              {allActions(d).map((x) => <option key={x.id} value={`a:${x.id}`}>{x.label}</option>)}
+            </select>
+            {ctl && <ValueInput f={fieldsOf(d).find((f) => f.id === ctl.id)} value={a.value} onChange={(v) => setAct(i, { ...a, value: v })} />}
+            {act?.params.map((p) => (
+              <select key={p.id} value={a.params?.[p.id] ?? ""} onChange={(e) => setAct(i, { ...a, params: { ...a.params, [p.id]: e.target.value } })} style={smallSelect}>
+                {(p.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            ))}
+            <Btn small label="✕" onClick={() => setR({ ...r, then: r.then.filter((_, j) => j !== i) })} />
+          </div>
+        );
+      })}
+      <div style={row}><Btn small label="+ Action" onClick={() => setR({ ...r, then: [...r.then, { device: "" }] })} /></div>
+      <div style={{ fontSize: 12, color: C.mute }}>Only actions a device offers right now are listed (e.g. the diesel shows Run while it&apos;s off). Values are checked on the camper when the rule is saved and again when it runs.</div>
+      <div style={row}>
+        <Btn label="Save rule" color={C.green} on onClick={() => onSave(r)} />
+        <Btn label="Cancel" onClick={onCancel} />
+      </div>
+    </div>
+  );
+}
+
+function RulesPanel({ rules, devices, send }: { rules: Rule[]; devices: Device[]; send: Send }) {
+  const [editing, setEditing] = useState<Rule | null>(null);
+  const strip = (r: Rule): Rule => ({ id: r.id, name: r.name, enabled: r.enabled, when: r.when, then: r.then, for_min: r.for_min, cooldown_min: r.cooldown_min });
+  const save = (r: Rule) => { send(`Save rule “${r.name}”`, { action: "rule_save", rule: strip(r) }); setEditing(null); };
+  return (
+    <section style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 16, fontWeight: 600 }}>Rules <span style={{ fontSize: 13, color: C.mute, fontWeight: 400 }}>· run on the camper, also offline</span></div>
+        {!editing && <Btn small label="+ New rule" onClick={() => setEditing({ name: "", enabled: true, when: [{ op: "<" }], then: [{ device: "" }], for_min: 5, cooldown_min: 30 })} />}
+      </div>
+      {!rules.length && !editing && <div style={{ fontSize: 13, color: C.mute }}>No rules yet. Example: when Solar · Battery &lt; 12.4 V for 5 min → Air conditioner: Power off.</div>}
+      {rules.map((r) => (
+        <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: `1px solid ${C.line}`, paddingTop: 8, opacity: r.enabled ? 1 : 0.6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+            <div style={{ fontWeight: 600 }}>{r.name}</div>
+            <div style={{ fontSize: 12, color: r.last_result && r.last_result !== "ok" ? C.red : r.holds ? C.amber : C.mute, textAlign: "right" }}>
+              {!r.enabled ? "off" : r.fired ? "fired" : r.holds ? `true · waiting ${r.waiting_min ?? 0}/${r.for_min} min` : "armed"}
+              {r.last_fired ? ` · last ${hhmm(r.last_fired, true)}${r.last_result && r.last_result !== "ok" ? `: ${r.last_result}` : ""}` : ""}
+            </div>
+          </div>
+          <div style={{ fontSize: 13, color: C.mute }}>{describeRule(r, devices)}</div>
+          {editing && editing.id === r.id ? <RuleEditor initial={editing} devices={devices} onSave={save} onCancel={() => setEditing(null)} /> : (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <Btn small label="Edit" onClick={() => setEditing(r)} />
+              <Btn small label={r.enabled ? "Turn off" : "Turn on"} onClick={() => send(`${r.enabled ? "Disable" : "Enable"} “${r.name}”`, { action: "rule_save", rule: { ...strip(r), enabled: !r.enabled } })} />
+              <Btn small label="Run now" onClick={() => send(`Run “${r.name}”`, { action: "rule_run", id: r.id })} />
+              <Btn small label="Delete" onClick={() => confirm(`Delete rule “${r.name}”?`) && send(`Delete “${r.name}”`, { action: "rule_delete", id: r.id })} />
+            </div>
+          )}
+        </div>
+      ))}
+      {editing && !editing.id && <RuleEditor initial={editing} devices={devices} onSave={save} onCancel={() => setEditing(null)} />}
+    </section>
+  );
+}
+
 // ---------- page ----------
 
 export default function CamperPage() {
@@ -347,6 +542,7 @@ export default function CamperPage() {
           ))}
           {s.weather && <div style={{ fontSize: 14, color: C.mute }}>{s.weather.now} · {s.weather.line} · tomorrow {s.weather.tomorrow?.label}</div>}
           {devices.map((d) => <DeviceCard key={d.id} d={d} send={send} />)}
+          {Array.isArray(s.rules) && <RulesPanel rules={s.rules} devices={devices} send={send} />}
           <History call={getJson} devices={devices} />
         </>
       )}
