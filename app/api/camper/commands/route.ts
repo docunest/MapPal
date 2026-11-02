@@ -5,7 +5,7 @@ import { describeDbError } from "@/lib/dbErrors";
 
 export const maxDuration = 60;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const ALLOWED = new Set(["position", "floor_mode", "on_target", "auto_target", "dry", "diesel", "diesel_stop", "diesel_level", "diesel_cleanout", "dismiss", "ac_fan", "ac_quiet", "raw"]);
+const ALLOWED = new Set(["position", "floor_mode", "on_target", "auto_target", "dry", "diesel", "diesel_stop", "diesel_level", "diesel_cleanout", "dismiss", "ac_fan", "ac_quiet", "raw", "set", "act", "rule_save", "rule_delete", "rule_run"]);
 
 // POST /api/camper/commands {action, ...} — queue a command from the /camper page.
 // Same command format as the Z1's own /api/cmd.
