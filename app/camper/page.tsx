@@ -268,14 +268,17 @@ export default function CamperPage() {
           </Card>
 
           {s.victron && Object.keys(s.victron).length > 0 && (() => {
+            // "error" is a status text when the device isn't heard, else Victron's numeric charger error code
             const m = s.victron.mppt ?? {}, ch = s.victron.charger ?? {};
+            const mErr = typeof m.error === "string" ? m.error : m.error ? `Error ${m.error}` : null;
+            const chErr = typeof ch.error === "string" ? ch.error : ch.error ? `Error ${ch.error}` : null;
             return <>
-              <Card title="Solar (MPPT)" color={m.error ? C.red : (m.pv_power ?? 0) > 0 ? C.amber : C.mute}
-                status={m.error ?? `${m.pv_power ?? "–"} W · ${m.battery_voltage ?? "–"} V · ${m.battery_current ?? "–"} A · ${m.state_name ?? ""}`}>
-                {!m.error && <div style={{ fontSize: 13, color: C.mute }}>Today {m.yield_today_kwh ?? "–"} kWh{m.load_current != null ? ` · load ${m.load_current} A` : ""}{m.error ? "" : ` · ${m.age_s} s ago`}</div>}
+              <Card title="Solar (MPPT)" color={mErr ? C.red : (m.pv_power ?? 0) > 0 ? C.amber : C.mute}
+                status={mErr ?? `${m.pv_power ?? "–"} W · ${m.battery_voltage ?? "–"} V · ${m.battery_current ?? "–"} A · ${m.state_name ?? ""}`}>
+                {typeof m.error !== "string" && <div style={{ fontSize: 13, color: C.mute }}>Today {m.yield_today_kwh ?? "–"} kWh{m.load_current != null ? ` · load ${m.load_current} A` : ""} · {m.age_s} s ago</div>}
               </Card>
-              <Card title="Charger (Blue Smart)" color={ch.error ? C.mute : C.teal}
-                status={ch.error ?? `${ch.state_name ?? ""} · ${ch.battery_voltage ?? "–"} V · ${ch.battery_current ?? "–"} A`} />
+              <Card title="Charger (Blue Smart)" color={chErr ? C.mute : C.teal}
+                status={chErr ?? `${ch.state_name ?? ""} · ${ch.battery_voltage ?? "–"} V · ${ch.battery_current ?? "–"} A`} />
             </>;
           })()}
 
