@@ -41,7 +41,7 @@ Today she spends hours hand-browsing Instagram and Google Maps to find stops.
 ## G4 — Car dock backend (owner-approved 2026-10-26)
 MapPal is also the backend for the car head-unit dock app
 (docunest/android-apps → `dock/`): phones share map links to
-`/api/dock/inbox`, the head unit polls `/api/dock/items`. See `docs/PLAN.md` §8.
+`/api/dock/inbox`, the head unit polls `/api/dock/items`. See `docs/archive/PLAN-2026-10-25.md` §8.
 
 ## G5 — Camper control backend (owner-approved 2026-11-01)
 The Z1 wall screen (docunest/android-apps → `camper/`) pushes its state to
