@@ -3,6 +3,10 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-06 — Region = a stop with a radius (default 15 km), tagged future/current/past — owner, open decision 6.
+- 2026-11-06 — AI provider for the scenario agents: DeepSeek with the owner's key; the app tracks calls/tokens and warns when the balance runs low — owner, open decision 2.
+- 2026-11-06 — Spending: aim for free unless the owner says otherwise (Google inside its free tier, no paid web-search API for now) — owner, budget question; so open decision 4 (validator web search) stays "none" for now.
+- 2026-11-06 — Agent's recommendations accepted as defaults for open decisions 1, 3, 5, 7, 8, 9 (Vercel host; Google content live on tap only, never cached; batch runner decided when pre-generation is built; device sync via MapPal API routes, last-write-wins; no offline map tiles at first; measure DB size after phase 3) — owner: "Yes, except region shape".
 - 2026-11-06 — Old D1–D5 (2026-10-25 plan) are obsolete and won't be resolved; the open decisions for the new plan are listed in STATUS.md, and PLAN.md build phase 1 now says to resolve those — owner: they belonged to the old goals.
 - 2026-11-06 — Car dock and camper backend spec lives in `docs/DOCK.md`; AGENTS.md points there; `docs/archive/` is history only — owner.
 - 2026-11-06 — Old plan §7a–7d (sources framework, prompt templates, source tags and likes, DeepSeek privacy) and the Google cost guardrails are still live rules; they live in `docs/DATA-RULES.md` and code comments point there — owner.
