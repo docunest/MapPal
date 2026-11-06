@@ -223,7 +223,7 @@ model SavedSpot {
   @@map("mappal_saved_spot")
 }
 
-// --- Sources framework (docs/PLAN.md §7a) ---------------------------------
+// --- Sources framework (docs/DATA-RULES.md) ----------------------------------
 
 // Calls made per paid source/SKU per day — the app-side cost guardrail.
 // lib/sources/usage.ts refuses a call once a daily or monthly cap is hit.

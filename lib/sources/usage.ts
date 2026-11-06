@@ -1,4 +1,4 @@
-// App-side cost guardrail for paid sources (docs/PLAN.md §7). Google's own
+// App-side cost guardrail for paid sources (docs/DATA-RULES.md → Google Places cost guardrails). Google's own
 // console quotas are the hard backstop; this stops us *before* reaching
 // them, so the bill stays inside the free tier.
 import type { SourceId, UsageGuard } from "./types";

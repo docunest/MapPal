@@ -1,4 +1,4 @@
-// Prompt templates may only use these placeholders (docs/PLAN.md §7b/7d).
+// Prompt templates may only use these placeholders (docs/DATA-RULES.md → Prompt templates, DeepSeek privacy rule).
 // All of them describe the PLACE — there is deliberately no placeholder for
 // the family's own position, route, saved list or anything personal, so a
 // template edit can't leak it.

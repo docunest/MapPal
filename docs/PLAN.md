@@ -1,4 +1,4 @@
-> **Approved plan, 2026-11-06.** This is the owner's updated plan after external review. It is the same text as `.claude/skills/mappal-context/SKILL.md` (minus the skill header), so keep the two in sync. It replaces the 2026-10-25 plan, which is archived at `docs/archive/PLAN-2026-10-25.md`. Code comments and `AGENTS.md` that cite PLAN §7a–7d (sources framework, prompts, likes, DeepSeek privacy) or §8 (car dock backend) refer to that archived file.
+> **Approved plan, 2026-11-06.** This is the owner's updated plan after external review. It is the same text as `.claude/skills/mappal-context/SKILL.md` (minus the skill header), except build phase 1, so keep the two in sync. Live rules for sources, prompts, likes and privacy are in `docs/DATA-RULES.md`; the car dock and camper backends are in `docs/DOCK.md`. The 2026-10-25 plan is history only: `docs/archive/PLAN-2026-10-25.md`.
 
 # MapPal — shared project context
 
@@ -62,7 +62,7 @@ A very simple map UI answering repeat questions about nearby places, better than
 
 ## Build phases
 
-1. Update docs/PLAN.md to this context, resolve decisions D1–D5, get owner approval.
+1. Resolve the open decisions listed in docs/handoff/STATUS.md.
 2. Data model: scenarios, regions, place store, result cache, sync.
 3. Pipeline v1 for Groceries + Construction stores, proven on acceptance points incl. a Sunday run.
 4. One-tap map UI with layer switch and previews.

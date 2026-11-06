@@ -1,4 +1,4 @@
-// Likes (docs/PLAN.md §7c). 👍 on a place = "we liked this kind of thing"
+// Likes (docs/DATA-RULES.md → Source tags and likes). 👍 on a place = "we liked this kind of thing"
 // (and it goes on the family list); 👍/👎 on a source = "this source was
 // useful here". Likes nudge ranking; they never hide anything.
 import { prisma } from "./db";

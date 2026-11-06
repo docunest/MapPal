@@ -65,7 +65,7 @@ A very simple map UI answering repeat questions about nearby places, better than
 
 ## Build phases
 
-1. Update docs/PLAN.md to this context, resolve decisions D1–D5, get owner approval.
+1. Follow docs/PLAN.md.
 2. Data model: scenarios, regions, place store, result cache, sync.
 3. Pipeline v1 for Groceries + Construction stores, proven on acceptance points incl. a Sunday run.
 4. One-tap map UI with layer switch and previews.

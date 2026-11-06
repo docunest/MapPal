@@ -1,4 +1,4 @@
-// Shared, versioned prompt templates (docs/PLAN.md §7b). One set for all
+// Shared, versioned prompt templates (docs/DATA-RULES.md → Prompt templates). One set for all
 // users; every save is a new version recording who made it.
 import { prisma } from "../db";
 import { DEFAULT_TEMPLATES } from "./defaults";

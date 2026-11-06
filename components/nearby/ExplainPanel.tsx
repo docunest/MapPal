@@ -20,7 +20,7 @@ const BUTTONS = [
 
 /**
  * AI explanation from a shared prompt template (/prompts). Only place-level
- * facts go into the prompt — never the family's position (docs/PLAN.md §7d).
+ * facts go into the prompt — never the family's position (docs/DATA-RULES.md → DeepSeek privacy rule).
  */
 export function ExplainPanel({ place }: { place: PlaceRef }) {
   const ai = useAiSources();

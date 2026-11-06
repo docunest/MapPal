@@ -1,4 +1,4 @@
-// The pluggable-sources framework (docs/PLAN.md §7a). Every data tool —
+// The pluggable-sources framework (docs/DATA-RULES.md → Sources framework). Every data tool —
 // OpenStreetMap, Wikipedia, Google, DeepSeek… — is one module implementing
 // `Source`. Orchestrators (lib/nearby/*) ask every enabled source that has
 // a capability, merge the answers, and keep where each piece came from so
