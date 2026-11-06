@@ -98,6 +98,16 @@ export function candidatesFromElements(
  * matched by tag in this area (e.g. a regional supermarket chain). Reported
  * as proposals for the owner/top-down agent and marked on the candidates.
  */
+// Shop-type words that many independent shops are simply named after — not chains.
+const GENERIC_NAMES = new Set(
+  [
+    "alimentacion", "alimentacio", "supermercado", "supermercat", "minimercado", "minimercado", "mini mercado", "mercearia",
+    "frutaria", "fruteria", "fruitera", "panaderia", "padaria", "pastelaria", "talho", "carniceria", "peixaria", "pescaderia",
+    "ferreteria", "ferreteria", "ferragens", "drogaria", "drogueria", "bazar", "bazar chino", "loja chinesa", "loja do chines",
+    "chino", "multiprecio", "todo a 100", "mercado", "charcuteria", "horno", "forn", "kiosko", "quiosque", "tienda",
+  ].map(normalize),
+);
+
 export function frequentNames(cands: Candidate[], min = 3): Array<{ name: string; count: number }> {
   const counts = new Map<string, { name: string; count: number }>();
   for (const c of cands) {
@@ -105,7 +115,7 @@ export function frequentNames(cands: Candidate[], min = 3): Array<{ name: string
     if (!c.matchedBy.some((m) => m.by === "tag")) continue;
     const label = c.tags.brand ?? c.name;
     const k = normalize(label);
-    if (k.length < 3) continue;
+    if (k.length < 3 || GENERIC_NAMES.has(k)) continue;
     const e = counts.get(k) ?? { name: label, count: 0 };
     e.count++;
     counts.set(k, e);

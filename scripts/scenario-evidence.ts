@@ -14,7 +14,7 @@ import { runPipeline } from "../lib/scenarios/pipeline";
 import { iberianTimeZone, localWallClock, rankAndTier, type ShownItem } from "../lib/scenarios/tiers";
 
 const dir = path.join(__dirname, "..", "test", "fixtures", "scenarios");
-// Thursday 12 Nov 2026 10:30 and Sunday 15 Nov 2026 10:30, Madrid time (09:30 UTC).
+// Thursday 12 Nov 2026 and Sunday 15 Nov 2026, 09:30 UTC (10:30 in Spain, 09:30 in Portugal).
 const WEEKDAY = new Date("2026-11-12T09:30:00Z");
 const SUNDAY = new Date("2026-11-15T09:30:00Z");
 
@@ -59,8 +59,9 @@ async function main() {
       if (chains) out.push(`Bottom-up proposals (chains not in the brand list): ${chains}.`);
       out.push("");
       const tz = iberianTimeZone(p, p.country);
-      for (const [label, when] of [["Thursday 10:30", WEEKDAY], ["Sunday 10:30", SUNDAY]] as const) {
+      for (const [day, when] of [["Thursday", WEEKDAY], ["Sunday", SUNDAY]] as const) {
         const now = localWallClock(when, tz);
+        const label = `${day} ${now.toTimeString().slice(0, 5)}`;
         const t = rankAndTier(run.items, p, s.config, now, (i, n) => evaluateHours(OH, i.openingHours, { lat: i.lat, lng: i.lng, country: p.country }, n));
         out.push(`**${label}** (${tz})`, "");
         const section = (title: string, list: ShownItem[], max = 3) => {

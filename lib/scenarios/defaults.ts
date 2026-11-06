@@ -59,7 +59,7 @@ Always use the real opening hours; never assume a store is open.`,
       ],
       PT: [
         { tier: 1, brands: ["Continente", "Auchan", "E.Leclerc", "Jumbo"] },
-        { tier: 2, brands: ["Pingo Doce", "Lidl", "Aldi", "Intermarché", "Mercadona", "Continente Modelo"] },
+        { tier: 2, brands: ["Pingo Doce", "Lidl", "Aldi", "Intermarché", "Mercadona", "Continente Modelo", "Auchan Supermercado"] },
         { tier: 3, brands: ["Minipreço", "Continente Bom Dia", "Meu Super", "Spar", "Amanhecer", "Coviran", "My Auchan"] },
       ],
     },

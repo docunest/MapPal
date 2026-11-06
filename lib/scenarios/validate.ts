@@ -38,14 +38,21 @@ function freshest(c: Candidate): { date?: string; what: string } {
   return best;
 }
 
-/** Same place mapped twice (node + building outline, two nodes): same name/brand within 150 m. */
+/**
+ * Same place mapped twice (node + building outline, two nodes): same
+ * name/brand within 150 m — or within 400 m for chain stores, whose node and
+ * building outline can sit far apart on a big retail park.
+ */
 export function dedupe(cands: Candidate[]): Candidate[] {
   const out: Candidate[] = [];
   const richness = (c: Candidate) => Object.keys(c.tags).length + (c.tags.opening_hours ? 10 : 0);
+  const isChain = (c: Candidate) => c.matchedBy.some((m) => m.by === "brand");
   for (const c of cands) {
     const label = normalize(c.tags.brand ?? c.name);
     const dup = out.find(
-      (o) => o.key === c.key || (normalize(o.tags.brand ?? o.name) === label && distanceMeters(o, c) < 150),
+      (o) =>
+        o.key === c.key ||
+        (normalize(o.tags.brand ?? o.name) === label && distanceMeters(o, c) < (isChain(o) && isChain(c) ? 400 : 150)),
     );
     if (!dup) {
       out.push({ ...c, matchedBy: [...c.matchedBy] });

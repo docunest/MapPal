@@ -81,8 +81,10 @@ test("bottom-up candidates on real Madrid OSM data: chains get their tier, frequ
   const dia = cands.filter((c) => c.matchedBy.some((m) => m.by === "brand" && m.brand === "Dia"));
   assert.ok(dia.length >= 10, `Dia stores: ${dia.length}`);
   for (const c of cands) assert.ok(c.matchedBy.length > 0);
-  // No duplicates of the brand-matched chains among frequent-name proposals.
-  assert.ok(!frequentNames(cands).some((f) => normalize(f.name) === "dia"));
+  // No duplicates of the brand-matched chains among frequent-name proposals, and no generic shop words.
+  const proposals = frequentNames(cands).map((f) => normalize(f.name));
+  assert.ok(!proposals.includes("dia"));
+  assert.ok(!proposals.includes("alimentacion"));
 });
 
 // --- validator -----------------------------------------------------------------
@@ -100,6 +102,13 @@ test("validator: same shop mapped twice within 150 m is merged, richer record ke
   assert.equal(out.length, 1);
   assert.equal(out[0].key, "osm:way/2");
   assert.equal(out[0].matchedBy.length, 2);
+  // Chain stores: node and building outline up to 400 m apart are one store; independents aren't.
+  const lm = (ref: string, lat: number) =>
+    cand({ osmRef: ref, key: `osm:${ref}`, lat, tags: { name: "Leroy Merlin", shop: "doityourself" }, matchedBy: [{ by: "brand", brand: "Leroy Merlin", tier: 1, via: "name" }] });
+  assert.equal(dedupe([lm("node/5", 38.7), lm("way/6", 38.7027)]).length, 1, "~300 m apart");
+  assert.equal(dedupe([lm("node/5", 38.7), lm("way/6", 38.705)]).length, 2, "~550 m apart");
+  const fer = (ref: string, lat: number) => cand({ osmRef: ref, key: `osm:${ref}`, lat, tags: { name: "Ferretería Paco", shop: "hardware" }, matchedBy: [{ by: "tag", tag: "shop=hardware" }] });
+  assert.equal(dedupe([fer("node/7", 39.66), fer("node/8", 39.6627)]).length, 2);
 });
 
 test("validator rules: real / stale / unverified from map evidence", () => {
