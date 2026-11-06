@@ -46,6 +46,54 @@ can only use place-level placeholders — the AI never receives your position.
 Google is called only when you tap a place (or when free sources found too
 few results), never for every list item.
 
+## Scenarios (phase 2–3 of `docs/PLAN.md`, backend only so far)
+
+A **scenario** is a saved, versioned question ("Groceries", "Construction
+stores"): the owner's prompt in plain words + a structured config (OSM tags,
+brand tiers per country, local-language name keywords, ranking weights) —
+`lib/scenarios/defaults.ts` seeds the first two. A **stop** is a region: a
+point with a radius (default 15 km), tagged FUTURE / CURRENT / PAST. Results
+are cached per (scenario version, stop); PAST stops are frozen and never
+re-run.
+
+Pipeline per run (`lib/scenarios/pipeline.ts`):
+
+1. **Top-down** (`topDown.ts`) — DeepSeek turns the prompt into the area's
+   brands and name keywords (once per scenario version × ISO region, cached).
+   It gets the prompt, country/region code and languages — no coordinates.
+   Without AI: the seed brands.
+2. **Bottom-up** (`bottomUp.ts`) — one Overpass query for the tags, keywords
+   and brands in the stop's radius; proposes chains the brand list missed.
+3. **Validator** (`validate.ts`) — de-duplicates, assigns tiers, rates
+   real / stale / unverified from map evidence, asks the AI about uncertain
+   matches (bazaar → hardware?), drops stale and mislabelled places with the
+   reason. No web search yet (free tier only).
+
+Output tiers are computed when you look (`tiers.ts`, local time): recommended ·
+closed today ❌ (big stores) · small open alternatives · unverified / hours
+unknown. Places without opening hours are never shown as open.
+
+API (needs a logged-in session; there is no agent/admin-secret access to these routes yet):
+
+| Call | What |
+| --- | --- |
+| `GET /api/scenarios` | scenarios + active version |
+| `POST /api/scenarios/:slug/versions` `{prompt?, config?, note?}` | new version (becomes active) |
+| `GET /api/stops`, `POST /api/stops` `{lat, lng, name?, radiusKm?, status?}` | stops |
+| `PATCH /api/stops/:id`, `DELETE /api/stops/:id` | tag future/current/past, rename, soft delete |
+| `POST /api/scenarios/:slug/run` `{stopId, force?}` | run + cache |
+| `GET /api/scenarios/:slug/at?lat=&lng=[&run=1]` | the one-tap call: cached result, tiered for now; `run=1` runs live if nothing is cached |
+| `GET /api/ai/usage` | DeepSeek balance, calls/tokens this month, low-balance warning |
+
+DeepSeek (`DEEPSEEK_API_KEY`): every agent call counts against
+`deepseek:agent` caps (300/day, 4,000/month; env `CAP_DEEPSEEK_AGENT_DAILY` /
+`_MONTHLY`) and records its tokens. `/api/ai/usage` warns when the balance is
+below `DEEPSEEK_LOW_BALANCE` (default 2 USD / 15 CNY).
+
+Evidence on the acceptance points: `docs/evidence/scenarios-v1.md`
+(`npx tsx scripts/scenario-evidence.ts`; data captured with
+`scripts/capture-scenario-fixtures.ts`).
+
 ## Region indexer (`/regions`)
 
 The original batch indexer, kept as-is.

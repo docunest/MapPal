@@ -3,6 +3,38 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-06 — Phases 2–3 built: scenarios, stops, place store, pipeline v1
+
+- **Task:** INBOX "Build phases 2–3", after the owner's decisions (region = stop + radius, DeepSeek with the owner's key + usage warning, aim free, recommended defaults for the rest — logged in DECISIONS.md).
+- **What changed** (branch `claude/scenarios-v1`, merged to `main`):
+  - DB (additive migration `20261106170704_scenarios`, applied by the app at startup): `Stop` (point + radius, FUTURE/CURRENT/PAST, soft delete + updatedAt for later sync), `Scenario` + `ScenarioVersion` (prompt + config), `ScenarioPlan` (top-down output cached per version × ISO region), `ScenarioResult` (cache per version × stop), `Poi` (place store: provider-neutral id, OSM ref, Google id only, per-field sources, per-scenario AI checks).
+  - Pipeline `lib/scenarios/`: top-down (DeepSeek → brands + local keywords; no coordinates sent; falls back to seed brands), bottom-up (one Overpass query; proposes chains missing from the brand list), validator (dedupe, tiers, real/stale/unverified from map evidence, AI checks for uncertain matches, drops stale/mislabelled places with the reason), render-time tiers in local time (recommended · closed today ❌ · small open alternatives · unverified).
+  - Seed scenarios Groceries and Construction stores (`lib/scenarios/defaults.ts`; prompts from PLAN.md use cases, brand seeds per country — owner to refine).
+  - API: `/api/scenarios`, `/api/scenarios/:slug/{versions,run,at}`, `/api/stops`, `/api/stops/:id`, `/api/ai/usage`. Test page `/scenarios` (buttons + tiered list, evidence, OSM/Google Maps/Waze links; no map — that's phase 4).
+  - DeepSeek: tokens recorded per day, call cap `deepseek:agent` 300/day · 4,000/month, balance from DeepSeek's `/user/balance`, warning below 2 USD / 15 CNY (`DEEPSEEK_LOW_BALANCE`), shown on `/scenarios`.
+  - `opening_hours` helper moved to `lib/openingHours.ts` (old import path kept).
+- **Evidence:**
+  - `docs/evidence/scenarios-v1.md`: both scenarios at all 10 acceptance points, Thursday and Sunday morning local time, from real OSM data captured today (`test/fixtures/scenarios/`, 15 km radius). Screenshots: `docs/evidence/scenarios-groceries-sagunto.png`, `scenarios-construction-sagunto.png` (local DB, same data).
+  - Groceries, top 3 on Thursday: a hypermarket or big chain at every town point (Sagunto Carrefour/Mercadona/Consum; Avilés Alcampo/Carrefour/Supercor; Matosinhos Auchan/Continente/Pingo Doce; Lisbon Auchan/Continente/Pingo Doce; Peniche Auchan Supermercado/Pingo Doce/Intermarché; Mértola Lidl; Arenas and Poncebos Masymas/BM). Pinhão: local shops (nearest big store ~10 km, shown on Sunday).
+  - Sunday: big stores with Sunday-closed hours move to "Closed today ❌" (e.g. Sagunto Mercadona/Lidl, Avilés Carrefour/Mercadona, Arenas Masymas) and open small shops surface.
+  - Construction stores: big-box first near cities (Sagunto Leroy Merlin 2.8 km; Avilés Brico Dépôt 4.5 km — the nearest Leroy Merlin is ~18 km, outside the radius, checked on OSM; Matosinhos Leroy Merlin/Maxmat/Brico Dépôt; Lisbon Leroy Merlin; Madrid Bricor/Leroy Merlin/Leroy Merlin Exprés). Rural: Ferretería Cabrales (Arenas, Poncebos), local hardware in Peniche.
+  - Stale entries dropped with reasons (e.g. 22 at Sagunto groceries: "no hours or contact and not touched for N years").
+  - DB flow checked on a local Postgres: stop created and named from Nominatim, run stored, cached tap answered in 6 ms, a PAST stop refuses to re-run after a new scenario version and keeps its old result.
+  - Tests: 59 pass (13 new in `test/scenarios.test.ts`, incl. a Spanish Sunday); `next build`, lint, typecheck clean.
+- **Not proven / limits (please read):**
+  - AI was **off** in all evidence (no DeepSeek key in the sandbox): top-down used seed brands, uncertain places (bazaars) show as "unverified" instead of AI-checked. The AI path is unit-tested with a fake model only. First real check: tap a scenario on the live app and look at "How this was found".
+  - No web search (free tier), so "real" rests on map evidence; "fake" verdicts only come from the AI check (match yes/no), not from existence checks.
+  - Big stores with no mapped opening hours are listed as "Hours unknown — check before driving" (never as open). Many big stores lack hours in OSM — Google hours would fill this, but Google is optional and not wired into scenarios yet.
+  - Brand tags can't tell a hypermarket from the same chain's small format (e.g. Madrid: some "Alcampo" points are small city supermarkets but are labelled Hypermarket). A "mapped as a point → smaller" rule was tried and removed: real Continente/Auchan hypermarkets are often mapped as points too.
+  - Pinhão and Mértola construction: no verified store within 15 km (only unverified/bazaar entries) — shown as such, not padded.
+  - Not measured on Vercel: cached tap < 3 s, live run ~20 s. Offline (phase 7) not built. Works with no Google key (Google isn't used by scenarios).
+  - Scenario API needs a family login; agents can't reach it with the admin secret yet.
+- **Blockers:** none for phase 4. The sandbox only reaches one Overpass mirror (maps.mail.ru, ~1 in 3 requests), so captures are slow here; production uses the normal mirrors.
+- **Questions for the owner:**
+  1. Try `/scenarios` on the live app at a real stop (with your DeepSeek key set): are the top 3 right? The brand tiers in `lib/scenarios/defaults.ts` are a first guess — tell me what to move.
+  2. Go ahead with phase 4 (one-tap map UI)?
+  3. Still open from the decision list: should AGENTS.md goals G1–G3 be rewritten to match PLAN.md?
+
 ## 2026-11-06 — Answer plan questions + open decisions for the new plan
 
 - **Task:** owner's answers to the three questions in the entry below, plus the list of open decisions (PLAN.md build phase 1).
