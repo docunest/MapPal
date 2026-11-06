@@ -61,8 +61,14 @@ export function rankAndTier(
     if (t[k].length < n) t[k].push(i);
   };
   for (const i of shown) {
-    // Never assume: no or unclear hours → unverified, whatever the store.
-    if (i.verdict !== "real" || i.today === "unknown") push("unverified", i);
+    // Never assume hours. A real big store with unknown hours still ranks
+    // (labelled "Hours unknown — check"), so a Leroy Merlin 3 km away isn't
+    // buried under a small shop 12 km away; small shops with unknown hours
+    // and unverified places go to "unverified".
+    if (i.verdict === "real" && i.today === "unknown" && i.big) {
+      i.hours = { ...i.hours, label: `${i.hours.label} — check before driving` };
+      push("recommended", i);
+    } else if (i.verdict !== "real" || i.today === "unknown") push("unverified", i);
     else if (i.today === "closed") {
       if (i.big) push("closedToday", i);
     } else if (i.big || t.recommended.length < Math.ceil(n / 2)) push("recommended", i);

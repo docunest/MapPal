@@ -210,14 +210,18 @@ test("Spanish Sunday: big stores stay with a red cross, small open shops surface
   const t = rankAndTier(items, at, groceries.config, sunday, (i, now) => evaluateHours(OH, i.openingHours, { lat: i.lat, lng: i.lng, country: "ES" }, now));
   assert.deepEqual(t.closedToday.map((i) => i.name).sort(), ["Carrefour", "Mercadona"]);
   assert.ok(t.closedToday.every((i) => i.hours.state === "closed"));
-  assert.deepEqual(t.recommended.map((i) => i.name).sort(), ["Alimentación Paqui", "Panadería"]);
-  assert.deepEqual(t.unverified.map((i) => i.name).sort(), ["Lidl", "Super Thin"], "no hours → never assumed open");
+  assert.deepEqual(t.recommended.map((i) => i.name).sort(), ["Alimentación Paqui", "Lidl", "Panadería"]);
+  const lidl = t.recommended.find((i) => i.name === "Lidl")!;
+  assert.equal(lidl.today, "unknown", "big store without hours ranks, but is never called open");
+  assert.match(lidl.hours.label, /Hours unknown — check before driving/);
+  assert.deepEqual(t.unverified.map((i) => i.name), ["Super Thin"]);
 
   // Same stores on a Monday morning: the big ones lead.
   const monday = localWallClock(new Date("2026-11-09T09:30:00Z"), "Europe/Madrid");
   const m = rankAndTier(items, at, groceries.config, monday, (i, now) => evaluateHours(OH, i.openingHours, { lat: i.lat, lng: i.lng, country: "ES" }, now));
   assert.equal(m.recommended[0].name, "Carrefour");
-  assert.equal(m.recommended[1].name, "Mercadona");
+  assert.equal(m.recommended[0].hours.state, "open");
+  assert.deepEqual(m.recommended.map((i) => i.name).slice(0, 3).sort(), ["Carrefour", "Lidl", "Mercadona"]);
   assert.equal(m.closedToday.length, 0);
 });
 
