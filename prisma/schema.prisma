@@ -405,3 +405,146 @@ model CamperEvent {
   @@index([ts])
   @@map("mappal_camper_event")
 }
+
+// --- Scenarios (docs/PLAN.md: "Scenarios and regions", "Agent pipeline") ----
+
+enum StopStatus {
+  FUTURE
+  CURRENT
+  PAST
+
+  @@map("mappal_stop_status")
+}
+
+// A region in the 2026-11-06 plan: a stop (planned or current) with a radius
+// (owner's decision). Results are cached per (scenario version, stop). PAST
+// stops are frozen: their results are kept and never re-run. Not the same as
+// Region above, which is the original polygon/H3 batch indexer.
+// updatedAt + deletedAt let devices sync with last-write-wins per record.
+model Stop {
+  id        String     @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  radiusKm  Float      @default(15)
+  status    StopStatus @default(FUTURE)
+  country   String? // ISO 3166-1 alpha-2, from Nominatim
+  area      String? // ISO 3166-2, e.g. "ES-AS"
+  arriveOn  DateTime?
+  note      String?
+  createdBy String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  results ScenarioResult[]
+
+  @@index([status])
+  @@index([updatedAt])
+  @@map("mappal_stop")
+}
+
+// A saved question the family asks again and again ("Groceries",
+// "Construction stores"). The prompt and settings live in versions.
+model Scenario {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  title         String
+  icon          String?
+  description   String
+  activeVersion Int       @default(1)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  versions ScenarioVersion[]
+
+  @@map("mappal_scenario")
+}
+
+// Every saved edit of a scenario. `prompt` is the owner's taste profile in
+// plain words (sent to the AI top-down agent); `config` is the structured
+// part (OSM tags, brand tiers, keywords, ranking weights) — see
+// lib/scenarios/types.ts. A new version re-runs only FUTURE/CURRENT stops.
+model ScenarioVersion {
+  id         String   @id @default(cuid())
+  scenarioId String
+  scenario   Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  version    Int
+  prompt     String
+  config     Json
+  createdBy  String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  results ScenarioResult[]
+  plans   ScenarioPlan[]
+
+  @@unique([scenarioId, version])
+  @@map("mappal_scenario_version")
+}
+
+// The top-down agent's output (brands + local keywords) per scenario version
+// and area (ISO 3166-2). Reused by every stop in the same area, so the AI is
+// asked once per area, not once per stop. `by` = "ai:<model>" or "defaults".
+model ScenarioPlan {
+  id                String          @id @default(cuid())
+  scenarioVersionId String
+  scenarioVersion   ScenarioVersion @relation(fields: [scenarioVersionId], references: [id], onDelete: Cascade)
+  area              String
+  plan              Json
+  by                String
+  createdAt         DateTime        @default(now())
+
+  @@unique([scenarioVersionId, area])
+  @@map("mappal_scenario_plan")
+}
+
+// The cached, validated shortlist for one scenario version at one stop.
+// `items` is a full snapshot (name, position, hours, tier, verdict, evidence,
+// sources), so a tap renders without joins. Open/closed is NOT stored — it is
+// evaluated at render time from the opening hours.
+model ScenarioResult {
+  id                String          @id @default(cuid())
+  scenarioVersionId String
+  scenarioVersion   ScenarioVersion @relation(fields: [scenarioVersionId], references: [id], onDelete: Cascade)
+  stopId            String
+  stop              Stop            @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  status            String // "running" | "done" | "error"
+  items             Json
+  notes             Json
+  aiTokensIn        Int             @default(0)
+  aiTokensOut       Int             @default(0)
+  error             String?
+  startedAt         DateTime        @default(now())
+  finishedAt        DateTime?
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([scenarioVersionId, stopId])
+  @@index([stopId])
+  @@map("mappal_scenario_result")
+}
+
+// MapPal's own place store: provider-neutral id, cross-referenced to OSM and
+// Google. Every field in `data` keeps its source ({value, source, url, at}).
+// Google: only the place id is stored (Google's terms) — ratings, reviews and
+// photos are fetched live on tap, never cached here.
+// `checks` caches per-scenario AI checks ({[scenarioSlug]: {match, real,
+// reason, by, at}}), always labelled AI in the UI.
+model Poi {
+  id            String   @id @default(cuid())
+  name          String
+  lat           Float
+  lng           Float
+  osmRef        String?  @unique // "node/123", "way/456"
+  googlePlaceId String?  @unique
+  brand         String?
+  country       String?
+  data          Json
+  checks        Json     @default("{}")
+  firstSeenAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([lat, lng])
+  @@map("mappal_poi")
+}

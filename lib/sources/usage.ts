@@ -19,6 +19,8 @@ export const DEFAULT_CAPS: Record<string, Cap> = {
   "google:place-details-atmosphere": { daily: 30, monthly: 900 },
   "google:nearby-search-pro": { daily: 120, monthly: 4500 },
   "deepseek:chat": { daily: 150, monthly: 3000 },
+  // Scenario agents (top-down plan per area, validator checks per run).
+  "deepseek:agent": { daily: 300, monthly: 4000 },
 };
 
 /** Env override: CAP_GOOGLE_PLACE_DETAILS_ATMOSPHERE_DAILY=10 etc. */
