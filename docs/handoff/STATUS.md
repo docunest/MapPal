@@ -8,7 +8,7 @@ Newest on top. Each entry: date, task, what changed (commits), evidence
 - **Task:** owner asked to replace the old plan with the updated plan (the mappal-context skill text, reviewed externally).
 - **What changed (this commit):**
   - `docs/PLAN.md` now holds the skill body word for word, under a short note on top saying where it came from and where the old plan went.
-  - Old plan moved (git mv, history kept) to `docs/archive/PLAN-2026-10-25.md`. It still holds the car dock backend spec (§8) and the sources/prompts/likes/privacy sections (§7a–7d) that code comments cite.
+  - Old plan copied unchanged to `docs/archive/PLAN-2026-10-25.md`. It still holds the car dock backend spec (§8) and the sources/prompts/likes/privacy sections (§7a–7d) that code comments cite. Its edit history stays under `docs/PLAN.md` in git log.
   - `AGENTS.md`: the G4 pointer "See docs/PLAN.md §8" now points to the archived file.
   - `DECISIONS.md`: logged the replacement.
 - **Evidence:** a diff check confirmed the PLAN.md body matches the skill body exactly.
