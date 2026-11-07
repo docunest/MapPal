@@ -19,7 +19,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const item = await prisma.dockItem.findUnique({ where: { id } });
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const miss = () =>
-    new NextResponse(null, { status: 404, headers: { "Cache-Control": `private, max-age=${MISS_S}` } });
+    // X-Photo-Source: none = "looked, there is none" (the head unit remembers it a week);
+    // a 404 without it (route missing, item gone) is retried later.
+    new NextResponse(null, { status: 404, headers: { "Cache-Control": `private, max-age=${MISS_S}`, "X-Photo-Source": "none" } });
   if (item.lat == null || item.lng == null) return miss();
 
   const googleOn = sourceState(googleSource, await loadSourceSettings()) === "on";
