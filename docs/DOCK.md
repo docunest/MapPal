@@ -41,6 +41,16 @@ and resolves the places.
   (`lib/dock/near.ts`, mirrors the head unit's `Near.kt`; `All` shows
   everything), Waze / Google Maps buttons per place. `/dock` keeps sending a
   link by hand and the share-shortcut debug log.
+- **Place photos** — `GET /api/dock/items/<id>/photo` (dock token or
+  session): the image itself. Wikipedia first (es/pt/ca/gl/eu/en geosearch,
+  only an article within 400 m that shares a distinctive word with the name,
+  `lib/dock/photo.ts`), else Google's first photo (Text Search IDs → Place
+  Details `photos` → Place Photo, capped `google:place-photo` 30/day,
+  900/month). `Cache-Control: private, max-age=30 days`: the head unit keeps
+  it as a file and the phone browser caches it — **owner's call
+  (2026-11-07)** to keep photos 30 days on the devices, although Google's
+  terms only allow caching coordinates; MapPal itself stores nothing. No
+  photo → 404, remembered 7 days. Credit in `X-Photo-Credit`.
 
 Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
 → 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".

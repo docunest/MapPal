@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { gmapsUrl, wazeUrl, type DockMapItem } from "@/components/DockMap";
 import { arrow, distanceTo, isUpFront, recency, town } from "@/lib/dock/near";
+import { CarPhoto } from "./CarPhoto";
 import type { Located } from "./useLocation";
 
 // MapLibre touches `window` at import time — client-only.
@@ -20,7 +21,11 @@ interface CarPlace extends DockMapItem {
 }
 
 function km(m: number): string {
-  return m < 1000 ? `${Math.round(m)} m` : m < 20_000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000)} km`;
+  return m < 1000
+    ? `${Math.round(m)} m`
+    : m < 20_000
+      ? `${(m / 1000).toFixed(1)} km`
+      : `${Math.round(m / 1000)} km`;
 }
 
 function ago(ms: number): string {
@@ -49,22 +54,35 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
       .catch((e) => setError(String(e)));
   }, []);
 
-  const here = loc ? { lat: loc.lat, lng: loc.lng } : null;
+  const lat = loc?.lat;
+  const lng = loc?.lng;
+  const here = useMemo(() => (lat != null && lng != null ? { lat, lng } : null), [lat, lng]);
   const sorted = useMemo(
     () =>
       [...(items ?? [])].sort(
         (a, b) =>
           Number(b.pinned) - Number(a.pinned) ||
-          Number(b.kind === "link" && !b.seenAt) - Number(a.kind === "link" && !a.seenAt) ||
+          Number(b.kind === "link" && !b.seenAt) -
+            Number(a.kind === "link" && !a.seenAt) ||
           recency(b) - recency(a),
       ),
     [items],
   );
-  const upFront = useMemo(() => sorted.filter((i) => isUpFront(i, here)), [sorted, here?.lat, here?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  const upFront = useMemo(() => sorted.filter((i) => isUpFront(i, here)), [sorted, here]);
   const shown = all ? sorted : upFront;
 
-  if (error) return <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>;
-  if (items === null) return <p className="py-10 text-center text-sm text-neutral-500">Loading car places…</p>;
+  if (error)
+    return (
+      <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {error}
+      </p>
+    );
+  if (items === null)
+    return (
+      <p className="py-10 text-center text-sm text-neutral-500">
+        Loading car places…
+      </p>
+    );
 
   return (
     <div className="space-y-3">
@@ -100,7 +118,10 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
       {shown.length === 0 && (
         <p className="rounded border bg-white p-4 text-sm text-neutral-500">
           Nothing near or recent.{" "}
-          <button className="text-blue-700 underline" onClick={() => setAll(true)}>
+          <button
+            className="text-blue-700 underline"
+            onClick={() => setAll(true)}
+          >
             Show all {sorted.length}
           </button>
         </p>
@@ -115,44 +136,84 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
             <li
               key={i.id}
               onClick={() => setSelected(i.id)}
-              className={`flex gap-3 rounded-lg border p-3 active:bg-neutral-50 ${
-                selected === i.id ? "border-blue-400 bg-blue-50" : isNew ? "border-amber-300 bg-amber-50" : "bg-white"
+              className={`rounded-lg border p-3 active:bg-neutral-50 ${
+                selected === i.id
+                  ? "border-blue-400 bg-blue-50"
+                  : isNew
+                    ? "border-amber-300 bg-amber-50"
+                    : "bg-white"
               }`}
             >
-              <div className="text-2xl leading-none">{i.pinned ? "📌" : i.kind === "bookmark" ? "★" : "📍"}</div>
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium leading-tight">{i.title}</p>
-                  {d != null && here && i.lat != null && i.lng != null && (
-                    <p className="shrink-0 text-sm font-medium tabular-nums text-neutral-700">
-                      {d >= 300 && <span className="text-neutral-400">{arrow(here, { lat: i.lat, lng: i.lng })} </span>}~{km(d)}
+              {i.lat != null && <CarPhoto id={i.id} />}
+              <div className="flex gap-3">
+                <div className="text-2xl leading-none">
+                  {i.pinned ? "📌" : i.kind === "bookmark" ? "★" : "📍"}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium leading-tight">{i.title}</p>
+                    {d != null && here && i.lat != null && i.lng != null && (
+                      <p className="shrink-0 text-sm font-medium tabular-nums text-neutral-700">
+                        {d >= 300 && (
+                          <span className="text-neutral-400">
+                            {arrow(here, { lat: i.lat, lng: i.lng })}{" "}
+                          </span>
+                        )}
+                        ~{km(d)}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    {[
+                      isNew ? "NEW — not in the car yet" : null,
+                      t,
+                      `${i.kind === "bookmark" ? "saved in the car" : "sent"} ${ago(Date.parse(i.createdAt))}`,
+                      i.openCount ? `driven to ${i.openCount}×` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {i.locatedBy === "search" && (
+                    <p className="text-xs text-amber-700">
+                      Approximate — found by name, check the pin
                     </p>
                   )}
-                </div>
-                <p className="text-xs text-neutral-500">
-                  {[
-                    isNew ? "NEW — not in the car yet" : null,
-                    t,
-                    `${i.kind === "bookmark" ? "saved in the car" : "sent"} ${ago(Date.parse(i.createdAt))}`,
-                    i.openCount ? `driven to ${i.openCount}×` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-                {i.locatedBy === "search" && <p className="text-xs text-amber-700">Approximate — found by name, check the pin</p>}
-                {i.locatedBy === "none" && <p className="text-xs text-amber-700">No pin — opens the original link</p>}
-                <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
-                  <a className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white" href={wazeUrl(i)} target="_blank" rel="noreferrer">
-                    Waze
-                  </a>
-                  <a className="rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white" href={gmapsUrl(i)} target="_blank" rel="noreferrer">
-                    Google Maps
-                  </a>
-                  {link && (
-                    <a className="rounded border px-3 py-1.5 text-sm text-neutral-600" href={link} target="_blank" rel="noreferrer">
-                      Link
-                    </a>
+                  {i.locatedBy === "none" && (
+                    <p className="text-xs text-amber-700">
+                      No pin — opens the original link
+                    </p>
                   )}
+                  <div
+                    className="flex gap-2 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white"
+                      href={wazeUrl(i)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Waze
+                    </a>
+                    <a
+                      className="rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white"
+                      href={gmapsUrl(i)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Google Maps
+                    </a>
+                    {link && (
+                      <a
+                        className="rounded border px-3 py-1.5 text-sm text-neutral-600"
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Link
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </li>
@@ -160,8 +221,12 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
         })}
       </ul>
       {!all && sorted.length > upFront.length && (
-        <button className="w-full rounded border bg-white py-2 text-sm text-neutral-600" onClick={() => setAll(true)}>
-          Show {sorted.length - upFront.length} more — over 300 km and older than 3 days
+        <button
+          className="w-full rounded border bg-white py-2 text-sm text-neutral-600"
+          onClick={() => setAll(true)}
+        >
+          Show {sorted.length - upFront.length} more — over 300 km and older
+          than 3 days
         </button>
       )}
     </div>

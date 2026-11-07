@@ -237,3 +237,46 @@ export const googleSource: Source = {
     return detailBlocks(p);
   },
 };
+
+// --- One photo of a place (car places on the head unit / phone) ------------
+// Find the place (Text Search IDs only — free), read its photo list (Place
+// Details "photos" — IDs-only field), then download one photo (Place Photo
+// SKU, capped). The head unit and the phone keep the picture 30 days —
+// the owner's call (2026-11-07), against the default "never stored" above:
+// re-downloading on every look in the car isn't usable. MapPal itself
+// stores nothing.
+export interface GooglePhoto {
+  bytes: ArrayBuffer;
+  contentType: string;
+  credit: string;
+}
+
+export async function googlePlacePhoto(
+  place: { name: string; lat: number; lng: number },
+  ctx: SourceContext,
+  maxWidthPx = 480,
+): Promise<GooglePhoto | null> {
+  const ref: PlaceRef = { key: "", mode: "utility", name: place.name, lat: place.lat, lng: place.lng, wiki: [], refs: {}, userLang: "es", localLangs: [] };
+  const id = await findPlaceId(ref, ctx);
+  if (!id) return null;
+  await guard(ctx, "place-photo-list");
+  const details = await call<{ photos?: Array<{ name: string; authorAttributions?: Array<{ displayName?: string }> }> }>(
+    `/places/${encodeURIComponent(id)}`,
+    { method: "GET", fieldMask: "photos" },
+  );
+  const photo = details.photos?.[0];
+  if (!photo) return null;
+  await guard(ctx, "place-photo");
+  const res = await fetch(`${BASE}/${photo.name}/media?maxWidthPx=${maxWidthPx}`, {
+    headers: { "X-Goog-Api-Key": process.env.GOOGLE_MAPS_API_KEY?.trim() ?? "" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (res.status === 429) throw new SourceCappedError("Google photo quota reached");
+  if (!res.ok) throw new Error(`Google photo ${res.status}`);
+  const who = photo.authorAttributions?.map((a) => a.displayName).filter(Boolean).join(", ");
+  return {
+    bytes: await res.arrayBuffer(),
+    contentType: res.headers.get("content-type") ?? "image/jpeg",
+    credit: who ? `Google Maps · ${who}` : "Google Maps",
+  };
+}
