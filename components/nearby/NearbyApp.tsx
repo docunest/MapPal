@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { CarPlacesTab } from "./CarPlacesTab";
 import { ConfigBanner } from "./ConfigBanner";
 import { DetailSheet } from "./DetailSheet";
 import { SightsTab } from "./SightsTab";
@@ -11,13 +12,16 @@ import type { Selected } from "./types";
 import { UtilitiesTab } from "./UtilitiesTab";
 import { useLocation } from "./useLocation";
 
-type Tab = "utilities" | "sights";
+type Tab = "utilities" | "sights" | "car";
+const TABS: readonly Tab[] = ["utilities", "sights", "car"];
+const isTab = (t: string | null): t is Tab => !!t && (TABS as readonly string[]).includes(t);
 
 function readTab(): Tab {
   try {
     const fromUrl = new URLSearchParams(window.location.search).get("tab");
-    if (fromUrl === "sights" || fromUrl === "utilities") return fromUrl;
-    return localStorage.getItem("mappal.tab") === "sights" ? "sights" : "utilities";
+    if (isTab(fromUrl)) return fromUrl;
+    const saved = localStorage.getItem("mappal.tab");
+    return isTab(saved) ? saved : "utilities";
   } catch {
     return "utilities";
   }
@@ -100,6 +104,7 @@ export default function NearbyApp() {
               [
                 ["utilities", "Utilities"],
                 ["sights", "Sightseeing"],
+                ["car", "🚐 Car places"],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -116,8 +121,10 @@ export default function NearbyApp() {
         </header>
 
         <main className="mx-auto max-w-2xl px-4 py-3">
-          {state.status === "locating" && <p className="py-10 text-center text-sm text-neutral-500">Finding your location…</p>}
-          {state.status === "error" && (
+          {/* Car places don't need a location to be useful (distances do): shown whatever the GPS says. */}
+          {tab === "car" && <CarPlacesTab loc={state.status === "ready" ? state.loc : null} />}
+          {tab !== "car" && state.status === "locating" && <p className="py-10 text-center text-sm text-neutral-500">Finding your location…</p>}
+          {tab !== "car" && state.status === "error" && (
             <div className="space-y-3 rounded-lg border border-red-200 bg-white p-4 text-sm">
               <p className="text-red-700">{state.message}</p>
               <button onClick={refresh} className="rounded bg-neutral-900 px-3 py-1.5 text-white">
@@ -125,7 +132,8 @@ export default function NearbyApp() {
               </button>
             </div>
           )}
-          {state.status === "ready" &&
+          {tab !== "car" &&
+            state.status === "ready" &&
             (tab === "utilities" ? (
               <UtilitiesTab
                 loc={state.loc}

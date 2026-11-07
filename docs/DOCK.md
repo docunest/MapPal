@@ -34,6 +34,13 @@ and resolves the places.
   `DOCK_INBOX_TOKEN` env overrides). Owner's call: 2 users, ~3 weeks.
 - History is never deleted automatically; the head unit sorts new/unopened
   first, then recently used.
+- **On the phone** — main app, third tab **🚐 Car places** (`/?tab=car`,
+  next to Utilities / Sightseeing; `components/nearby/CarPlacesTab.tsx`):
+  the same list and map as the car, same "within 300 km or sent / driven to
+  in the last 3 days, pinned and new always" view measured from the phone
+  (`lib/dock/near.ts`, mirrors the head unit's `Near.kt`; `All` shows
+  everything), Waze / Google Maps buttons per place. `/dock` keeps sending a
+  link by hand and the share-shortcut debug log.
 
 Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
 → 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".
