@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 // A car place's photo (Wikipedia, else Google) with its credit. Fetched only
 // once the card is on screen; the browser keeps it 30 days (the server says
 // so), so scrolling back and forth never downloads it again.
-export function CarPhoto({ id }: { id: string }) {
+export function CarPhoto({ id, token }: { id: string; token?: string | null }) {
   const box = useRef<HTMLDivElement>(null);
   const [photo, setPhoto] = useState<{ url: string; credit: string } | null>(null);
   const [visible, setVisible] = useState(false);
@@ -22,7 +22,7 @@ export function CarPhoto({ id }: { id: string }) {
     if (!visible) return;
     let url: string | null = null;
     let live = true;
-    fetch(`/api/dock/items/${id}/photo`)
+    fetch(`/api/dock/items/${id}/photo`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(async (r) => {
         if (!r.ok || !live) return;
         url = URL.createObjectURL(await r.blob());
@@ -33,7 +33,7 @@ export function CarPhoto({ id }: { id: string }) {
       live = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [id, visible]);
+  }, [id, visible, token]);
 
   return (
     <div ref={box}>

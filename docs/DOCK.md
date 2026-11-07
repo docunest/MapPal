@@ -41,6 +41,10 @@ and resolves the places.
   (`lib/dock/near.ts`, mirrors the head unit's `Near.kt`; `All` shows
   everything), Waze / Google Maps buttons per place. `/dock` keeps sending a
   link by hand and the share-shortcut debug log.
+- **Phone without logging in** — `/car#t=<dock token>`: the same Car places
+  view, signed in by the dock token (kept in the browser, removed from the
+  address bar), like `/camper#t=`. The page is a public shell (`proxy.ts`);
+  its data needs the token. Utilities / Sightseeing still need the login.
 - **Place photos** — `GET /api/dock/items/<id>/photo` (dock token or
   session): the image itself. Wikipedia first (es/pt/ca/gl/eu/en geosearch,
   only an article within 400 m that shares a distinctive word with the name,

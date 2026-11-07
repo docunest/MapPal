@@ -40,7 +40,7 @@ function ago(ms: number): string {
 // same "within 300 km or from the last 3 days" view as the head unit,
 // measured from the phone. Sending and the share-shortcut debug log stay
 // on /dock.
-export function CarPlacesTab({ loc }: { loc: Located | null }) {
+export function CarPlacesTab({ loc, token }: { loc: Located | null; token?: string | null }) {
   const [items, setItems] = useState<CarPlace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState(false);
@@ -48,11 +48,11 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
   const select = useCallback((id: string) => setSelected(id), []);
 
   useEffect(() => {
-    fetch("/api/dock/items")
+    fetch("/api/dock/items", { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then((r) => r.json())
       .then((d) => (d.error ? setError(String(d.error)) : setItems(d.items)))
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [token]);
 
   const lat = loc?.lat;
   const lng = loc?.lng;
@@ -101,9 +101,11 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
             {label} <span className="ml-1 opacity-60">{n}</span>
           </button>
         ))}
-        <Link href="/dock" className="ml-auto text-sm text-blue-700 underline">
-          Send a link
-        </Link>
+        {!token && (
+          <Link href="/dock" className="ml-auto text-sm text-blue-700 underline">
+            Send a link
+          </Link>
+        )}
       </div>
       <p className="text-xs text-neutral-500">
         {all
@@ -144,7 +146,7 @@ export function CarPlacesTab({ loc }: { loc: Located | null }) {
                     : "bg-white"
               }`}
             >
-              {i.lat != null && <CarPhoto id={i.id} />}
+              {i.lat != null && <CarPhoto id={i.id} token={token} />}
               <div className="flex gap-3">
                 <div className="text-2xl leading-none">
                   {i.pinned ? "📌" : i.kind === "bookmark" ? "★" : "📍"}

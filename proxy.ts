@@ -19,8 +19,11 @@ export default auth((req) => {
   // Camper control (lib/camper/auth.ts): the Z1 and the owner's link use a
   // token; the /camper page asks for it when there's no session.
   const isCamper = req.nextUrl.pathname.startsWith("/api/camper") || req.nextUrl.pathname === "/camper";
+  // Car places on the phone with the dock token (/car#t=<token>, kept in the
+  // browser): the page is only a shell, its data needs the token (/api/dock).
+  const isCarPage = req.nextUrl.pathname === "/car";
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
