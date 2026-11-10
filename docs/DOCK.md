@@ -41,6 +41,16 @@ and resolves the places.
   (`lib/dock/near.ts`, mirrors the head unit's `Near.kt`; `All` shows
   everything), Waze / Google Maps buttons per place. `/dock` keeps sending a
   link by hand and the share-shortcut debug log.
+- **Debug log from the head unit** — `POST /api/dock/logs` (dock token):
+  the GPS / Wi-Fi doctors' measurements and state changes, every 2 min
+  (`dock/…/DebugLog.kt`). Stored in `mappal_dock_log`, idempotent per
+  (device, seq). **Capped**: each row counts its text + a measured 270 B of
+  row/index overhead; over `DOCK_LOG_CAP_BYTES` (default 35 MB) the oldest
+  rows are deleted down to 90 % and the table VACUUMed. Tested on Postgres
+  16 (2026-11-10): 15 MB uploaded against a 1 MB cap → real table size
+  peaked at 1.14 MB, so the default stays ≈ 40 MB, under 50 MB.
+  Read back: `GET /api/dock/logs?tag=GPS&since=…&q=…&limit=500&format=text`
+  (dock token or login), newest first.
 - **Phone without logging in** — `/car#t=<dock token>`: the same Car places
   view, signed in by the dock token (kept in the browser, removed from the
   address bar), like `/camper#t=`. The page is a public shell (`proxy.ts`);

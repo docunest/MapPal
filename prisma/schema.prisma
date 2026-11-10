@@ -548,3 +548,24 @@ model Poi {
   @@index([lat, lng])
   @@map("mappal_poi")
 }
+
+// Dock debug log: what the head unit's GPS / Wi-Fi doctors measured and every
+// state change (docunest/android-apps dock/…/DebugLog.kt), uploaded every
+// 2 min to /api/dock/logs for later investigation. Capped: the text kept
+// stays under DOCK_LOG_CAP_BYTES (40 MB by default, so the table with its
+// indexes stays under 50 MB); the oldest rows go first. (device, seq) makes
+// re-uploads idempotent.
+model DockLog {
+  id         BigInt   @id @default(autoincrement())
+  at         DateTime
+  device     String
+  seq        BigInt
+  tag        String
+  msg        String
+  bytes      Int
+  receivedAt DateTime @default(now())
+
+  @@unique([device, seq])
+  @@index([at])
+  @@map("mappal_dock_log")
+}
