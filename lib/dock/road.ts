@@ -47,7 +47,7 @@ export type RoadPoi = {
   offsetM: number;
   /** Side in the driving direction. */
   side: "L" | "R";
-  /** Short facts for the strip: "diesel · LPG · 24/7", "3.2 m". */
+  /** Short facts for the strip: "diesel ✓ · 24/7", "height 3.2 m". */
   info: string | null;
 };
 
@@ -142,8 +142,19 @@ export function overpassQuery(piece: LatLng[], layers: RoadLayer[]): string {
 type OsmEl = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
 
 /** Which layer an OSM element belongs to (the first that matches, in ROAD_LAYERS order). */
+/**
+ * Owner 2026-11-16: "I only care about diesel" (no EV chargers, no AdBlue). Chargers are a different
+ * OSM tag and never come in; drop stations that say no diesel or list their fuels without diesel.
+ * Stations with no fuel tags stay — nearly all sell diesel.
+ */
+export function dieselMaybe(t: Record<string, string>): boolean {
+  if (t["fuel:diesel"] === "yes" || t["fuel:HGV_diesel"] === "yes") return true;
+  if (t["fuel:diesel"] === "no") return false;
+  return !Object.entries(t).some(([k, v]) => k.startsWith("fuel:") && v === "yes");
+}
+
 export function layerOf(t: Record<string, string>): RoadLayer | null {
-  if (t.amenity === "fuel") return "fuel";
+  if (t.amenity === "fuel") return dieselMaybe(t) ? "fuel" : null;
   if (t.highway === "rest_area" || t.highway === "services") return "rest";
   if (t.amenity === "sanitary_dump_station") return "dump";
   if (t.tourism === "caravan_site" || t.tourism === "camp_site") return "aire";
@@ -166,14 +177,10 @@ export function layerOf(t: Record<string, string>): RoadLayer | null {
   return null;
 }
 
-/** "diesel · LPG · AdBlue · 24/7", "3.5 m", "wind". */
+/** "diesel ✓ · 24/7", "height 3.5 m", "wind". */
 export function infoOf(layer: RoadLayer, t: Record<string, string>): string | null {
   const bits: string[] = [];
-  if (layer === "fuel") {
-    if (t["fuel:diesel"] === "yes") bits.push("diesel");
-    if (t["fuel:lpg"] === "yes") bits.push("LPG");
-    if (t["fuel:adblue"] === "yes") bits.push("AdBlue");
-  }
+  if (layer === "fuel" && (t["fuel:diesel"] === "yes" || t["fuel:HGV_diesel"] === "yes")) bits.push("diesel ✓");
   if (layer === "limit") {
     if (t.maxheight) bits.push(`height ${t.maxheight}${/^[\d.]+$/.test(t.maxheight) ? " m" : ""}`);
     if (t.maxweight) bits.push(`weight ${t.maxweight}${/^[\d.]+$/.test(t.maxweight) ? " t" : ""}`);

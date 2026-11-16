@@ -43,7 +43,7 @@ test("OSM elements become layered POIs with facts", () => {
   assert.equal(layerOf({ highway: "primary", maxheight: "3.2" }), "limit");
   assert.equal(layerOf({ power: "plant", "plant:source": "wind" }), "power");
   assert.equal(layerOf({ highway: "motorway", name: "A1" }), null);
-  assert.equal(infoOf("fuel", { "fuel:diesel": "yes", "fuel:lpg": "yes", opening_hours: "24/7" }), "diesel · LPG · 24/7");
+  assert.equal(infoOf("fuel", { "fuel:diesel": "yes", "fuel:lpg": "yes", "fuel:adblue": "yes", opening_hours: "24/7" }), "diesel ✓ · 24/7");
   assert.equal(infoOf("limit", { maxheight: "3.2" }), "height 3.2 m");
   const cum = cumulative(A1);
   const pois = placePois(
@@ -64,4 +64,13 @@ test("one Overpass query per piece, each layer with its own corridor", () => {
   const q = overpassQuery(A1, ["fuel", "bridge"]);
   assert.match(q, /nwr\[amenity=fuel\]\(around:1000,38\.95540,-8\.98940,/);
   assert.match(q, /way\[bridge\]\[name\]\(around:60,/);
+});
+
+test("fuel: diesel only — no LPG-only, petrol-only or 'no diesel' stations; untagged ones stay", () => {
+  assert.equal(layerOf({ amenity: "fuel" }), "fuel");
+  assert.equal(layerOf({ amenity: "fuel", "fuel:diesel": "yes", "fuel:octane_95": "yes" }), "fuel");
+  assert.equal(layerOf({ amenity: "fuel", "fuel:HGV_diesel": "yes" }), "fuel");
+  assert.equal(layerOf({ amenity: "fuel", "fuel:lpg": "yes" }), null);
+  assert.equal(layerOf({ amenity: "fuel", "fuel:diesel": "no", "fuel:octane_95": "yes" }), null);
+  assert.equal(layerOf({ amenity: "charging_station" }), null);
 });

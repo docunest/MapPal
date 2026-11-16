@@ -114,7 +114,7 @@ and resolves the places.
   - **POIs along it** (MapPal, Overpass `around:<corridor>` on the route
     line, cached per route; fetched while online, kept for the drive): each
     with km along the route, side / detour, and the exit. Layers, GPS-style:
-    ⛽ Fuel (diesel, 🟢 LPG/autogas, AdBlue; ⚡ chargers off by default) ·
+    ⛽ Diesel stations only (owner 2026-11-16: no EV chargers, LPG, AdBlue) ·
     🅿 Rest area / services (`highway=rest_area|services`) · 🚻 toilets ·
     💧 drinking water · 🚐 camper: dump station, aires / Stellplatz,
     campsites · 🛒 grocery near an exit · 🍴 food at services · 🛝 playground
