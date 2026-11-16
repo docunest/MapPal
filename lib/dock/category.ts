@@ -173,9 +173,11 @@ const BIG_CITIES = words(
     "roma|rome|milano|milan|napoli|torino|turin|palermo|genova|bologna|firenze|florence|venezia|venice|verona|" +
     "berlin|hamburg|munchen|munich|koln|cologne|frankfurt am main|stuttgart|dusseldorf",
 );
-const CITY_RX = new RegExp(`(?:^|, |\\d{4}-\\d{3} |\\d{5} )(?:${BIG_CITIES.map((c) => c.replace(/ /g, " ")).join("|")})(?=,|$)`);
+// Postcode + city ("4050-182 Porto", "32003 Ourense"): province names that are also city names
+// ("32660 Allariz, Ourense, España") don't count. No postcode in the address → no badge.
+const CITY_RX = new RegExp(`(?:\\d{4}-\\d{3} |\\d{5} )(?:${BIG_CITIES.map((c) => c.replace(/ /g, " ")).join("|")})(?=,|$)`);
 
-/** Inside a 100 k+ city, from the address ("…, 4050-182 Porto, Portugal" yes; "Porto Covo" no). */
+/** Inside a 100 k+ city, from the address ("…, 4050-182 Porto, Portugal" yes; "Porto Covo", "Allariz, Ourense" no). */
 export function inBigCity(address: string | null | undefined): boolean {
   if (!address) return false;
   // Keep the commas: the city is a whole address part.
@@ -291,7 +293,10 @@ export async function categoryByOsm(title: string, p: { lat: number; lng: number
     const u = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${p.lat}&lon=${p.lng}`;
     const res = await fetchFn(u, { headers: { "User-Agent": UA, "Accept-Language": "en" }, signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
-    const j = (await res.json()) as { category?: string; type?: string; addresstype?: string };
+    const j = (await res.json()) as { category?: string; type?: string; addresstype?: string; address?: Record<string, string> };
+    // The town / village the pin is in carries the title's name ("Las Arenas" in Arenas de Cabrales): a town.
+    const settlement = ["city", "town", "village", "hamlet"].map((k) => j.address?.[k]).find(Boolean);
+    if (settlement && shares(title, settlement)) return "town";
     return categoryFromNominatim(j.category, j.type, j.addresstype);
   } catch {
     return null;

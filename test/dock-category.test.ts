@@ -63,6 +63,9 @@ test("big cities: the address part, not a lookalike", () => {
   assert.equal(inBigCity("32660 Allariz, Province of Ourense, España"), false); // the province, not the city
   assert.equal(inBigCity("R. Nova da Gândara 2, 4485-613 Mindelo, Portugal"), false);
   assert.equal(inBigCity(null), false);
+  // Live 2026-11-16: the province named like its capital gave Allariz a 🏙.
+  assert.equal(inBigCity("Allariz, Ourense, España"), false);
+  assert.equal(inBigCity("Rúa de Don Pepe Puga, 4, 32660 Allariz, Ourense, España"), false);
 });
 
 test("OSM tags and Nominatim results map to categories", () => {
@@ -98,6 +101,9 @@ test("OSM: the object named like the title wins; towns by exact name", async () 
   // A café at the pin, unnamed match: the nearest mapped thing within 40 m.
   const brecha = fakeOsm([{ lat: 41.15601, lon: -8.61902, tags: { name: "Brecha", amenity: "cafe" } }]);
   assert.equal(await categoryByOsm("Brecha Porto", { lat: 41.156, lng: -8.619 }, brecha), "eat");
+  // Live 2026-11-16: Overpass gave nothing for "Las Arenas"; Nominatim's address names the village.
+  const village = fakeOsm([], { category: "highway", type: "secondary", addresstype: "road", address: { village: "Arenas de Cabrales" } });
+  assert.equal(await categoryByOsm("Las Arenas", { lat: 43.3028, lng: -4.8141 }, village), "town");
   // Overpass has nothing: Nominatim's reverse answer.
   const street = fakeOsm([], { category: "highway", type: "residential", addresstype: "road" });
   assert.equal(await categoryByOsm("R. Visc. Morais", { lat: 39.441, lng: -9.222 }, street), "other");

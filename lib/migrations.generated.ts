@@ -47,5 +47,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261116090000_dock_item_category",
     "sql": "-- Place categories for sent places (docs/DOCK.md \"Place categories\").\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"category\" TEXT;\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"categorySource\" TEXT;\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"bigCity\" BOOLEAN NOT NULL DEFAULT false;\n"
+  },
+  {
+    "name": "20261116100000_dock_item_category_recheck",
+    "sql": "-- Re-classify places after the first live run (2026-11-16): the 🏙 badge now needs a postcode\n-- before the city, and towns are also matched from Nominatim's address. The owner's own\n-- categories are kept.\nUPDATE \"mappal_dock_item\" SET \"categorySource\" = NULL WHERE \"categorySource\" IS DISTINCT FROM 'owner';\n"
   }
 ];
