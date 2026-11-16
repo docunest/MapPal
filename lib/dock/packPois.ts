@@ -22,11 +22,13 @@ async function chunksIndex(fetchFn: typeof fetch): Promise<Chunk[]> {
   const chunks: Chunk[] = [];
   for (const [cc, p] of Object.entries(m.packs)) {
     for (const c of p?.web?.chunks ?? []) {
+      // A country whose monthly build failed keeps an older pack without cell lists: skipped.
       const list = (c as { cellList?: string }).cellList;
-      if (!list) throw new Error("pack manifest has no cell lists yet");
+      if (!list) continue;
       chunks.push({ cc, file: c.file, sha256: c.sha256, cells: new Set(list.split(",")), layers: p!.web!.layers, sourceDate: p!.sourceDate });
     }
   }
+  if (!chunks.length) throw new Error("pack manifest has no cell lists yet");
   manifest = { at: Date.now(), chunks };
   return chunks;
 }
