@@ -7,6 +7,8 @@ import { complete, dataDate, fetchManifest, install, installed, persist, remove,
 import { useLocation } from "@/components/nearby/useLocation";
 import { OfflineNearest } from "./OfflineNearest";
 
+const short = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n.toLocaleString("en"));
+const day = (d: string) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "?");
 const mb = (b: number) => (b < 10_000_000 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e6)} MB`);
 
 export default function OfflineApp() {
@@ -25,7 +27,9 @@ export default function OfflineApp() {
 
   useEffect(() => {
     reloadHave();
-    fetchManifest().then(setManifest).catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
+    fetchManifest()
+      .then(setManifest)
+      .catch((e) => setMsg(navigator.onLine === false || e instanceof TypeError ? "No signal — can't check for newer data now." : e instanceof Error ? e.message : String(e)));
     const on = () => setOnline(navigator.onLine);
     on();
     window.addEventListener("online", on);
@@ -99,9 +103,9 @@ export default function OfflineApp() {
               const size = p?.web?.chunks.reduce((a, x) => a + x.bytes, 0) ?? 0;
               let status = "not downloaded";
               if (busy?.cc === c.cc) status = `downloading ${Math.round((busy.got / Math.max(1, busy.total)) * 100)}%`;
-              else if (h && complete(h) && p && h.version !== p.sha256) status = `data ${h.sourceDate} · update ${mb(size)}`;
-              else if (h && complete(h)) status = `✓ ${h.count.toLocaleString("en")} places · data ${h.sourceDate}`;
-              else if (h) status = `paused at ${h.done.length}/${h.total} parts`;
+              else if (h && complete(h) && p && h.version !== p.sha256) status = `update ${mb(size)} (data ${day(h.sourceDate)})`;
+              else if (h && complete(h)) status = `✓ ${short(h.count)} places · ${day(h.sourceDate)}`;
+              else if (h) status = `paused ${h.done.length}/${h.total} — tap ⬇`;
               else if (p && !p.web) status = "web data not built yet";
               else if (p) status = `not downloaded · ${mb(size)}`;
               return (
@@ -135,7 +139,14 @@ export default function OfflineApp() {
             >
               {todo.length === 0 && manifest ? "All up to date ✓" : `${updates ? "⬇ Update" : "⬇ Download / update"}${todoBytes ? ` (${mb(todoBytes)})` : ""}`}
             </button>
-            <button onClick={() => fetchManifest().then(setManifest).catch((e) => setMsg(String(e)))} className="rounded border px-3 py-2 text-sm">
+            <button
+              onClick={() =>
+                fetchManifest()
+                  .then((m) => (setManifest(m), setMsg(null)))
+                  .catch((e) => setMsg(e instanceof TypeError ? "No signal — can't check for newer data now." : String(e)))
+              }
+              className="rounded border px-3 py-2 text-sm"
+            >
               Check for updates
             </button>
           </div>
