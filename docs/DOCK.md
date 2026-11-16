@@ -66,6 +66,42 @@ and resolves the places.
   terms only allow caching coordinates; MapPal itself stores nothing. No
   photo → 404, remembered 7 days. Credit in `X-Photo-Credit`.
 
+- **Place categories** (owner-approved 2026-11-15: this set, 🏙 as a badge, rules + OSM).
+  Browsing past places by *what* they are (⛺ next to "3 days ago · 12 km")
+  instead of reading Spanish/Portuguese addresses.
+  - **Categories** (from the owner's 42 sent places): ⛺ Campsite / aire ·
+    🛒 Grocery · ⛽ Fuel · 🅿 Parking (6 of 42 — worth its own) · 🛍 Shopping
+    (malls, IKEA, DIY, outlets) · 🍴 Eat & drink · 🔧 Services (vet, car
+    repair, pharmacy, laundry) · 📍 Sights & nature (viewpoints, peaks,
+    ruins, springs, beaches) · 🏘 Town / village · ❔ Other. "In a big city"
+    is a separate badge 🏙 (inside a city > 100 k people, from the address
+    / OSM), not a category: a Lisbon parking is 🅿 + 🏙.
+  - **How** (`lib/dock/category.ts`, stored on `DockItem.category` +
+    `categorySource` "rules" / "osm" / "owner", per the honest-sources rule):
+    1. *Rules, at once (< 1 ms) when a place is sent*: keywords in EN / ES /
+       PT / CA / GL / FR / IT / DE on the name (then the address) + top
+       chains per country (grocery: Mercadona, Lidl, Aldi, Dia, Carrefour,
+       Eroski, Consum, Gadis, Froiz, BM, Pingo Doce, Continente,
+       Intermarché, Minipreço…; fuel: Repsol, Cepsa/Moeve, Galp, BP, Shell,
+       Prio, Plenoil, Ballenoil…; camping: Orbitur, Parque de Campismo,
+       área de autocaravanas, Stellplatz, aire de camping-car…). Prototype
+       on the history: 34 of 38 located places right.
+    2. *OSM, after answering* (the send stays as fast as now): the nearest
+       named OSM object within ~60 m of the pin (Overpass; Nominatim
+       reverse as fallback) → `tourism=camp_site|caravan_site`,
+       `amenity=fuel|parking|restaurant|cafe|veterinary|pharmacy`,
+       `shop=supermarket|convenience|mall|doityourself`, `place=town|village`,
+       `natural=peak`, `historic=*`… Fills the 4 the rules miss (Allariz,
+       Las Arenas → town/village; Brecha → café/shop; a street → other) and
+       confirms the rest. ≤ 1 request/s, cached on the row, so each place is
+       looked up once. Old places: one backfill run.
+    3. *Owner override* later (long-press → category) if 95 % isn't enough.
+  - **Show**: icon before the date/distance line on the head unit and the
+    phone; filter chips (⛺ 🛒 ⛽ 🅿 …) above the list. Places not yet
+    classified show no icon (the live flow may lag a few seconds).
+  - **Acceptance**: ≥ 95 % right on the owner's history (checked by hand,
+    listed in the PR), real Iberian places in `test/dock.test.ts`.
+
 Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
 → 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".
 Real `maps.app.goo.gl` links (13, harvested from Stack Overflow) all resolve

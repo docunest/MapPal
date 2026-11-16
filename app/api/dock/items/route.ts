@@ -5,6 +5,7 @@ import { describeDbError } from "@/lib/dbErrors";
 import { dockCaller } from "@/lib/dock/auth";
 import { dockItemJson } from "@/lib/dock/items";
 import { nameForPoint } from "@/lib/dock/resolve";
+import { backfillSome, classifyLater, rulesFor } from "@/lib/dock/classify";
 
 // Long-poll settings, controlled here (not in the APK): how long a request
 // may wait for news, how often it checks the DB meanwhile, and how long the
@@ -49,6 +50,8 @@ export async function GET(req: Request) {
         take: since ? 500 : 5000,
       });
       if (items.length || Date.now() + cfg.checkMs > deadline || req.signal.aborted) {
+        // Places stored before categories (or whose OSM lookup didn't finish): a few per poll, after answering.
+        if (items.some((i) => !i.categorySource) || !since) await backfillSome().catch(() => undefined);
         // Deletions: the head unit drops ids it no longer sees in a full sync.
         return NextResponse.json({
           now: now.toISOString(),
@@ -101,10 +104,12 @@ export async function POST(req: Request) {
         locatedBy: "gps",
         note,
         sentBy: from,
+        ...rulesFor(named.title, named.address),
         // Made on the head unit: nothing "new" to pop up there.
         seenAt: new Date(),
       },
     });
+    if (!item.categorySource) classifyLater([item.id]);
     return NextResponse.json({ ok: true, item: dockItemJson(item) }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: describeDbError(err) }, { status: 500 });

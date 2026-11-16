@@ -43,5 +43,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261110160000_dock_log",
     "sql": "-- CreateTable\nCREATE TABLE \"mappal_dock_log\" (\n    \"id\" BIGSERIAL NOT NULL,\n    \"at\" TIMESTAMP(3) NOT NULL,\n    \"device\" TEXT NOT NULL,\n    \"seq\" BIGINT NOT NULL,\n    \"tag\" TEXT NOT NULL,\n    \"msg\" TEXT NOT NULL,\n    \"bytes\" INTEGER NOT NULL,\n    \"receivedAt\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\n    CONSTRAINT \"mappal_dock_log_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE UNIQUE INDEX \"mappal_dock_log_device_seq_key\" ON \"mappal_dock_log\"(\"device\", \"seq\");\n\n-- CreateIndex\nCREATE INDEX \"mappal_dock_log_at_idx\" ON \"mappal_dock_log\"(\"at\");\n"
+  },
+  {
+    "name": "20261116090000_dock_item_category",
+    "sql": "-- Place categories for sent places (docs/DOCK.md \"Place categories\").\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"category\" TEXT;\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"categorySource\" TEXT;\nALTER TABLE \"mappal_dock_item\" ADD COLUMN \"bigCity\" BOOLEAN NOT NULL DEFAULT false;\n"
   }
 ];
