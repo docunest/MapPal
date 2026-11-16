@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { dockCaller } from "@/lib/dock/auth";
+import { packCorridorPois } from "@/lib/dock/packPois";
 import { ROAD_LAYERS, corridorPois, osrmRoute, type RoadLayer } from "@/lib/dock/road";
 
 // POST /api/dock/road {from, to, layers?} — Road ahead (docs/DOCK.md): the driving route
-// (OSRM public server) and the POIs along it (Overpass corridor), for the head unit to keep
-// for the drive. Cached per (from, to) rounded to ~100 m for an hour.
+// (OSRM public server) and the POIs along it — from the monthly OSM packs (lib/dock/packPois.ts;
+// Overpass timed out from Vercel), Overpass only when the packs can't be read — for the head unit
+// to keep for the drive. Cached per (from, to) rounded to ~100 m for an hour.
 export const maxDuration = 60;
 
 const point = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
@@ -23,12 +25,21 @@ async function build(from: { lat: number; lng: number }, to: { lat: number; lng:
   const t0 = Date.now();
   const route = await osrmRoute(from, to);
   const tRoute = Date.now() - t0;
-  const { pois, pieces, failedPieces } = await corridorPois(route.line, layers);
+  let pois, pieces = 0, failedPieces: number[] = [], poiSource: string;
+  try {
+    const p = await packCorridorPois(route.line, layers);
+    pois = p.pois;
+    poiSource = `OpenStreetMap monthly pack (data ${p.dataDate ?? "?"}; ${p.countries.join(", ") || "no country"}, ${p.chunks} chunks)`;
+  } catch (err) {
+    const o = await corridorPois(route.line, layers);
+    ({ pois, pieces, failedPieces } = o);
+    poiSource = `OpenStreetMap (Overpass) — packs unavailable: ${err instanceof Error ? err.message : err}`;
+  }
   return {
     route: { distanceM: route.distanceM, durationS: route.durationS, line: route.line.map((p) => [Number(p.lat.toFixed(5)), Number(p.lng.toFixed(5))]) },
     pois,
     layers: Object.fromEntries(layers.map((l) => [l, { icon: ROAD_LAYERS[l].icon, label: ROAD_LAYERS[l].label, group: ROAD_LAYERS[l].group }])),
-    source: { route: "OSRM (router.project-osrm.org)", pois: "OpenStreetMap (Overpass)", pieces, failedPieces, routeMs: tRoute, totalMs: Date.now() - t0 },
+    source: { route: "OSRM (router.project-osrm.org)", pois: poiSource, pieces, failedPieces, routeMs: tRoute, totalMs: Date.now() - t0 },
     builtAt: new Date().toISOString(),
   };
 }
