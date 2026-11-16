@@ -1,6 +1,7 @@
 // What counts as a utility, per the owner: fuel, restaurants, groceries —
 // nothing else for now. Shared by every source that lists utilities (OSM via
 // Overpass, OSM via Photon), so classification is identical whichever answered.
+import { dieselMaybe } from "@/lib/dock/road";
 import type { UtilityCategory } from "../sources/types";
 
 type Tags = Record<string, string>;
@@ -40,7 +41,8 @@ export const UTILITY_TAGS: Record<UtilityCategory, Array<[string, string]>> = {
 export function classifyUtility(t: Tags): UtilityKind | null {
   const a = t.amenity;
   const s = t.shop;
-  if (a === "fuel") return { category: "fuel", kind: "fuel", label: "Fuel station", icon: "⛽", fallbackName: "Fuel station" };
+  // Owner 2026-11-16: diesel only (EV chargers are amenity=charging_station and never come in).
+  if (a === "fuel") return dieselMaybe(t) ? { category: "fuel", kind: "fuel", label: "Fuel station", icon: "⛽", fallbackName: "Fuel station" } : null;
 
   if (a === "restaurant") return { category: "restaurants", kind: "restaurant", label: "Restaurant", icon: "🍽️" };
   if (a === "fast_food") return { category: "restaurants", kind: "fast_food", label: "Fast food", icon: "🍔" };
@@ -69,10 +71,8 @@ export function utilityBadges(kind: UtilityKind, t: Tags): string[] {
   const b: string[] = [];
   if (t.opening_hours === "24/7") b.push("24/7");
   if (kind.category === "fuel") {
-    if (yes(t["fuel:diesel"])) b.push("Diesel");
-    if (yes(t["fuel:lpg"])) b.push("LPG");
-    if (yes(t["fuel:adblue"])) b.push("AdBlue");
-    if (yes(t["fuel:HGV_diesel"])) b.push("HGV diesel");
+    // Owner: "I only care about diesel … no AdBlue for me" — no LPG/AdBlue badges.
+    if (yes(t["fuel:diesel"]) || yes(t["fuel:HGV_diesel"])) b.push("Diesel ✓");
     if (t.self_service === "yes" || t.automated === "yes") b.push("Self-service");
     if (yes(t.compressed_air)) b.push("Air");
     if (yes(t.car_wash)) b.push("Car wash");

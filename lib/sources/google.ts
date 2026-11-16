@@ -147,12 +147,13 @@ export function detailBlocks(p: GooglePlace): DetailBlock[] {
   if (hours?.length) {
     blocks.push({ id: "google:hours", source: "google", title: "Opening hours (Google)", url, section: { kind: "hours", lines: hours, openNow: p.currentOpeningHours?.openNow } });
   }
-  const prices = p.fuelOptions?.fuelPrices?.filter((f) => f.price);
+  // Owner 2026-11-16: diesel only — no petrol, LPG or electricity prices.
+  const prices = p.fuelOptions?.fuelPrices?.filter((f) => f.price && /DIESEL/.test(f.type));
   if (prices?.length) {
     blocks.push({
       id: "google:fuel",
       source: "google",
-      title: "Fuel prices (Google)",
+      title: "Diesel prices (Google)",
       url,
       section: {
         kind: "fuel-prices",

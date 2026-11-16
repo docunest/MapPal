@@ -3,6 +3,20 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-16 — Offline places in the web app, Home Screen app, diesel-only fuel
+
+- **Task:** owner: "Can I have the same [offline data] as webapp?" → approved plan (Home Screen app + Offline page + Nearby fallback; manual download tap) and "diesel only" for the web Fuel tab. Logged in DECISIONS.md.
+- **What changed** (branch `claude/gps-doctor-auto-fix-c1c8ww`, **not on `main` yet — needs the owner's go to deploy**):
+  - Data: the car's monthly OSM packs (docunest/ANDROID-APPS, `dock/tools/poi-packs`, release `dock-poi`) now also carry the places as JSON chunks of 1/4° cells (`"web"` in `poi-manifest.json`): ES 3.8 MB, PT 0.9, FR 6.5, IT 5.5, DE 9.0 — 26 MB, largest chunk 1.9 MB.
+  - `/api/offline/<file>`: passes on the manifest and chunks only (GitHub sends no CORS); `?sha=` makes each version a cacheable URL, 409 when the release moved on.
+  - `lib/offline/store.ts`: IndexedDB, per-chunk resume, SHA-256 check, update = fresh download of that country, `navigator.storage.persist()`.
+  - `/offline` (☰ → 📦 Offline places): countries, Download / update (same button updates; amber when newer data is out), remove, nearest from here for all four groups.
+  - Nearby ⛽ / 🛒 with no signal → offline list with the data date ("no opening hours"); restaurants say they aren't offline.
+  - Home Screen app: `app/manifest.ts`, icons, `public/sw.js` (pages network-first, last good copy offline; hashed assets cache-first), proxy lets the app files load without a session.
+  - Fuel: diesel stations only (drops `fuel:diesel=no` and CNG/LNG/H2/electric-only; keeps LPG-noted ones — 334 normal stations in PT), badge "Diesel ✓", no LPG/AdBlue badges, Google prices diesel only. Same rule in the car packs and Road ahead.
+- **Evidence:** production build + Playwright (iPhone 13, logged-in session, position A1 Pombal 39.915,-8.640): all 5 countries downloaded in 6 s from a local server, 43 MB storage, service worker registered; then **network off** and reload: `/offline` and Nearby render from the phone — `docs/evidence/offline-places-no-signal-pombal.png`, `docs/evidence/offline-nearby-fuel-no-signal-pombal.png` (Galp 450 m, Alves Bandeira 620 m, COPOMBAL/Repsol 630 m…; lookups 3–11 ms). Not yet tried on the owner's iPhone (Safari) — needs the deploy.
+- **Questions for the owner:** deploy to production (merge to `main`)? The Road ahead API (`/api/dock/road`) waits on the same branch.
+
 ## 2026-11-06 — Phases 2–3 built: scenarios, stops, place store, pipeline v1
 
 - **Task:** INBOX "Build phases 2–3", after the owner's decisions (region = stop + radius, DeepSeek with the owner's key + usage warning, aim free, recommended defaults for the rest — logged in DECISIONS.md).
