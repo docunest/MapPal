@@ -102,14 +102,15 @@ and resolves the places.
   - **Acceptance**: ≥ 95 % right on the owner's history (checked by hand,
     listed in the PR), real Iberian places in `test/dock.test.ts`.
 
-- **Road ahead — PROPOSAL (2026-11-16, waiting for the owner's OK).**
+- **Road ahead** (owner 2026-11-16: all four layer groups on; several display modes — split screen at 30 % width, a floating map, the strip; route from Waze's own destination, see the KSW research in docunest/monorepo docs/ksw/docs/waze-debug-log.md §4).
   "Constantly know the closest rest area + fuel on the road, especially on
   autoroutes" — old-school GPS POI layers along the route, next to Waze.
-  - **The route**: Waze doesn't share its route, so Dock routes itself to the
-    destination picked in Dock (the place tapped → Waze) with a free OSM
-    router (OSRM / Valhalla public servers, car profile), via MapPal; re-route
-    when > 500 m off it. Without a Dock destination: "this road ahead" — the
-    motorway / road being driven, 80 km ahead (phase 2).
+  - **The route**: Waze doesn't share its route geometry, but its current
+    destination is the newest `RECENTS` row of `/data/data/com.waze/user.db`
+    (root; written at navigation start) — and Dock knows the place when
+    navigation starts from Dock. Dock routes itself to that destination with
+    a free OSM router (OSRM public server, car profile) via MapPal; re-route
+    when > 500 m off it. Without a destination: "this road ahead" (phase 2).
   - **POIs along it** (MapPal, Overpass `around:<corridor>` on the route
     line, cached per route; fetched while online, kept for the drive): each
     with km along the route, side / detour, and the exit. Layers, GPS-style:
