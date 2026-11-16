@@ -75,3 +75,20 @@ test("fuel: diesel only — no 'no diesel' or gas-only stations; untagged and LP
   assert.equal(layerOf({ amenity: "fuel", "fuel:diesel": "no", "fuel:octane_95": "yes" }), null);
   assert.equal(layerOf({ amenity: "charging_station" }), null);
 });
+
+test("packs: corridor cells cover the route and its sides; rows placed with km, side, dedupe", async () => {
+  const { corridorCells, placeRows } = await import("../lib/dock/packPois");
+  const line: LatLng[] = [{ lat: 39.9, lng: -8.64 }, { lat: 40.2, lng: -8.43 }];
+  const cells = corridorCells(line, 3000);
+  assert.ok(cells.has("159_-35") && cells.has("160_-34"));
+  const layers = ["fuel", "rest", "toilets", "water", "grocery", "dump", "aire"] as const;
+  const rows = [
+    { row: [0, 3_995_000, -861_000, "Galp", "Galp", "diesel ✓", "n1"] as [number, number, number, string | null, string | null, string | null, string], layers: [...layers] },
+    { row: [0, 3_995_000, -861_000, "Galp", "Galp", "diesel ✓", "n1"] as [number, number, number, string | null, string | null, string | null, string], layers: [...layers] },
+    { row: [6, 3_990_000, -800_000, "Far aire", null, null, "w2"] as [number, number, number, string | null, string | null, string | null, string], layers: [...layers] },
+  ];
+  const pois = placeRows(rows, new Set(["fuel", "aire"]), line, cumulative(line));
+  assert.equal(pois.length, 1);
+  assert.equal(pois[0].id, "node/1");
+  assert.ok(pois[0].km > 5 && pois[0].km < 15 && pois[0].offsetM < 1000);
+});
