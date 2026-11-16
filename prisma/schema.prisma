@@ -331,6 +331,13 @@ model DockItem {
   seenAt    DateTime?
   openedAt  DateTime?
   openCount Int       @default(0)
+  // What the place is (lib/dock/category.ts): camp, grocery, fuel, parking,
+  // shopping, eat, services, sight, town, other — null until classified.
+  // categorySource: "rules" (name/address keywords), "osm" (OpenStreetMap
+  // lookup), "owner" (set by hand). bigCity: inside a 100 k+ city.
+  category       String?
+  categorySource String?
+  bigCity        Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

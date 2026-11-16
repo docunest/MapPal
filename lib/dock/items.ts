@@ -18,6 +18,9 @@ export function dockItemJson(i: DockItem) {
     seenAt: i.seenAt?.toISOString() ?? null,
     openedAt: i.openedAt?.toISOString() ?? null,
     openCount: i.openCount,
+    category: i.category,
+    categorySource: i.categorySource,
+    bigCity: i.bigCity,
     createdAt: i.createdAt.toISOString(),
     updatedAt: i.updatedAt.toISOString(),
   };

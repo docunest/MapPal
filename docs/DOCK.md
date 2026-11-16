@@ -66,7 +66,7 @@ and resolves the places.
   terms only allow caching coordinates; MapPal itself stores nothing. No
   photo → 404, remembered 7 days. Credit in `X-Photo-Credit`.
 
-- **Place categories — PROPOSAL (2026-11-15, waiting for the owner's OK).**
+- **Place categories** (owner-approved 2026-11-15: this set, 🏙 as a badge, rules + OSM).
   Browsing past places by *what* they are (⛺ next to "3 days ago · 12 km")
   instead of reading Spanish/Portuguese addresses.
   - **Categories** (from the owner's 42 sent places): ⛺ Campsite / aire ·

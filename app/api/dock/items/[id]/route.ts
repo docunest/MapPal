@@ -13,6 +13,8 @@ const patchSchema = z.object({
   title: z.string().min(1).max(300).optional(),
   note: z.string().max(2000).nullable().optional(),
   pinned: z.boolean().optional(),
+  // The owner's own category (overrides rules / OSM).
+  category: z.enum(["camp", "grocery", "fuel", "parking", "shopping", "eat", "services", "sight", "town", "other"]).optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +31,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id },
       data: {
         ...rest,
+        ...(rest.category ? { categorySource: "owner" } : {}),
         ...(seen && !current.seenAt ? { seenAt: now } : {}),
         ...(opened ? { openedAt: now, openCount: { increment: 1 }, seenAt: current.seenAt ?? now } : {}),
       },

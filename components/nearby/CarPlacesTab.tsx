@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { gmapsUrl, wazeUrl, type DockMapItem } from "@/components/DockMap";
 import { arrow, distanceTo, isUpFront, recency, town } from "@/lib/dock/near";
+import { CATEGORIES, CATEGORY_ICON, CATEGORY_LABEL, type Category } from "@/lib/dock/category";
 import { CarPhoto } from "./CarPhoto";
 import type { Located } from "./useLocation";
 
@@ -18,6 +19,13 @@ interface CarPlace extends DockMapItem {
   createdAt: string;
   sourceUrl: string | null;
   resolvedUrl: string | null;
+  category: Category | null;
+  bigCity: boolean;
+}
+
+/** "⛺" / "🛒 🏙" — what the place is, before the date and distance. */
+function kindIcon(i: CarPlace): string {
+  return [i.category ? CATEGORY_ICON[i.category] : null, i.bigCity ? "🏙️" : null].filter(Boolean).join(" ");
 }
 
 function km(m: number): string {
@@ -44,6 +52,8 @@ export function CarPlacesTab({ loc, token }: { loc: Located | null; token?: stri
   const [items, setItems] = useState<CarPlace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  // Category filter ("city" = the 🏙 badge); null = everything.
+  const [kind, setKind] = useState<Category | "city" | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const select = useCallback((id: string) => setSelected(id), []);
 
@@ -69,7 +79,10 @@ export function CarPlacesTab({ loc, token }: { loc: Located | null; token?: stri
     [items],
   );
   const upFront = useMemo(() => sorted.filter((i) => isUpFront(i, here)), [sorted, here]);
-  const shown = all ? sorted : upFront;
+  const base = all ? sorted : upFront;
+  const shown = kind == null ? base : base.filter((i) => (kind === "city" ? i.bigCity : i.category === kind));
+  // Chips only for kinds that are in the list (with counts).
+  const kinds = [...CATEGORIES.filter((c) => base.some((i) => i.category === c)), ...(base.some((i) => i.bigCity) ? (["city"] as const) : [])];
 
   if (error)
     return (
@@ -107,6 +120,24 @@ export function CarPlacesTab({ loc, token }: { loc: Located | null; token?: stri
           </Link>
         )}
       </div>
+      {kinds.length > 1 && (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {kinds.map((k) => {
+            const n = base.filter((i) => (k === "city" ? i.bigCity : i.category === k)).length;
+            const on = kind === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setKind(on ? null : k)}
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-sm ${on ? "border-neutral-900 bg-neutral-900 text-white" : "bg-white"}`}
+                title={k === "city" ? "In a big city" : CATEGORY_LABEL[k]}
+              >
+                {k === "city" ? "🏙️ Cities" : `${CATEGORY_ICON[k]} ${CATEGORY_LABEL[k]}`} <span className="opacity-60">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <p className="text-xs text-neutral-500">
         {all
           ? "Everything sent to the car or saved in it."
@@ -166,6 +197,7 @@ export function CarPlacesTab({ loc, token }: { loc: Located | null; token?: stri
                     )}
                   </div>
                   <p className="text-xs text-neutral-500">
+                    {kindIcon(i) && <span className="mr-1 text-base leading-none" title={i.category ? CATEGORY_LABEL[i.category] : ""}>{kindIcon(i)}</span>}
                     {[
                       isNew ? "NEW — not in the car yet" : null,
                       t,

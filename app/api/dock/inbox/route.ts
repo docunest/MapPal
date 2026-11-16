@@ -6,6 +6,7 @@ import { dockCaller } from "@/lib/dock/auth";
 import { normalizeInbox, safeHeaders, safeQuery } from "@/lib/dock/inbox";
 import { dockItemJson } from "@/lib/dock/items";
 import { resolveShared } from "@/lib/dock/resolve";
+import { classifyLater, rulesFor } from "@/lib/dock/classify";
 
 // /api/dock/inbox — the phone's share button. Send any time (the car can be
 // off): the link waits here until the head unit polls for it.
@@ -115,8 +116,11 @@ async function handle(req: Request) {
         address: "address" in resolved ? resolved.address : undefined,
         note: b.note,
         sentBy: b.from ?? (caller === "token" ? undefined : caller),
+        ...rulesFor(resolved.title, "address" in resolved ? resolved.address : null),
       },
     });
+    // Rules found nothing: ask OpenStreetMap after answering (the send stays as fast as before).
+    if (!item.categorySource) classifyLater([item.id]);
     await log(req, raw, 201, `created "${item.title}" (${item.locatedBy}${item.lat != null ? ` ${item.lat.toFixed(4)},${item.lng?.toFixed(4)}` : ""})`, item.id);
     return NextResponse.json({ ok: true, item: dockItemJson(item) }, { status: 201 });
   } catch (err) {
