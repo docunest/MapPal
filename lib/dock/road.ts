@@ -142,15 +142,20 @@ export function overpassQuery(piece: LatLng[], layers: RoadLayer[]): string {
 type OsmEl = { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> };
 
 /** Which layer an OSM element belongs to (the first that matches, in ROAD_LAYERS order). */
+/** Fuels that mean "not a diesel station" when they are all a station lists. */
+const GAS_ONLY = new Set(["cng", "lng", "biogas", "h2", "hydrogen", "electricity"]);
+
 /**
  * Owner 2026-11-16: "I only care about diesel" (no EV chargers, no AdBlue). Chargers are a different
- * OSM tag and never come in; drop stations that say no diesel or list their fuels without diesel.
- * Stations with no fuel tags stay — nearly all sell diesel.
+ * OSM tag and never come in. Drop fuel:diesel=no and stations listing only CNG/LNG/hydrogen/power —
+ * NOT ones listing only LPG/AdBlue: in Portugal 334 normal Repsol/Galp/BP stations carry just
+ * fuel:lpg=yes (mappers note the extra, not the diesel).
  */
 export function dieselMaybe(t: Record<string, string>): boolean {
   if (t["fuel:diesel"] === "yes" || t["fuel:HGV_diesel"] === "yes") return true;
   if (t["fuel:diesel"] === "no") return false;
-  return !Object.entries(t).some(([k, v]) => k.startsWith("fuel:") && v === "yes");
+  const listed = Object.entries(t).filter(([k, v]) => k.startsWith("fuel:") && v === "yes").map(([k]) => k.slice(5));
+  return listed.length === 0 || listed.some((f) => !GAS_ONLY.has(f));
 }
 
 export function layerOf(t: Record<string, string>): RoadLayer | null {

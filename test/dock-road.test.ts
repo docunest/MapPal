@@ -66,11 +66,12 @@ test("one Overpass query per piece, each layer with its own corridor", () => {
   assert.match(q, /way\[bridge\]\[name\]\(around:60,/);
 });
 
-test("fuel: diesel only — no LPG-only, petrol-only or 'no diesel' stations; untagged ones stay", () => {
+test("fuel: diesel only — no 'no diesel' or gas-only stations; untagged and LPG-noted ones stay", () => {
   assert.equal(layerOf({ amenity: "fuel" }), "fuel");
   assert.equal(layerOf({ amenity: "fuel", "fuel:diesel": "yes", "fuel:octane_95": "yes" }), "fuel");
   assert.equal(layerOf({ amenity: "fuel", "fuel:HGV_diesel": "yes" }), "fuel");
-  assert.equal(layerOf({ amenity: "fuel", "fuel:lpg": "yes" }), null);
+  assert.equal(layerOf({ amenity: "fuel", brand: "Repsol", "fuel:lpg": "yes" }), "fuel");
+  assert.equal(layerOf({ amenity: "fuel", brand: "Dourogás", "fuel:cng": "yes", "fuel:lng": "yes" }), null);
   assert.equal(layerOf({ amenity: "fuel", "fuel:diesel": "no", "fuel:octane_95": "yes" }), null);
   assert.equal(layerOf({ amenity: "charging_station" }), null);
 });
