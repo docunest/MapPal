@@ -59,6 +59,7 @@ A very simple map UI answering repeat questions about nearby places, better than
 - Platforms: desktop browser, iPhone (PWA), Android car head unit (thin wrapper + existing floating button; car screen used mostly for browsing results).
 - Devices keep a local copy (semi-decentralised) and sync with the backend. Few users: keep sync and conflicts simple (basic master-master, last-write-wins per record). Don't over-engineer.
 - Offline: download a region's results (and OSM tiles where feasible); fall back to them with no internet and show the data's age.
+- **Offline places (approved 2026-11-16, built first):** `/offline` downloads the car's monthly OSM packs (ES, PT, FR, IT, DE — diesel, rest areas, groceries, toilets, water, camper services/aires, height/weight limits, playgrounds, picnic, beaches, cool stuff) as ~2 MB JSON chunks via `/api/offline/<file>` into IndexedDB (resumable, SHA-256 checked); Nearby ⛽/🛒 fall back to it with no signal and show the data's date. MapPal is a Home Screen app (manifest + `public/sw.js`) so it opens with no signal. Offline map tiles and routing come later.
 
 ## Build phases
 

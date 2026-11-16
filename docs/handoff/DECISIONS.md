@@ -3,6 +3,9 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-16 — Fuel = diesel stations only, everywhere (web Nearby, car, Road ahead): no EV chargers, no gas-only stations, no LPG/AdBlue badges, Google prices diesel only — owner: "I only care about diesel … wtf I'm going to do with DC charger? No adblue for me".
+- 2026-11-16 — Offline places in the web app, same data as the car (monthly OSM packs for ES/PT/FR/IT/DE from docunest/ANDROID-APPS release dock-poi), MapPal as a Home Screen app that opens with no signal; download is a manual tap (the iPhone can't tell Starlink from the hotspot) — owner: "Yes, build it". Supersedes "no offline map tiles at first" only for places; offline map tiles are still later ("POI now, packs later").
+
 - 2026-11-06 — Region = a stop with a radius (default 15 km), tagged future/current/past — owner, open decision 6.
 - 2026-11-06 — AI provider for the scenario agents: DeepSeek with the owner's key; the app tracks calls/tokens and warns when the balance runs low — owner, open decision 2.
 - 2026-11-06 — Spending: aim for free unless the owner says otherwise (Google inside its free tier, no paid web-search API for now) — owner, budget question; so open decision 4 (validator web search) stays "none" for now.

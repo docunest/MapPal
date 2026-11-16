@@ -7,6 +7,11 @@ import type { Located } from "./useLocation";
 import { evaluateHours, loadOpeningHours, type HoursState } from "./openingHours";
 import { SourceNotes, SourceTag } from "./sources";
 import { directionsUrl, getJson, type NearbyUtility, type UtilitiesResponse, type UtilityCategory } from "./types";
+import { OfflineNearest } from "@/components/offline/OfflineNearest";
+import { dataDate, installed } from "@/lib/offline/store";
+
+// No signal → the phone's offline data (/offline) for the categories it has.
+const OFFLINE_LAYER = { fuel: "fuel", groceries: "grocery" } as const;
 
 const CATEGORIES: Array<{ id: UtilityCategory; label: string; icon: string }> = [
   { id: "fuel", label: "Fuel", icon: "⛽" },
@@ -34,6 +39,20 @@ export function UtilitiesTab({
   const [data, setData] = useState<UtilitiesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [OH, setOH] = useState<typeof OpeningHours | null>(null);
+  const [offlineDate, setOfflineDate] = useState<string | null>(null);
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    installed().then((h) => setOfflineDate(dataDate(h))).catch(() => {});
+    const on = () => setOnline(navigator.onLine);
+    on();
+    window.addEventListener("online", on);
+    window.addEventListener("offline", on);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", on);
+    };
+  }, []);
 
   useEffect(() => {
     loadOpeningHours().then((lib) => setOH(() => lib)).catch(() => {});
@@ -90,12 +109,22 @@ export function UtilitiesTab({
         {openOnly && closed.length > 0 && <span className="text-neutral-400">({closed.length} hidden)</span>}
       </label>
 
-      {error && (
+      {(error || !online) && !data && offlineDate && cat !== "restaurants" && (
+        <div className="space-y-2">
+          <p className="rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
+            📦 No signal — offline data from {offlineDate} (OpenStreetMap; no opening hours).
+          </p>
+          <OfflineNearest lat={loc.lat} lng={loc.lng} layers={[OFFLINE_LAYER[cat as "fuel" | "groceries"]]} perLayer={10} />
+        </div>
+      )}
+      {error && (online || !offlineDate || cat === "restaurants") && (
         <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
+          {!offlineDate && " · For no-signal use, download offline places (☰ → 📦 Offline places)."}
+          {offlineDate && cat === "restaurants" && " · Restaurants aren't in the offline data."}
         </p>
       )}
-      {!data && !error && <ListSkeleton />}
+      {!data && !error && (online || !offlineDate) && <ListSkeleton />}
 
       {data && shown.length === 0 && (
         <p className="rounded border bg-white p-4 text-sm text-neutral-500">
