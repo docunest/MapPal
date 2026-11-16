@@ -102,6 +102,37 @@ and resolves the places.
   - **Acceptance**: ≥ 95 % right on the owner's history (checked by hand,
     listed in the PR), real Iberian places in `test/dock.test.ts`.
 
+- **Road ahead — PROPOSAL (2026-11-16, waiting for the owner's OK).**
+  "Constantly know the closest rest area + fuel on the road, especially on
+  autoroutes" — old-school GPS POI layers along the route, next to Waze.
+  - **The route**: Waze doesn't share its route, so Dock routes itself to the
+    destination picked in Dock (the place tapped → Waze) with a free OSM
+    router (OSRM / Valhalla public servers, car profile), via MapPal; re-route
+    when > 500 m off it. Without a Dock destination: "this road ahead" — the
+    motorway / road being driven, 80 km ahead (phase 2).
+  - **POIs along it** (MapPal, Overpass `around:<corridor>` on the route
+    line, cached per route; fetched while online, kept for the drive): each
+    with km along the route, side / detour, and the exit. Layers, GPS-style:
+    ⛽ Fuel (diesel, 🟢 LPG/autogas, AdBlue; ⚡ chargers off by default) ·
+    🅿 Rest area / services (`highway=rest_area|services`) · 🚻 toilets ·
+    💧 drinking water · 🚐 camper: dump station, aires / Stellplatz,
+    campsites · 🛒 grocery near an exit · 🍴 food at services · 🛝 playground
+    / picnic site · ⚠ height / weight limits on the route (camper) ·
+    "cool stuff" for the kid (G3): 🏭 works / power / wind farms / mines /
+    quarries / dams, 🌉 named bridges & viaducts, 🚂 railways, ✈ airports,
+    🏰 castles, ⛰ viewpoints / peaks, lighthouses.
+  - **On the head unit**: a "Road ahead" screen beside Waze (split screen,
+    Waze right): the next ⛽ / 🅿 / 🛒 … as a strip ("⛽ 23 km Repsol, right ·
+    🅿 41 km"), and an OSM map with the route, the van and the POIs in 4
+    views — whole route · 3 km (1.5 km behind → 1.5 km ahead) · next 25 km ·
+    next 80 km. **Auto zoom**: the smallest view that holds the next fuel +
+    next rest stop, wider when sparse (empty autobahn → 80 km), tighter in
+    towns / slow (≤ 5 km). Later: a round "GTA" mini-map bubble.
+  - **Acceptance**: real Iberian drives — A-8 Santander→Oviedo, A-52 Ourense
+    →Vigo, A1 Porto→Lisboa: every motorway service area / fuel station on
+    the route in the strip, right km (± 1 km) and side; a 500 km route's POIs
+    ready in < 10 s; works on after losing signal.
+
 Evidence (2026-10-26, live): `maps.google.com/?q=Playa+de+las+Catedrales,+Ribadeo,+Lugo&ftid=…`
 → 43.5543, −7.1574 (search); bookmark at 43.4901, −3.5368 → "Camping Playa Joyel".
 Real `maps.app.goo.gl` links (13, harvested from Stack Overflow) all resolve
