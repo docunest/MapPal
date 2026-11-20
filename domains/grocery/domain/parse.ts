@@ -32,8 +32,8 @@ const FILLERS = new Set(
   [
     "reikia", "reikes", "reiktu", "reiketu", "nupirkti", "nusipirkti", "pirkti", "nupirk", "nupirkit", "turim", "turime", "reikia nupirkti",
     "baigesi", "baigiasi", "pasibaige", "nebeturim", "nebeturime", "neturim", "neturime", "nebera", "truksta", "gal", "galbut", "kokiu", "kazkokiu",
-    "kazko", "mums", "man", "musu", "dar", "nors", "prasau", "pls", "ok", "gerai", "nu", "na", "tai", "ta", "tu", "kad", "jau", "is", "ka", "kas",
-    "we", "need", "needs", "buy", "get", "some", "please", "out", "of", "are", "were", "re", "the", "a", "an", "more", "any", "also", "to",
+    "kazko", "mums", "man", "musu", "noriu", "norim", "norime", "noreciau", "noretume", "nori", "norisi", "dar", "nors", "prasau", "pls", "ok", "gerai", "nu", "na", "tai", "ta", "tu", "kad", "jau", "is", "ka", "kas",
+    "we", "need", "needs", "buy", "get", "some", "please", "want", "wants", "like", "would", "out", "of", "are", "were", "re", "the", "a", "an", "more", "any", "also", "to",
   ].map(fold),
 );
 
@@ -194,4 +194,16 @@ export function parseLocal(text: string, catalog: CatalogItem[]): LocalParse {
   const seen = new Set<string>();
   const unique = items.filter((it) => !it.productId || (seen.has(it.productId + it.action) ? false : (seen.add(it.productId + it.action), true)));
   return { items: unique, unsure, looksLikeSpeech: looksLikeSpeech(text) };
+}
+
+/**
+ * DeepSeek's answer is the main one, but anything the local parser matched for
+ * sure (exact catalog name/alias) that the model left out is kept — e.g.
+ * "noriu blynų ir kavos": the model returned the pancake ingredients and
+ * dropped "kavos", which the catalog knows as kava.
+ */
+export function mergeWithLocal(ai: ParsedItem[], local: ParsedItem[]): ParsedItem[] {
+  const have = new Set(ai.filter((i) => i.productId).map((i) => `${i.productId}:${i.action}`));
+  const kept = local.filter((i) => i.productId && i.confidence >= 0.95 && !have.has(`${i.productId}:${i.action}`));
+  return [...ai, ...kept];
 }

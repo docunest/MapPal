@@ -18,8 +18,9 @@ Rules:
 5. "note": a short detail the user said (brand, flavour, "be laktozės", "didelis"), else null.
 6. If the user says a thing is not needed any more or is already at home ("pieno nebereikia", "remove eggs", "kiaušinių jau turim"), return it with "action":"remove".
 7. Dishes: if the user names a dish or recipe to cook ("blynams", "ingredientai blynams", "for pancakes", "lazanijai"), list the ingredients a family usually buys for a simple home version of it, each with "forDish":"<the dish, Lithuanian, base form>". Main ingredients only: skip water, salt and pepper unless said. The user will untick what they already have, so include the usual ones (e.g. eggs, milk). Map them to known products like any other item.
-8. Ignore chit-chat. Apart from dish ingredients (rule 7), never add things the user did not mention. One item per product.
-9. Reply with JSON only.
+8. Every thing the user names must be in the reply. A dish adds its ingredients AND the other things in the same sentence stay as separate items: "noriu blynų ir kavos" → pancake ingredients (forDish "blynai") plus kava (forDish null).
+9. Ignore chit-chat ("noriu", "reikia", "gal"). Apart from dish ingredients (rule 7), never add things the user did not mention. One item per product.
+10. Reply with JSON only.
 
 Categories (id: Lithuanian / English [kind]):
 {{categories}}

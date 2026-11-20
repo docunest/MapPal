@@ -2,7 +2,7 @@
 // only when something is left the catalog can't place, and the reply says
 // which one did the work ("mode": local | ai).
 import { parseWithAi } from "../domain/ai";
-import { parseLocal, type ParsedItem } from "../domain/parse";
+import { mergeWithLocal, parseLocal, type ParsedItem } from "../domain/parse";
 import { aiConfigured, deepseekChatJson } from "../infrastructure/deepseek";
 import { loadCatalog, loadState } from "../infrastructure/repo";
 
@@ -16,7 +16,7 @@ export async function parseText(text: string, opts: { ai?: boolean } = {}): Prom
     try {
       const listNames = state.entries.filter((e) => e.status === "OPEN").map((e) => e.name);
       const items = await parseWithAi(text, { catalog: products, categories, listNames }, deepseekChatJson);
-      return { mode: "ai", items, unsure: local.unsure };
+      return { mode: "ai", items: mergeWithLocal(items, local.items), unsure: local.unsure };
     } catch (err) {
       return { mode: "local", items: local.items, unsure: local.unsure, aiError: err instanceof Error ? err.message : String(err) };
     }

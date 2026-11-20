@@ -177,3 +177,16 @@ test("OpenAPI: 3.1, server under /api/grocery/v1, unique operationIds, bearer au
   assert.equal(new Set(ops).size, ops.length);
   assert.equal(s.components.securitySchemes.bearerAuth.scheme, "bearer");
 });
+
+import { mergeWithLocal } from "../domain/parse";
+
+test("noriu blynų ir kavos: coffee survives when the model drops it", async () => {
+  const local = parseLocal("Noriu blynų ir kavos", catalog);
+  assert.deepEqual(local.unsure, ["blynų"]); // "noriu" is filler now; only the dish needs AI
+  const fake = async () => ({ items: ["kiaušiniai", "pienas", "miltai"].map((n) => ({ action: "add", productId: byName(n).id, name: n, forDish: "blynai" })) });
+  const ai = await parseWithAi("Noriu blynų ir kavos", { catalog, categories: [], listNames: [] }, fake);
+  const merged = mergeWithLocal(ai, local.items);
+  assert.deepEqual(merged.map((i) => [i.name, i.forDish ?? null]), [["kiaušiniai", "blynai"], ["pienas", "blynai"], ["miltai", "blynai"], ["kava", null]]);
+  // nothing doubled when the model did return it
+  assert.equal(mergeWithLocal([...ai, { ...local.items.find((i) => i.name === "kava")!, source: "ai" as const }], local.items).filter((i) => i.name === "kava").length, 1);
+});
