@@ -58,6 +58,7 @@ export async function parseWithAi(
       qty: str(r.qty, 20),
       note: str(r.note, 80),
       heard: str(r.heard, 120) ?? name,
+      forDish: str(r.forDish, 40)?.toLowerCase() ?? null,
       isNew: !known,
       confidence: known ? 0.9 : 0.8,
       source: "ai",

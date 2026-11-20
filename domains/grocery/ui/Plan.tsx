@@ -59,14 +59,16 @@ function AddBox({ ctx }: { ctx: Ctx }) {
     inputRef.current?.focus();
   };
 
-  const runParse = async (text: string) => {
+  // review: dictation ("Sakyk") always opens the opt-out review, so you can
+  // untick what you already have (e.g. eggs from a recipe).
+  const runParse = async (text: string, review = false) => {
     setBusy(true);
     try {
       const r = await call<{ mode: string; items: ParsedItem[]; aiAvailable?: boolean; aiError?: string }>("/api/grocery/parse", { method: "POST", body: { text } });
       const items = r.items;
       const aiOff = r.mode === "local" && (r.aiAvailable === false || !!r.aiError);
       if (!items.length) return;
-      if ((r.mode === "local" && items.every((i) => !i.isNew)) || (items.length === 1 && r.mode === "local")) {
+      if (!review && ((r.mode === "local" && items.every((i) => !i.isNew)) || (items.length === 1 && r.mode === "local"))) {
         ctx.add(items.map(toNew), "typed");
         if (aiOff && items.some((i) => i.isNew)) ctx.toast(ctx.tr("aiOff"));
       } else setPreview({ items, mode: r.mode, aiOff });
@@ -76,7 +78,8 @@ function AddBox({ ctx }: { ctx: Ctx }) {
     } catch {
       // No signal: do what the phone can on its own.
       const local = parseLocal(text, ctx.catalog);
-      ctx.add(local.items.map(toNew), "typed");
+      if (review && local.items.length) setPreview({ items: local.items, mode: "local", aiOff: true });
+      else ctx.add(local.items.map(toNew), "typed");
       setQ("");
       setSayText("");
       setSay(false);
@@ -128,7 +131,7 @@ function AddBox({ ctx }: { ctx: Ctx }) {
           <textarea autoFocus rows={4} value={sayText} onChange={(e) => setSayText(e.target.value)} disabled={busy} />
           <div className="row end">
             <button onClick={() => { setSay(false); setSayText(""); }}>{ctx.tr("cancel")}</button>
-            <button className="primary" disabled={busy || !sayText.trim()} onClick={() => runParse(sayText)}>
+            <button className="primary" disabled={busy || !sayText.trim()} onClick={() => runParse(sayText, true)}>
               {busy ? ctx.tr("working") : `✨ ${ctx.tr("process")}`}
             </button>
           </div>
@@ -154,30 +157,67 @@ function AddBox({ ctx }: { ctx: Ctx }) {
   );
 }
 
+function daysAgo(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
+}
+
+/**
+ * Opt-out review: everything is ticked except what is already on the list;
+ * untick what you don't need. Recipe ingredients are grouped under the dish,
+ * and each line says when it was last bought, to make "we have eggs" easy.
+ */
 function PreviewSheet({ ctx, preview, onClose }: { ctx: Ctx; preview: { items: ParsedItem[]; mode: string; aiOff: boolean }; onClose: () => void }) {
-  const [items, setItems] = useState(() => preview.items.map((i) => ({ ...i, on: true })));
+  const onList = useMemo(() => new Set(ctx.entries.filter((e) => e.status === "OPEN" && e.productId).map((e) => e.productId!)), [ctx.entries]);
+  const byId = useMemo(() => new Map(ctx.catalog.map((c) => [c.id, c])), [ctx.catalog]);
+  const [items, setItems] = useState(() =>
+    preview.items.map((i, idx) => ({ ...i, idx, on: i.action === "remove" || !(i.productId && onList.has(i.productId)) })),
+  );
   const n = items.filter((i) => i.on).length;
+  const groups: { dish: string | null; xs: typeof items }[] = [];
+  for (const it of items) {
+    const dish = it.forDish ?? null;
+    const g = groups.find((x) => x.dish === dish) ?? (groups.push({ dish, xs: [] }), groups[groups.length - 1]);
+    g.xs.push(it);
+  }
+  groups.sort((a, b) => (a.dish === null ? -1 : b.dish === null ? 1 : 0));
+  const hint = (it: (typeof items)[number]) => {
+    if (it.action === "remove") return null;
+    if (it.productId && onList.has(it.productId)) return ctx.tr("alreadyOnList");
+    const d = daysAgo(it.productId ? byId.get(it.productId)?.lastBoughtAt : null);
+    if (d === null) return null;
+    return d === 0 ? ctx.tr("boughtToday") : ctx.tr("boughtAgo", { d });
+  };
+  const flip = (idx: number) => setItems((xs) => xs.map((x) => (x.idx === idx ? { ...x, on: !x.on } : x)));
   return (
     <div className="sheet-bg" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>{ctx.tr("previewTitle")}</h3>
-        <p className="muted small">{preview.mode === "ai" ? ctx.tr("previewAi") : ctx.tr("previewLocal")}</p>
+        <p className="muted small">
+          {preview.mode === "ai" ? ctx.tr("previewAi") : ctx.tr("previewLocal")} · {ctx.tr("reviewHint")}
+        </p>
         {preview.aiOff ? <p className="warn small">{ctx.tr("aiOff")}</p> : null}
-        <ul className="preview">
-          {items.map((it, idx) => (
-            <li key={idx} className={it.on ? "" : "off"} onClick={() => setItems((xs) => xs.map((x, j) => (j === idx ? { ...x, on: !x.on } : x)))}>
-              <span className="check">{it.on ? "☑" : "☐"}</span>
-              <span className="emoji">{ctx.catEmoji(it.categoryId ?? "kita")}</span>
-              <span className="name">
-                {it.action === "remove" ? <s>{it.name}</s> : it.name}
-                {it.qty ? <span className="qty">{it.qty}</span> : null}
-                {it.note ? <span className="muted small"> · {it.note}</span> : null}
-              </span>
-              {it.action === "remove" ? <span className="tag red">{ctx.tr("removeIt")}</span> : it.isNew ? <span className="tag">{ctx.tr("newItem")}</span> : null}
-              {it.kind === "LONGTERM" ? <span className="tag">📦</span> : null}
-            </li>
-          ))}
-        </ul>
+        {groups.map((g) => (
+          <div key={g.dish ?? "-"}>
+            {g.dish ? <h4>🍳 {ctx.tr("forDish", { x: g.dish })}</h4> : null}
+            <ul className="preview">
+              {g.xs.map((it) => (
+                <li key={it.idx} className={it.on ? "" : "off"} onClick={() => flip(it.idx)}>
+                  <span className={`tick${it.on ? " on" : ""}`}>{it.on ? "✓" : ""}</span>
+                  <span className="emoji">{ctx.catEmoji(it.categoryId ?? "kita")}</span>
+                  <span className="name">
+                    <span className="label">{it.action === "remove" ? <s>{it.name}</s> : it.name}</span>
+                    {it.qty ? <span className="qty">{it.qty}</span> : null}
+                    {it.note ? <span className="muted small"> · {it.note}</span> : null}
+                    {hint(it) ? <span className="hint">{hint(it)}</span> : null}
+                  </span>
+                  {it.action === "remove" ? <span className="tag red">{ctx.tr("removeIt")}</span> : it.isNew ? <span className="tag">{ctx.tr("newItem")}</span> : null}
+                  {it.kind === "LONGTERM" ? <span className="tag">📦</span> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
         <div className="row end">
           <button onClick={onClose}>{ctx.tr("cancel")}</button>
           <button

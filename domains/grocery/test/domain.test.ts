@@ -151,3 +151,17 @@ test("catalog v2: beef cuts are found, mince isn't confused with plain beef", ()
   const r = parseLocal("kilogramą jautienos faršo, sardinių ir chemijos tualetui", catalog);
   assert.deepEqual(r.items.map((i) => i.name), ["jautienos faršas", "sardinės", "chemija tualetui"]);
 });
+
+test("parseWithAi: dish ingredients keep their dish (opt-out review groups them)", async () => {
+  const eggs = byName("kiaušiniai"), milk = byName("pienas"), flour = byName("miltai");
+  const fake = async () => ({
+    items: [
+      { action: "add", productId: flour.id, name: "miltai", category: "kruopos", heard: "blynams", forDish: "Blynai" },
+      { action: "add", productId: eggs.id, name: "kiaušiniai", category: "pieno", heard: "blynams", forDish: "Blynai" },
+      { action: "add", productId: milk.id, name: "pienas", category: "pieno", heard: "blynams", forDish: "Blynai" },
+      { action: "add", productId: null, name: "duona", category: "duona", heard: "duonos", forDish: null },
+    ],
+  });
+  const r = await parseWithAi("reikia blynams ir duonos", { catalog, categories: [], listNames: [] }, fake);
+  assert.deepEqual(r.map((i) => [i.name, i.forDish]), [["miltai", "blynai"], ["kiaušiniai", "blynai"], ["pienas", "blynai"], ["duona", null]]);
+});

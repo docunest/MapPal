@@ -17,8 +17,9 @@ Rules:
 4. "qty": short text only if the user said an amount ("2", "1 kg", "3 pak."), else null. Never invent amounts.
 5. "note": a short detail the user said (brand, flavour, "be laktozės", "didelis"), else null.
 6. If the user says a thing is not needed any more or is already at home ("pieno nebereikia", "remove eggs", "kiaušinių jau turim"), return it with "action":"remove".
-7. Ignore chit-chat. Never add things the user did not mention. One item per product.
-8. Reply with JSON only.
+7. Dishes: if the user names a dish or recipe to cook ("blynams", "ingredientai blynams", "for pancakes", "lazanijai"), list the ingredients a family usually buys for a simple home version of it, each with "forDish":"<the dish, Lithuanian, base form>". Main ingredients only: skip water, salt and pepper unless said. The user will untick what they already have, so include the usual ones (e.g. eggs, milk). Map them to known products like any other item.
+8. Ignore chit-chat. Apart from dish ingredients (rule 7), never add things the user did not mention. One item per product.
+9. Reply with JSON only.
 
 Categories (id: Lithuanian / English [kind]):
 {{categories}}
@@ -27,7 +28,7 @@ Known products (id | name | other names | category):
 {{catalog}}
 
 Reply format:
-{"items":[{"action":"add","productId":"<known id or null>","name":"…","nameEn":"…","aliases":[],"category":"<category id>","kind":"GROCERY","qty":null,"note":null,"heard":"<the user's words for it>"}]}`;
+{"items":[{"action":"add","productId":"<known id or null>","name":"…","nameEn":"…","aliases":[],"category":"<category id>","kind":"GROCERY","qty":null,"note":null,"heard":"<the user's words for it>","forDish":null}]}`;
 
 export const PARSE_USER = `Already on the list: {{list}}
 

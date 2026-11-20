@@ -15,6 +15,8 @@ export type ParsedItem = {
   qty: string | null;
   note: string | null;
   heard: string;
+  /** Set when the item is an ingredient of a dish the user named ("blynams" → miltai, kiaušiniai…). */
+  forDish?: string | null;
   /** known = matched the catalog; new = not in the catalog yet. */
   isNew: boolean;
   confidence: number;

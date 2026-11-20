@@ -38,9 +38,10 @@ export async function loadCatalog(): Promise<{ categories: CategoryDto[]; produc
   const [categories, products, stats, version] = await Promise.all([
     loadCategories(),
     prisma.groceryProduct.findMany({ where: { hidden: false }, orderBy: { name: "asc" } }),
-    prisma.$queryRaw<{ product_id: string; uses: bigint; last: Date }[]>`
-      SELECT product_id, count(*) AS uses, max(added_at) AS last FROM grocery_entry
-      WHERE product_id IS NOT NULL GROUP BY product_id`,
+    prisma.$queryRaw<{ product_id: string; uses: bigint; last: Date; bought: Date | null }[]>`
+      SELECT product_id, count(*) AS uses, max(added_at) AS last,
+             max(bought_at) FILTER (WHERE status = 'BOUGHT') AS bought
+      FROM grocery_entry WHERE product_id IS NOT NULL GROUP BY product_id`,
     catalogVersion(),
   ]);
   const byId = new Map(stats.map((s) => [s.product_id, s]));
@@ -58,6 +59,7 @@ export async function loadCatalog(): Promise<{ categories: CategoryDto[]; produc
       source: p.source,
       uses: Number(byId.get(p.id)?.uses ?? 0),
       lastUsedAt: byId.get(p.id)?.last.toISOString() ?? null,
+      lastBoughtAt: byId.get(p.id)?.bought?.toISOString() ?? null,
     })),
   };
 }

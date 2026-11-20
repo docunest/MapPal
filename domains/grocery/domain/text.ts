@@ -17,6 +17,8 @@ export type CatalogItem = {
   uses?: number;
   /** Last time it was put on the list (ISO). */
   lastUsedAt?: string | null;
+  /** Last time it was ticked as bought (ISO). Shown in the review ("pirkta prieš 2 d."). */
+  lastBoughtAt?: string | null;
 };
 
 export function fold(s: string): string {

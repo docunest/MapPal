@@ -143,6 +143,15 @@
   li.done .shoprow { opacity: .75; }
   .shoprow .note { flex-basis: auto; }
   .later { margin-top: 18px; }
+  .sectionhead {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    background: none; border: none; border-radius: 0; padding: 12px 2px 4px;
+    color: var(--muted); font-size: 14px; font-weight: 600; text-align: left;
+  }
+  .sectionhead .chev { width: 14px; }
+  .sectionhead .count { margin-left: auto; font-weight: 500; font-size: 13px; }
+  .shopgroup.collapsed .sectionhead { color: var(--done); }
+  .shopgroup.collapsed .sectionhead .count { color: var(--accent); }
   .finishbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 7;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
@@ -162,7 +171,11 @@
   }
   .sheet label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
   .preview li { display: flex; gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
-  .preview li.off { opacity: .4; }
+  .preview li.off { opacity: .45; }
+  .preview li.off .label { text-decoration: line-through; }
+  .preview .tick { width: 26px; height: 26px; flex: none; border-radius: 7px; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 800; color: #fff; }
+  .preview .tick.on { background: var(--accent); border-color: var(--accent); }
+  .preview .hint { flex-basis: 100%; font-size: 12px; color: var(--warn); }
   .preview .name { flex: 1; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
   .tag { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
   .tag.red { color: var(--danger); }
