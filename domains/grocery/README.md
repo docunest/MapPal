@@ -87,9 +87,13 @@ Each list line records `via`: `typed`, `pick` (autocomplete), `suggest`, `ai`
 `grocery_ai_call` with its purpose, tokens and any error. DeepSeek receives
 product names and the list only, never names or locations.
 
-## Is it alive?
+## Is it alive? Which version?
 
 `/api/grocery/health` → `{ ok, db, ai, missing }` (public, names only).
+Version = Vercel's git commit (`VERCEL_GIT_COMMIT_SHA`, 12 chars): baked into the
+page as `<meta name="app-version">`, sent live on every API reply as
+`x-app-version`, shown in ⚙️ → Status. Open phones reload themselves when the two
+differ, once nothing would be lost (no unsent changes, no open sheet, not typing).
 
 ## Removing it
 

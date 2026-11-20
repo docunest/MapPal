@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { CatalogItem } from "../domain/text";
 import type { CategoryDto, EntryDto, EntryPatch } from "../domain/types";
-import { call, LS, lsGet, lsSet, uid } from "./client";
+import { call, LS, lsGet, lsSet, markReloadFor, uid } from "./client";
 import { t, type Key, type Lang } from "./i18n";
 import { useSync } from "./useSync";
 import { Plan } from "./Plan";
@@ -132,6 +132,31 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
   const tr = useCallback((k: Key, v?: Record<string, string | number>) => t(lang, k, v), [lang]);
 
   useEffect(() => lsSet("grocery.tab", tab), [tab]);
+
+  // Auto-update: when an API reply says a newer build is live, reload as soon
+  // as nothing would be lost — no unsent changes, no open sheet, not typing.
+  useEffect(() => {
+    let target: string | null = null;
+    const safe = () => {
+      const active = document.activeElement?.tagName;
+      const outbox = lsGet(LS.outbox);
+      return !document.querySelector(".sheet-bg") && active !== "INPUT" && active !== "TEXTAREA" && (!outbox || outbox === "[]");
+    };
+    const onUpdate = (e: Event) => {
+      target = (e as CustomEvent<string>).detail;
+    };
+    const timer = setInterval(() => {
+      if (target && safe()) {
+        markReloadFor(target);
+        location.reload();
+      }
+    }, 1000);
+    window.addEventListener("grocery:update", onUpdate);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("grocery:update", onUpdate);
+    };
+  }, []);
 
   const categories = useMemo(() => sync.view?.categories ?? sync.catalog?.categories ?? [], [sync.view, sync.catalog]);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);

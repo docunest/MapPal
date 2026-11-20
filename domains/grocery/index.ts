@@ -5,6 +5,7 @@ export { agentApi, api, body, BadRequest, whoFrom, type Ctx as ApiCtx } from "./
 export { isFamilyToken, memberFrom, requireToken, Unauthorized } from "./infrastructure/auth";
 export { AiUnavailable } from "./infrastructure/deepseek";
 export { mcpHandler } from "./application/mcp";
+export { APP_VERSION } from "./infrastructure/version";
 export { addForAgent, finishForAgent, listForAgent, markForAgent, removeForAgent, searchCatalogForAgent, suggestForAgent } from "./application/agentActions";
 export { openApiSpec } from "./application/openapi";
 

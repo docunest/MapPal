@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { autocomplete, type CatalogItem } from "../domain/text";
-import { call, LS, lsGet } from "./client";
+import { call, LS, lsGet, pageVersion } from "./client";
 import type { Ctx } from "./App";
 
 export function Settings({ ctx }: { ctx: Ctx }) {
@@ -35,7 +35,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
 
       <section>
         <h3>ℹ️ {ctx.tr("status")}</h3>
-        <p className="small">Database: {health?.db ?? "…"}<br />AI: {health?.ai ?? "…"}</p>
+        <p className="small">Database: {health?.db ?? "…"}<br />AI: {health?.ai ?? "…"}<br />{ctx.tr("version")}: {pageVersion() ?? "?"}</p>
         <AiBalance ctx={ctx} />
       </section>
     </div>

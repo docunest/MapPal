@@ -2,6 +2,9 @@ import { connection } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 import { memberFrom, requireToken, tokenFrom, Unauthorized } from "./auth";
 import { agentFromToken } from "./agentTokens";
+import { APP_VERSION } from "./version";
+
+const HEADERS = { "Cache-Control": "no-store", "x-app-version": APP_VERSION };
 
 export type Ctx = { req: Request; member: string | null };
 
@@ -13,7 +16,7 @@ export function api(fn: (ctx: Ctx) => Promise<unknown>) {
     try {
       requireToken(req);
       const out = await fn({ req, member: memberFrom(req) });
-      return out instanceof Response ? out : Response.json(out, { headers: { "Cache-Control": "no-store" } });
+      return out instanceof Response ? out : Response.json(out, { headers: HEADERS });
     } catch (err) {
       unstable_rethrow(err);
       if (err instanceof Unauthorized) return Response.json({ error: "Open the app from the family link (…/grocery?t=…)." }, { status: 401 });
@@ -51,7 +54,7 @@ export function agentApi(fn: (ctx: { req: Request; agent: string }) => Promise<u
         );
       }
       const out = await fn({ req, agent });
-      return out instanceof Response ? out : Response.json(out, { headers: { "Cache-Control": "no-store" } });
+      return out instanceof Response ? out : Response.json(out, { headers: HEADERS });
     } catch (err) {
       unstable_rethrow(err);
       if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400 });

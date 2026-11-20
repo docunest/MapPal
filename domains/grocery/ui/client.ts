@@ -46,9 +46,42 @@ export async function call<T>(path: string, init: { method?: string; body?: unkn
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     cache: "no-store",
   });
+  noteServerVersion(res.headers.get("x-app-version"));
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new HttpError(res.status, json.error ?? res.statusText);
   return json;
+}
+
+/** The build baked into this page (<meta name="app-version">). */
+export function pageVersion(): string | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector('meta[name="app-version"]')?.getAttribute("content") ?? null;
+}
+
+/**
+ * A reply came from a newer deployment: announce it once. The app reloads when
+ * nothing would be lost (ui/App.tsx). Guard: never reload twice for the same
+ * server version, so a mismatch that a reload can't fix doesn't loop.
+ */
+let announced: string | null = null;
+function noteServerVersion(server: string | null) {
+  const mine = pageVersion();
+  if (!server || !mine || server === mine || announced === server) return;
+  try {
+    if (sessionStorage.getItem("grocery.reloadedFor") === server) return;
+  } catch {
+    /* private mode */
+  }
+  announced = server;
+  window.dispatchEvent(new CustomEvent("grocery:update", { detail: server }));
+}
+
+export function markReloadFor(server: string) {
+  try {
+    sessionStorage.setItem("grocery.reloadedFor", server);
+  } catch {
+    /* private mode */
+  }
 }
 
 export const uid = () =>
