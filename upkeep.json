@@ -1,0 +1,1 @@
+{"lastAudit": "2026-11-20T19:18:03Z", "result": "npm audit 5 -> 0: next 16.4.2 -> 16.4.6, overrides effect 3.22.5 / deepmerge-ts 8.0.2 (Prisma CLI), npm audit fix; 93 tests, tsc, lint, build ok"}

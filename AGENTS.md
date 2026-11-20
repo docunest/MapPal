@@ -8,25 +8,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## HARD RULE: shared hosting for all docunest apps (owner, 2026-11-20)
+## HARD RULES for all docunest apps (owner, 2026-11-20)
 
-All the owner's apps share **one repo (`docunest/monorepo`), one Next.js app,
-one Vercel project, one Supabase Postgres, one login (`core_user`) and one set
-of env vars/API keys**, like old-school hosting. The only separation: each app's
-code lives in its own section (`domains/<app>/`, `app/<app>/`, `app/api/<app>/`,
-`<app>_*` tables) and never imports or touches another app's.
+**Load the `docunest-hosting` skill before any work here**
+(`.claude/skills/docunest-hosting/SKILL.md`, canonical copy in `docunest/claude`)
+and follow it. Don't ask the owner to restate it. In short:
 
-**Before** creating or changing any app, backend, table, migration, env var,
-token, login, repo, Vercel project or deployment, load the
-**`docunest-hosting`** skill (`.claude/skills/docunest-hosting/SKILL.md`;
-canonical copy in `docunest/claude`) and follow it. Never create a new repo,
-Vercel project, database, Supabase project, login system or framework for an
-app. If a task seems to need one, ask the owner first. Don't ask the owner to
-restate this rule.
+- **Shared hosting:** one repo (`docunest/monorepo`), one Next.js app, one
+  Vercel project (MapPal's), one Supabase DB, one set of keys. Each app is a
+  DDD domain (`domains/<app>`, `<app>_*` tables) that never imports or touches
+  another. No new repo, project, DB, login system or framework.
+- **One app per device:** phones use the one web app. The car, kid tablet,
+  camper screen and projector each have one app. iPhone native only after a
+  feasibility check.
+- **Upkeep:** if `upkeep.json` is older than 24 h, audit deps, patch security
+  issues, test, merge and deploy without asking.
+- **Personal-use security:** trusted devices, name-handle users with a
+  switcher, a token per agent/MCP, no secrets in git, RLS on.
+- **Reporting:** results in simple words. Merge and deploy once refined and
+  proven. Every build ends with ONE sentence: done or not, plus the clickable
+  URL or APK version. Questions go first, never buried.
 
-MapPal is the one allowed exception until its planned move into the monorepo
-(`docunest/monorepo` → `docs/HOSTING.md`, step 4): it keeps its own repo and
-Vercel project for now, but already follows the shared DB, login and key rules.
+MapPal's Vercel project is the one shared project. MapPal moves into the
+monorepo in step 1 of `docunest/monorepo` → `docs/HOSTING.md` (same domain, so
+devices don't change). Until then this repo and project stay. New web/server
+work for other apps goes here as its own DDD folder so it moves along.
 
 # MapPal — product goals (read before any work)
 
