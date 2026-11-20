@@ -47,18 +47,6 @@ function readTokenFromUrl(): string | null {
   return hash.get("t") ?? new URLSearchParams(location.search).get("t");
 }
 
-function installManifest(token: string) {
-  // The Home Screen app must start with the token (Safari and the installed
-  // app don't share storage): manifest start_url carries it.
-  let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.rel = "manifest";
-    document.head.appendChild(link);
-  }
-  link.href = `/api/grocery/manifest?t=${encodeURIComponent(token)}`;
-}
-
 type Boot = { token: string | null; member: string | null; lang: Lang };
 
 /** Token from the link (#t= or ?t=) or from this phone; read once in the browser. */
@@ -80,10 +68,11 @@ export function App() {
 
   useEffect(() => {
     if (!token) return;
-    // Keep the token in the address so "Add to Home Screen" also gets it.
-    if (!location.hash.includes("t=")) history.replaceState(null, "", `/grocery#t=${encodeURIComponent(token)}`);
-    else if (location.search) history.replaceState(null, "", `/grocery${location.hash}`);
-    installManifest(token);
+    // Keep the token in the address as ?t= (old #t= links too): iPhone's
+    // "Add to Home Screen" saves this address as the app's start page, and
+    // the Home Screen app does not share Safari's storage.
+    const want = `/grocery?t=${encodeURIComponent(token)}`;
+    if (location.pathname + location.search !== want || location.hash) history.replaceState(null, "", want);
   }, [token]);
 
   if (!mounted || !boot) return <div className="splash">🛒</div>;

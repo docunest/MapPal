@@ -53,7 +53,7 @@ const STRINGS = {
   whoHint: ["Vardas rodomas prie to, ką pridėjai ar nupirkai.", "Your name is shown next to what you add or buy."],
   yourName: ["Tavo vardas", "Your name"],
   go: ["Pirmyn", "Go"],
-  needLink: ["Atidaryk programą iš šeimos nuorodos (…/grocery#t=…).", "Open the app from the family link (…/grocery#t=…)."],
+  needLink: ["Atidaryk programą iš šeimos nuorodos (…/grocery?t=…).", "Open the app from the family link (…/grocery?t=…)."],
   badLink: ["Ši nuoroda nebegalioja. Paprašyk naujos.", "This link isn't valid. Ask for a new one."],
   offline: ["Neprisijungta – pakeitimai bus išsiųsti vėliau", "Offline – changes will sync later"],
   pending: ["Siunčiama…", "Syncing…"],

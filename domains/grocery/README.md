@@ -6,7 +6,7 @@ same Supabase project; owner 2026-11-20, AGENTS.md G6). It lives at `/grocery`
 and has its own token auth, its own `grocery_*` tables and enums, and no imports
 from MapPal code except the shared Prisma client (`lib/db.ts`). See "Removing it" below.
 
-**Open it:** `<MapPal URL>/grocery#t=<family token>` (the live URL and the token are not kept in the repo; ask the owner).
+**Open it:** `<MapPal URL>/grocery?t=<family token>` (the live URL and the token are not kept in the repo; ask the owner).
 
 ## What it does
 
@@ -23,13 +23,16 @@ from MapPal code except the shared Prisma client (`lib/db.ts`). See "Removing it
 
 ## Access: one family link, no passwords
 
-The app is opened with `/grocery#t=<token>`. The token is stored on the phone
+The app is opened with `/grocery?t=<token>` (old `#t=` links still work). The token is stored on the phone
 and a name is asked once ("Kas tu?"). Only the token's SHA-256 is in the repo
 (`infrastructure/auth.ts`). Setting `GROCERY_TOKEN` on Vercel replaces it. The
 MapPal login is not used: `proxy.ts` lets `/grocery` and `/api/grocery/*` through,
 and those routes check the token themselves.
-**Add to Home Screen** from that link: the installed app starts with the token
-(its manifest `start_url` carries it), so it never asks to log in. Offline
+**Add to Home Screen** from that link: `/grocery` sends no manifest, so iPhone
+Safari saves the current address (`/grocery?t=…`, the app keeps the token
+there) as the start page. The Home Screen app doesn't share Safari's storage,
+so the token must be in that address. (MapPal's manifest, start page `/`, made
+the icon open the MapPal login, 2026-11-20.) Offline
 opening comes from MapPal's service worker (`public/sw.js` keeps the last copy of each page).
 
 MCP connector URL: `/api/grocery/mcp/<agent token>`. Each agent has its own

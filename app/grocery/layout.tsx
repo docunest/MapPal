@@ -6,7 +6,12 @@ import "@/domains/grocery/ui/grocery.css";
 export const metadata: Metadata = {
   title: "Pirkiniai",
   description: "Family grocery list",
+  // No manifest here (MapPal's would make the Home Screen icon open "/" and
+  // its login). Without one, iPhone Safari saves the current address —
+  // /grocery?t=<token> — as the Home Screen app's start page.
+  manifest: null,
   appleWebApp: { capable: true, title: "Pirkiniai", statusBarStyle: "default" },
+  other: { "apple-mobile-web-app-capable": "yes" },
   icons: { apple: "/grocery/apple-touch-icon.png", icon: "/grocery/icon-192.png" },
   robots: { index: false, follow: false },
 };

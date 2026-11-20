@@ -15,7 +15,7 @@ export function api(fn: (ctx: Ctx) => Promise<unknown>) {
       return out instanceof Response ? out : Response.json(out, { headers: { "Cache-Control": "no-store" } });
     } catch (err) {
       unstable_rethrow(err);
-      if (err instanceof Unauthorized) return Response.json({ error: "Open the app from the family link (…/grocery#t=…)." }, { status: 401 });
+      if (err instanceof Unauthorized) return Response.json({ error: "Open the app from the family link (…/grocery?t=…)." }, { status: 401 });
       if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400 });
       console.error("[grocery] api error", err);
       return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 // Device access (hard rules §5): one family token instead of accounts (owner 2026-11-20: "one link, one
-// account, then I just enter a username"). The link is /grocery#t=<token>; the app
+// account, then I just enter a username"). The link is /grocery?t=<token>; the app
 // keeps it and sends it as "Authorization: Bearer". Only the SHA-256 is in the
 // repo. Setting GROCERY_TOKEN on Vercel replaces it.
 const DEFAULT_TOKEN_SHA256 = "6974ec0019ac0197755cc7a46b2796735801793c96cd1b63b315e6f537198bf4";

@@ -28,7 +28,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
 
       <section>
         <h3>🔗 {ctx.tr("links")}</h3>
-        <CopyField ctx={ctx} label={ctx.tr("familyLink")} value={`${origin}/grocery#t=${token}`} />
+        <CopyField ctx={ctx} label={ctx.tr("familyLink")} value={`${origin}/grocery?t=${token}`} />
         <CopyField ctx={ctx} label={ctx.tr("mcpLink")} value={`${origin}/api/mcp/${token}`} />
         <p className="muted small">{ctx.tr("homeScreen")}</p>
       </section>

@@ -12,6 +12,7 @@ Newest on top. Each entry: date, task, what changed (commits), evidence
   - Checked against `.claude/skills/mappal-context`: DeepSeek calls now count against MapPal's shared cap `deepseek:grocery` (200/day, 3,000/month, on `/sources`) and the shared token counters; AI-filed products show ✨; offline banner shows when the list was last synced; live URL kept out of the repo.
 - **Evidence:** `domains/grocery/docs/evidence/` (local production build, two emulated iPhones, synthetic history, AI off). 110 tests, lint, typecheck, build pass. Also running on the branch's Vercel preview (same `map-pal` project): page, token check, DB, seed catalog, parse, MCP OK; AI reported off there (`DEEPSEEK_API_KEY` apparently not set for Preview).
 - **Not proven:** DeepSeek parsing/shortlist live (no key in the sandbox or on Preview; unit-tested with a fake model); real iPhone Safari Home Screen install; Claude/ChatGPT connector setup. Not tied to Spain/Portugal places (it holds no locations); item names are Lithuanian with some es/pt aliases.
+- **Fix (same day):** the Home Screen icon opened the MapPal login — `/grocery` carried MapPal's manifest (start page `/`). Now `/grocery` sends no manifest and keeps the token in the address as `?t=` (old `#t=` links are rewritten), so iPhone saves `/grocery?t=…` as the start page. Owner: delete the old icon and add it again.
 - **Merged to `main`** on the owner's "Merge" (and standing permission, docunest-hosting §1).
 
 ## 2026-11-16 — Offline places in the web app, Home Screen app, diesel-only fuel
