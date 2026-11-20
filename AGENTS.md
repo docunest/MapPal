@@ -8,6 +8,32 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## HARD RULES for all docunest apps (owner, 2026-11-20)
+
+**Load the `docunest-hosting` skill before any work here**
+(`.claude/skills/docunest-hosting/SKILL.md`, canonical copy in `docunest/claude`)
+and follow it. Don't ask the owner to restate it. In short:
+
+- **Shared hosting:** one repo (`docunest/monorepo`), one Next.js app, one
+  Vercel project (MapPal's), one Supabase DB, one set of keys. Each app is a
+  DDD domain (`domains/<app>`, `<app>_*` tables) that never imports or touches
+  another. No new repo, project, DB, login system or framework.
+- **One app per device:** phones use the one web app. The car, kid tablet,
+  camper screen and projector each have one app. iPhone native only after a
+  feasibility check.
+- **Upkeep:** if `upkeep.json` is older than 24 h, audit deps, patch security
+  issues, test, merge and deploy without asking.
+- **Personal-use security:** trusted devices, name-handle users with a
+  switcher, a token per agent/MCP, no secrets in git, RLS on.
+- **Reporting:** results in simple words. Merge and deploy once refined and
+  proven. Every build ends with ONE sentence: done or not, plus the clickable
+  URL or APK version. Questions go first, never buried.
+
+MapPal's Vercel project is the one shared project. MapPal moves into the
+monorepo in step 1 of `docunest/monorepo` → `docs/HOSTING.md` (same domain, so
+devices don't change). Until then this repo and project stay. New web/server
+work for other apps goes here as its own DDD folder so it moves along.
+
 # MapPal — product goals (read before any work)
 
 MapPal is for one family living **camp life in a camper van in Spain and
