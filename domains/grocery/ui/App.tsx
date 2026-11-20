@@ -28,7 +28,8 @@ export type Ctx = {
   entries: EntryDto[];
   categories: CategoryDto[];
   catalog: CatalogItem[];
-  trip: { id: string; startedAt: string; startedBy: string | null } | null;
+  trip: { id: string; startedAt: string; startedBy: string | null; closesAt: string } | null;
+  lastTrip: { endedAt: string; items: { productId: string; name: string; categoryId: string; kind: "GROCERY" | "LONGTERM" }[] } | null;
   add: (items: NewItem[], via: string) => void;
   patch: (id: string, patch: EntryPatch) => void;
   finish: () => void;
@@ -166,6 +167,7 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
     categories,
     catalog: sync.catalog?.products ?? [],
     trip: sync.view?.trip ?? null,
+    lastTrip: sync.view?.lastTrip ?? null,
     add,
     patch,
     finish,

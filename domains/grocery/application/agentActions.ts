@@ -4,7 +4,7 @@
 import { autocomplete, matchPhrase, type CatalogItem } from "../domain/text";
 import type { EntryDto } from "../domain/types";
 import { aiConfigured } from "../infrastructure/deepseek";
-import { loadCatalog, loadState } from "../infrastructure/repo";
+import { autoCloseStaleTrip, loadCatalog, loadState } from "../infrastructure/repo";
 import { addItems, type AddRequest } from "./addItems";
 import { classifyNew } from "./classifyNew";
 import { finishTrip } from "./finishTrip";
@@ -28,6 +28,7 @@ export type AgentItem = {
 
 /** The list in supermarket aisle order (groceries first, then long-term). */
 export async function listForAgent(includeBought = true) {
+  await autoCloseStaleTrip();
   const { entries, categories, trip } = await loadState();
   const order = new Map(categories.map((c, i) => [c.id, i]));
   const cat = new Map(categories.map((c) => [c.id, c]));
@@ -47,7 +48,7 @@ export async function listForAgent(includeBought = true) {
       boughtBy: e.boughtBy,
     }));
   const toBuy = items.filter((i) => !i.bought).length;
-  return { toBuy, trip: trip ? { startedAt: trip.startedAt, startedBy: trip.startedBy } : null, items };
+  return { toBuy, trip: trip ? { startedAt: trip.startedAt, startedBy: trip.startedBy, closesAt: trip.closesAt } : null, items };
 }
 
 export type AddArgs = { text?: unknown; items?: unknown };

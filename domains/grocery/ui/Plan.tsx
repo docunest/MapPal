@@ -33,8 +33,17 @@ export function Plan({ ctx }: { ctx: Ctx }) {
     <div className="plan">
       <AddBox ctx={ctx} />
       <Suggestions ctx={ctx} />
+      <LastTrip ctx={ctx} />
       {!ctx.entries.length ? <p className="empty">{ctx.tr("empty")}</p> : null}
-      {grocery.length ? <ListSection ctx={ctx} title={`${ctx.tr("groceries")} · ${grocery.filter((e) => e.status === "OPEN").length}`} entries={grocery} onEdit={setEditing} /> : null}
+      {grocery.length ? (
+        <ListSection
+          ctx={ctx}
+          title={`${ctx.tr("groceries")} · ${grocery.filter((e) => e.status === "OPEN").length}`}
+          entries={grocery}
+          onEdit={setEditing}
+          action={<ResetButton ctx={ctx} entries={grocery.filter((e) => e.status === "OPEN")} />}
+        />
+      ) : null}
       {later.length ? <ListSection ctx={ctx} title={`📦 ${ctx.tr("longTerm")} · ${later.length}`} entries={later} onEdit={setEditing} /> : null}
       {editing ? <EditSheet ctx={ctx} entry={editing} onClose={() => setEditing(null)} /> : null}
     </div>
@@ -320,12 +329,12 @@ function Suggestions({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function ListSection({ ctx, title, entries, onEdit }: { ctx: Ctx; title: string; entries: EntryDto[]; onEdit: (e: EntryDto) => void }) {
+function ListSection({ ctx, title, entries, onEdit, action }: { ctx: Ctx; title: string; entries: EntryDto[]; onEdit: (e: EntryDto) => void; action?: React.ReactNode }) {
   const groups = groupByCategory(entries, ctx.categories);
   const aiProducts = new Set(ctx.catalog.filter((c) => c.source === "ai").map((c) => c.id));
   return (
     <section className="list">
-      <h2>{title}</h2>
+      <div className="row between"><h2>{title}</h2>{action}</div>
       {groups.map(({ cat, items }) => (
         <div key={cat.id} className="group">
           <h4>{cat.emoji} {ctx.catName(cat.id)}</h4>
@@ -396,5 +405,51 @@ export function EditSheet({ ctx, entry, onClose }: { ctx: Ctx; entry: EntryDto; 
         </div>
       </div>
     </div>
+  );
+}
+
+/** Start the list over: takes every grocery still to buy off (undo in the toast). Long-term items stay. */
+function ResetButton({ ctx, entries }: { ctx: Ctx; entries: EntryDto[] }) {
+  if (!entries.length) return null;
+  return (
+    <button
+      className="link small muted"
+      onClick={() => {
+        if (!confirm(ctx.tr("resetConfirm", { n: entries.length }))) return;
+        entries.forEach((e) => ctx.patch(e.id, { status: "REMOVED" }));
+        ctx.toast(ctx.tr("resetDone", { n: entries.length }), () =>
+          ctx.add(entries.map((e) => ({ productId: e.productId, name: e.name, categoryId: e.categoryId, kind: e.kind, qty: e.qty, note: e.note })), "pick"),
+        );
+      }}
+    >
+      {ctx.tr("reset")}
+    </button>
+  );
+}
+
+/** "Paskutinį kartą pirkta": what the last trip bought, one tap to put it back on the list. */
+function LastTrip({ ctx }: { ctx: Ctx }) {
+  const [open, setOpen] = useState(false);
+  const onList = new Set(ctx.entries.map((e) => e.productId));
+  const items = (ctx.lastTrip?.items ?? []).filter((i) => !onList.has(i.productId));
+  if (!ctx.lastTrip || !items.length) return null;
+  const add = (xs: typeof items) => ctx.add(xs.map((i) => ({ productId: i.productId, name: i.name, categoryId: i.categoryId, kind: i.kind })), "pick");
+  const day = new Date(ctx.lastTrip.endedAt).toLocaleDateString(ctx.lang === "en" ? "en-GB" : "lt-LT", { month: "short", day: "numeric" });
+  return (
+    <section className="suggestions">
+      <div className="row between">
+        <button className="link" onClick={() => setOpen(!open)}>
+          <h3>{open ? "▾" : "▸"} {ctx.tr("lastTrip", { d: day })} · {items.length}</h3>
+        </button>
+        {open ? <button className="small" onClick={() => add(items)}>{ctx.tr("addAll")}</button> : null}
+      </div>
+      {open ? (
+        <div className="chips" style={{ marginTop: 8 }}>
+          {items.map((i) => (
+            <button key={i.productId} className="chip" onClick={() => add([i])}>＋ {i.name}</button>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }

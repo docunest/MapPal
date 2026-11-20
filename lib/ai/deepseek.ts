@@ -89,7 +89,7 @@ export interface DeepseekBalance {
   available: boolean;
   currency?: string;
   total?: number;
-  /** Below DEEPSEEK_LOW_BALANCE (default 2 USD / 15 CNY). */
+  /** Below DEEPSEEK_LOW_BALANCE (default 0.50 USD / 3.5 CNY — owner 2026-11-20). */
   low: boolean;
   threshold?: number;
   error?: string;
@@ -98,7 +98,7 @@ export interface DeepseekBalance {
 export function lowBalanceThreshold(currency: string | undefined, env: Record<string, string | undefined> = process.env) {
   const n = Number(env.DEEPSEEK_LOW_BALANCE);
   if (Number.isFinite(n) && n > 0) return n;
-  return currency === "CNY" ? 15 : 2;
+  return currency === "CNY" ? 3.5 : 0.5;
 }
 
 export async function deepseekBalance(fetchImpl: typeof fetch = fetch): Promise<DeepseekBalance> {

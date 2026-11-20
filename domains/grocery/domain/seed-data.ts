@@ -157,10 +157,10 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     ],
   },
   {
-    id: "vaikams", nameLt: "Vaikams", nameEn: "Kids & baby", emoji: "🍼", kind: "GROCERY",
+    // One child, 6 years old (owner 2026-11-20): no baby items.
+    id: "vaikams", nameLt: "Vaikams", nameEn: "Kids", emoji: "🧒", kind: "GROCERY",
     products: [
-      "sauskelnės|nappies|pampersai, diapers", "drėgnos servetėlės|wet wipes|servetėlės vaikams", "tyrelės|baby food|vaikiškos tyrelės",
-      "vaikiški užkandžiai|kids snacks",
+      "vaikiški užkandžiai|kids snacks", "sulčių pakeliai|juice boxes|sultys su šiaudeliu, zumo infantil", "vaikiška dantų pasta|kids toothpaste",
     ],
   },
   {
@@ -171,6 +171,8 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "muilas|soap|skystas muilas", "dezodorantas|deodorant", "kremas nuo saulės|sunscreen|apsauga nuo saulės, protector solar",
       "skutimosi priemonės|razors|skustuvai", "higieniniai paketai|pads|įklotai", "tamponai|tampons", "vatos diskeliai|cotton pads",
       "ausų krapštukai|cotton buds", "popierinės nosinės|tissues|nosinės",
+      // Used for camping, not for a baby (owner 2026-11-20).
+      "drėgnos servetėlės|wet wipes|camping wipes, toallitas",
       "dantų siūlas|dental floss",
     ],
   },
@@ -187,14 +189,16 @@ export const SEED_CATEGORIES: SeedCategory[] = [
   },
   {
     id: "gyvunams", nameLt: "Gyvūnams", nameEn: "Pets", emoji: "🐾", kind: "GROCERY",
-    products: ["šunų maistas|dog food|ėdalas šunims", "kačių maistas|cat food|ėdalas katėms", "kraikas|cat litter"],
+    // The family has a dog (no cat).
+    products: [
+      "šunų maistas|dog food|ėdalas šunims|*", "šunų skanėstai|dog treats|skanėstai šuniui", "maišeliai šunims|dog poop bags|maišeliai išmatoms",
+    ],
   },
   {
     id: "vaistine", nameLt: "Vaistinė", nameEn: "Pharmacy", emoji: "💊", kind: "GROCERY",
     products: [
       "pleistrai|plasters|pleistras, band-aid", "nuo skausmo|painkillers|ibuprofenas, paracetamolis", "vitaminai|vitamins",
       "repelentas|insect repellent|nuo uodų", "nosies purškalas|nasal spray",
-      "šunų skanėstai|dog treats|skanėstai šuniui", "maišeliai šunims|dog poop bags|maišeliai išmatoms",
     ],
   },
   { id: "kita", nameLt: "Kita", nameEn: "Other", emoji: "🛒", kind: "GROCERY", products: [] },

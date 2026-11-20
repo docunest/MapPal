@@ -119,27 +119,30 @@ export function Shop({ ctx }: { ctx: Ctx }) {
         </section>
       ) : null}
 
-      {bought || ctx.trip ? (
-        <div className="finishbar">
+      {ctx.trip || bought ? (
+        <div className="tripline">
+          {ctx.trip ? (
+            <span className="muted small">
+              🕒 {ctx.tr("autoClose", { t: new Date(ctx.trip.closesAt).toLocaleTimeString(ctx.lang === "en" ? "en-GB" : "lt-LT", { hour: "2-digit", minute: "2-digit" }) })}
+            </span>
+          ) : null}
           {!confirming ? (
-            <button className="primary wide" onClick={() => setConfirming(true)}>✔ {ctx.tr("finish")}</button>
+            <button className="link small" onClick={() => setConfirming(true)}>{ctx.tr("finishNow")}</button>
           ) : (
-            <div className="confirm">
-              <p>{ctx.tr("finishConfirm", { b: bought, c: open })}</p>
-              <div className="row end">
-                <button onClick={() => setConfirming(false)}>{ctx.tr("cancel")}</button>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    ctx.finish();
-                    setConfirming(false);
-                    ctx.toast(ctx.tr("finished", { b: bought, c: open }));
-                  }}
-                >
-                  {ctx.tr("finish")}
-                </button>
-              </div>
-            </div>
+            <span className="row">
+              <span className="small">{ctx.tr("finishConfirm", { b: bought, c: open })}</span>
+              <button className="small" onClick={() => setConfirming(false)}>{ctx.tr("cancel")}</button>
+              <button
+                className="small primary"
+                onClick={() => {
+                  ctx.finish();
+                  setConfirming(false);
+                  ctx.toast(ctx.tr("finished", { b: bought, c: open }));
+                }}
+              >
+                {ctx.tr("finishNow")}
+              </button>
+            </span>
           )}
         </div>
       ) : null}

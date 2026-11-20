@@ -88,7 +88,7 @@ API (needs a logged-in session; there is no agent/admin-secret access to these r
 DeepSeek (`DEEPSEEK_API_KEY`): every agent call counts against
 `deepseek:agent` caps (300/day, 4,000/month; env `CAP_DEEPSEEK_AGENT_DAILY` /
 `_MONTHLY`) and records its tokens. `/api/ai/usage` warns when the balance is
-below `DEEPSEEK_LOW_BALANCE` (default 2 USD / 15 CNY).
+below `DEEPSEEK_LOW_BALANCE` (default 0.50 USD / 3.5 CNY).
 
 Evidence on the acceptance points: `docs/evidence/scenarios-v1.md`
 (`npx tsx scripts/scenario-evidence.ts`; data captured with

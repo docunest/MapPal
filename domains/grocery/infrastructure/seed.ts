@@ -3,18 +3,16 @@ import { SEED_CATEGORIES, seedProducts } from "../domain/seed-data";
 
 /** Insert missing seed categories/products. Never overwrites the family's edits. */
 export async function seedCatalog(): Promise<void> {
-  const existing = await prisma.groceryCategory.count();
-  if (existing < SEED_CATEGORIES.length) {
+  // Always offer every seed row: skipDuplicates keeps existing ones (and the
+  // family's edits/removals) as they are, so the catalog can also shrink or
+  // move items without a count check missing new ones.
+  {
     await prisma.groceryCategory.createMany({
       data: SEED_CATEGORIES.map((c, i) => ({ id: c.id, nameLt: c.nameLt, nameEn: c.nameEn, emoji: c.emoji, kind: c.kind, sortOrder: (i + 1) * 10 })),
       skipDuplicates: true,
     });
   }
-  const seeds = seedProducts();
-  const have = await prisma.groceryProduct.count({ where: { source: "seed" } });
-  if (have < seeds.length) {
-    await prisma.groceryProduct.createMany({ data: seeds.map((p) => ({ ...p, source: "seed" })), skipDuplicates: true });
-  }
+  await prisma.groceryProduct.createMany({ data: seedProducts().map((p) => ({ ...p, source: "seed" })), skipDuplicates: true });
 }
 
 let ready: Promise<void> | null = null;

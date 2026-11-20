@@ -7,7 +7,7 @@
 // retried when the shop has no signal.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogItem } from "../domain/text";
-import type { CategoryDto, EntryDto, TripDto, AddInput, EntryPatch } from "../domain/types";
+import type { CategoryDto, EntryDto, TripDto, AddInput, EntryPatch, LastTripDto } from "../domain/types";
 import { call, HttpError, LS, lsGet, lsSet } from "./client";
 
 export type Op =
@@ -15,7 +15,7 @@ export type Op =
   | { opId: string; type: "patch"; id: string; patch: EntryPatch }
   | { opId: string; type: "finish" };
 
-type Snapshot = { syncedAt?: string; version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; categories: CategoryDto[] };
+type Snapshot = { syncedAt?: string; lastTrip?: LastTripDto; version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; categories: CategoryDto[] };
 type Catalog = { version: string; products: CatalogItem[]; categories: CategoryDto[] };
 
 function readJson<T>(key: string): T | null {
@@ -62,7 +62,7 @@ export function applyOps(snap: Snapshot, ops: Op[], member: string | null): Snap
           return n;
         })
         .filter((e): e is EntryDto => e !== null);
-      if (op.patch.status === "BOUGHT" && !trip) trip = { id: "pending", startedAt: now, startedBy: member };
+      if (op.patch.status === "BOUGHT" && !trip) trip = { id: "pending", startedAt: now, startedBy: member, closesAt: new Date(Date.now() + 3 * 3_600_000).toISOString() };
     } else if (op.type === "finish") {
       entries = entries.filter((e) => e.status !== "BOUGHT");
       trip = null;

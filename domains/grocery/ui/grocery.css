@@ -143,6 +143,8 @@
   li.done .shoprow { opacity: .75; }
   .shoprow .note { flex-basis: auto; }
   .later { margin-top: 18px; }
+  .tripline { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin: 18px 2px 0; }
+  .tripline .link { color: var(--accent); font-weight: 600; }
   .sectionhead {
     width: 100%; display: flex; align-items: center; gap: 8px;
     background: none; border: none; border-radius: 0; padding: 12px 2px 4px;

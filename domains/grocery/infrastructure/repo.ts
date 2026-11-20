@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { ensureReady } from "./seed";
-import type { AddInput, CategoryDto, EntryDto, EntryPatch, Kind, ProductPatch, TripDto } from "../domain/types";
+import type { AddInput, CategoryDto, EntryDto, EntryPatch, Kind, LastTripDto, ProductPatch, TripDto } from "../domain/types";
 import { fold, matchPhrase, type CatalogItem } from "../domain/text";
 import { dueItems, type Purchase } from "../domain/suggest";
 import type { HistoryRow } from "../domain/ai";
@@ -79,26 +79,60 @@ export async function stateVersion(): Promise<string> {
       coalesce((SELECT string_agg(concat_ws(':', id, status, qty, note, category_id, kind, name, updated_at), ',' ORDER BY id)
                 FROM grocery_entry WHERE archived = false), '')
       || '|' || coalesce((SELECT string_agg(concat_ws(':', id, ended_at), ',') FROM grocery_trip WHERE ended_at IS NULL), '')
+      || '|' || coalesce((SELECT max(ended_at)::text FROM grocery_trip), '')
       || '|' || coalesce((SELECT string_agg(concat_ws(':', id, sort_order, updated_at), ',' ORDER BY id) FROM grocery_category), '')
     ) AS v`;
   return r.v ?? "0";
 }
 
-export async function activeTrip(): Promise<TripDto> {
-  const t = await prisma.groceryTrip.findFirst({ where: { endedAt: null } });
-  return t ? { id: t.id, startedAt: t.startedAt.toISOString(), startedBy: t.startedBy } : null;
+/** A shopping trip finishes by itself this long after its last tick (owner: "auto close after say 3 hours"). */
+export const TRIP_AUTO_CLOSE_MS = (Number(process.env.GROCERY_TRIP_HOURS) || 3) * 3_600_000;
+
+async function tripLastActivity(t: { id: string; startedAt: Date }): Promise<number> {
+  const last = await prisma.groceryEntry.aggregate({ where: { tripId: t.id }, _max: { boughtAt: true } });
+  return Math.max(t.startedAt.getTime(), last._max.boughtAt?.getTime() ?? 0);
 }
 
-export async function loadState(): Promise<{ version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; categories: CategoryDto[] }> {
+export async function activeTrip(): Promise<TripDto> {
+  const t = await prisma.groceryTrip.findFirst({ where: { endedAt: null } });
+  if (!t) return null;
+  const closesAt = new Date((await tripLastActivity(t)) + TRIP_AUTO_CLOSE_MS).toISOString();
+  return { id: t.id, startedAt: t.startedAt.toISOString(), startedBy: t.startedBy, closesAt };
+}
+
+/** Finish the open trip if nothing was ticked for TRIP_AUTO_CLOSE_MS. Called on every read of the list. */
+export async function autoCloseStaleTrip(now = Date.now()): Promise<boolean> {
+  const t = await prisma.groceryTrip.findFirst({ where: { endedAt: null } });
+  if (!t || now - (await tripLastActivity(t)) < TRIP_AUTO_CLOSE_MS) return false;
+  await finishTrip("auto");
+  return true;
+}
+
+/** Products the last finished trip bought, for "Paskutinį kartą pirkta". */
+export async function lastTrip(): Promise<LastTripDto> {
+  const t = await prisma.groceryTrip.findFirst({ where: { endedAt: { not: null } }, orderBy: { endedAt: "desc" } });
+  if (!t) return null;
+  const rows = await prisma.groceryEntry.findMany({
+    where: { tripId: t.id, status: "BOUGHT", productId: { not: null } },
+    orderBy: { boughtAt: "asc" },
+    select: { productId: true, name: true, categoryId: true, kind: true },
+  });
+  const seen = new Set<string>();
+  const items = rows.filter((r) => !seen.has(r.productId!) && seen.add(r.productId!)).map((r) => ({ productId: r.productId!, name: r.name, categoryId: r.categoryId, kind: r.kind }));
+  return { endedAt: t.endedAt!.toISOString(), items };
+}
+
+export async function loadState(): Promise<{ version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; lastTrip: LastTripDto; categories: CategoryDto[] }> {
   await ensureReady();
-  const [version, cv, entries, trip, categories] = await Promise.all([
+  const [version, cv, entries, trip, last, categories] = await Promise.all([
     stateVersion(),
     catalogVersion(),
     prisma.groceryEntry.findMany({ where: { archived: false }, orderBy: { addedAt: "asc" } }),
     activeTrip(),
+    lastTrip(),
     loadCategories(),
   ]);
-  return { version, catalogVersion: cv, entries: entries.map(toDto), trip, categories };
+  return { version, catalogVersion: cv, entries: entries.map(toDto), trip, lastTrip: last, categories };
 }
 
 export type AddResult = { entry: EntryDto; merged: boolean; createdProduct: boolean };

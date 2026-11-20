@@ -21,7 +21,11 @@ export type EntryDto = {
   boughtBy: string | null;
 };
 
-export type TripDto = { id: string; startedAt: string; startedBy: string | null } | null;
+/** closesAt: the trip finishes by itself then (3 h after the last tick). */
+export type TripDto = { id: string; startedAt: string; startedBy: string | null; closesAt: string } | null;
+
+/** What the last finished trip bought (for one-tap re-adding while planning). */
+export type LastTripDto = { endedAt: string; items: { productId: string; name: string; categoryId: string; kind: Kind }[] } | null;
 
 export type AddInput = {
   id?: string;

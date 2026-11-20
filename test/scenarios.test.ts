@@ -325,9 +325,10 @@ test("DeepSeek balance: low-balance warning below the threshold", async () => {
   process.env.DEEPSEEK_API_KEY = "test-key";
   const bal = (total: string, currency: string) =>
     (async () => new Response(JSON.stringify({ is_available: true, balance_infos: [{ currency, total_balance: total }] }), { status: 200 })) as typeof fetch;
-  assert.equal((await deepseekBalance(bal("1.50", "USD"))).low, true);
-  assert.equal((await deepseekBalance(bal("9.00", "USD"))).low, false);
-  assert.equal((await deepseekBalance(bal("10.00", "CNY"))).low, true);
+  // Owner 2026-11-20: warn below 0.50 USD (3.5 CNY).
+  assert.equal((await deepseekBalance(bal("0.40", "USD"))).low, true);
+  assert.equal((await deepseekBalance(bal("1.50", "USD"))).low, false);
+  assert.equal((await deepseekBalance(bal("3.00", "CNY"))).low, true);
   const err = await deepseekBalance((async () => new Response("{}", { status: 401 })) as typeof fetch);
   assert.match(err.error!, /401/);
 });
