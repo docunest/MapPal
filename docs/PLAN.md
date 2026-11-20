@@ -54,7 +54,7 @@ A very simple map UI answering repeat questions about nearby places, better than
 
 ## Architecture and platforms
 
-- Hosting: the `docunest-hosting` skill (owner decisions 2026-11-20). MapPal's Vercel project becomes the one shared project; MapPal moves into `docunest/monorepo` in step 1 of `docs/HOSTING.md` there. Data is centralised by default.
+- Hosting: the `app2` skill (owner decisions 2026-11-20). MapPal's Vercel project becomes the one shared project; MapPal moves into `docunest/monorepo` in step 1 of `docs/HOSTING.md` there. Data is centralised by default.
 - **Put as much logic as possible in the web app** and share it across devices; keep native code thin.
 - Platforms: desktop browser, iPhone (PWA), Android car head unit (thin wrapper + existing floating button; car screen used mostly for browsing results).
 - Devices keep a local copy (semi-decentralised) and sync with the backend. Few users: keep sync and conflicts simple (basic master-master, last-write-wins per record). Don't over-engineer.

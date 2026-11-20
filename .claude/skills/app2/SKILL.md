@@ -1,9 +1,9 @@
 ---
-name: docunest-hosting
+name: app2
 description: HARD RULES for every docunest project (github.com/docunest/*). Covers shared hosting, upkeep, devices, non-functional needs, security and how to report to the owner. All apps share one repo (docunest/monorepo), one Next.js app, one Vercel project (MapPal's), one Supabase Postgres and one set of keys. Each app is a DDD domain section that never mixes with another. Each device runs exactly one app. Daily security upkeep runs without asking. Work is merged and deployed without asking once refined. Every build ends with one sentence plus a link or version. Load it BEFORE any work in a docunest repo. Always load it for any app, feature, page, API, table, migration, env var, token, login, device/Android/iPhone/head-unit work, sync or real-time, build, deploy, merge, dependency or security update. Also load it when the owner names an app (MapPal, Grocery/Pirkiniai, Reelbox, Ponas, Dock, Camper, BatteryPro, heater).
 ---
 
-# docunest: hard rules for every session
+# app2: hard rules for every docunest session
 
 These are the owner's standing decisions (2026-11-20). Do not ask the owner to
 restate or re-confirm any of them. Everything here is the default for **every**
@@ -18,7 +18,7 @@ app unless the owner explicitly says otherwise for that app.
 - **Catch new standing requirements.** If the owner says something that sounds
   like a rule for all work ("always", "never", "from now on", "every app",
   "by default"), or something that contradicts this skill, stop and ask one
-  question: *"Add this to the docunest-hosting skill?"* (yes / no / only for
+  question: *"Add this to the app2 skill?"* (yes / no / only for
   this app).
   - On yes, update the canonical copy, then all repo copies (see the end of
     this file).
@@ -323,5 +323,5 @@ project.
 - Merged and deployed if refined and proven.
 - The last line is one sentence: done or not, plus the link or version.
 - If you changed this skill: edit `docunest/claude` →
-  `skills/docunest-hosting/SKILL.md` first, then copy it unchanged into every
-  repo's `.claude/skills/docunest-hosting/`.
+  `skills/app2/SKILL.md` first, then copy it unchanged into every
+  repo's `.claude/skills/app2/`.

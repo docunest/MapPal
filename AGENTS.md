@@ -10,8 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## HARD RULES for all docunest apps (owner, 2026-11-20)
 
-**Load the `docunest-hosting` skill before any work here**
-(`.claude/skills/docunest-hosting/SKILL.md`, canonical copy in `docunest/claude`)
+**Load the `app2` skill before any work here**
+(`.claude/skills/app2/SKILL.md`, canonical copy in `docunest/claude`)
 and follow it. Don't ask the owner to restate it. In short:
 
 - **Shared hosting:** one repo (`docunest/monorepo`), one Next.js app, one
