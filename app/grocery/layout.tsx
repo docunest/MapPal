@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   manifest: null,
   appleWebApp: { capable: true, title: "Pirkiniai", statusBarStyle: "default" },
   other: { "apple-mobile-web-app-capable": "yes" },
-  icons: { apple: "/grocery/apple-touch-icon.png", icon: "/grocery/icon-192.png" },
+  icons: {
+    icon: [
+      { url: "/grocery/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/grocery/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/grocery/apple-touch-icon.png",
+  },
   robots: { index: false, follow: false },
 };
 

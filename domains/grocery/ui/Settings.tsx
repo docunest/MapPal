@@ -104,10 +104,13 @@ function CatalogEditor({ ctx }: { ctx: Ctx }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [edit, setEdit] = useState<CatalogItem | null>(null);
-  const shown = useMemo(() => {
-    if (q.trim()) return autocomplete(q, ctx.catalog, 30).map((s) => s.item);
-    return ctx.catalog.slice().sort((a, b) => (b.uses ?? 0) - (a.uses ?? 0) || a.name.localeCompare(b.name, "lt")).slice(0, 40);
-  }, [q, ctx.catalog]);
+  // Search: best matches. Otherwise the whole catalog by section (aisle order).
+  const groups = useMemo(() => {
+    if (q.trim()) return [{ id: "search", items: autocomplete(q, ctx.catalog, 30).map((x) => x.item) }];
+    return ctx.categories
+      .map((c) => ({ id: c.id, items: ctx.catalog.filter((p) => p.categoryId === c.id).sort((a, b) => a.name.localeCompare(b.name, "lt")) }))
+      .filter((g) => g.items.length);
+  }, [q, ctx.catalog, ctx.categories]);
   return (
     <section>
       <button className="link" onClick={() => setOpen(!open)}><h3>{open ? "▾" : "▸"} 📚 {ctx.tr("catalog")} · {ctx.catalog.length}</h3></button>
@@ -115,19 +118,24 @@ function CatalogEditor({ ctx }: { ctx: Ctx }) {
         <>
           <p className="muted small">{ctx.tr("catalogHint")}</p>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={ctx.tr("search")} />
-          <ul className="catalog">
-            {shown.map((p) => (
-              <li key={p.id}>
-                <button className="rowbtn" onClick={() => setEdit(p)}>
-                  <span className="emoji">{ctx.catEmoji(p.categoryId)}</span>
-                  <span className="name">{p.name}</span>
-                  {p.source === "ai" ? <span className="muted small" title={ctx.tr("byAi")}>✨</span> : null}
-                  <span className="muted small">{[p.nameEn, ...p.aliases].filter(Boolean).slice(0, 3).join(", ")}</span>
-                  {p.uses ? <span className="qty">{p.uses}×</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {groups.map((g) => (
+            <div key={g.id}>
+              {g.id !== "search" ? <h4>{ctx.catEmoji(g.id)} {ctx.catName(g.id)} · {g.items.length}</h4> : null}
+              <ul className="catalog">
+                {g.items.map((p) => (
+                  <li key={p.id}>
+                    <button className="rowbtn" onClick={() => setEdit(p)}>
+                      <span className="emoji">{ctx.catEmoji(p.categoryId)}</span>
+                      <span className="name">{p.name}</span>
+                      {p.source === "ai" ? <span className="muted small" title={ctx.tr("byAi")}>✨</span> : null}
+                      <span className="muted small">{[p.nameEn, ...p.aliases].filter(Boolean).slice(0, 3).join(", ")}</span>
+                      {p.uses ? <span className="qty">{p.uses}×</span> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </>
       ) : null}
       {edit ? <ProductSheet ctx={ctx} product={edit} onClose={() => setEdit(null)} /> : null}

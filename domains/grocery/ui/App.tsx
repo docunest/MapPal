@@ -138,7 +138,7 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
   const toast = useCallback((msg: string, undo?: () => void) => {
     const id = Date.now();
     setToastState({ msg, undo, id });
-    setTimeout(() => setToastState((s) => (s?.id === id ? null : s)), undo ? 6000 : 3500);
+    setTimeout(() => setToastState((s) => (s?.id === id ? null : s)), undo ? 2500 : 2000);
   }, []);
 
   const { enqueue } = sync;
@@ -150,10 +150,11 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
       enqueue({ opId: uid(), type: "add", via, items: withIds });
       const names = withIds.filter((i) => i.action !== "remove").map((i) => i.name);
       if (names.length) {
-        toast(tr("added", { x: names.join(", ") }), () => withIds.forEach((i) => patch(i.id, { status: "REMOVED" })));
+        const shown = names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
+        toast(`+ ${shown}`, () => withIds.forEach((i) => patch(i.id, { status: "REMOVED" })));
       }
     },
-    [enqueue, toast, tr, patch],
+    [enqueue, toast, patch],
   );
   const finish = useCallback(() => enqueue({ opId: uid(), type: "finish" }), [enqueue]);
 
@@ -204,7 +205,7 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
         <div className="toast" key={toastState.id}>
           <span>{toastState.msg}</span>
           {toastState.undo ? (
-            <button onClick={() => { toastState.undo?.(); setToastState(null); }}>{tr("undo")}</button>
+            <button aria-label={tr("undo")} title={tr("undo")} onClick={() => { toastState.undo?.(); setToastState(null); }}>↶</button>
           ) : null}
         </div>
       ) : null}

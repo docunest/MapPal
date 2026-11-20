@@ -141,3 +141,13 @@ test("parseLocal: English mixed in", () => {
   const r = parseLocal("2 kg potatoes toilet paper and some coffee", catalog);
   assert.deepEqual(r.items.map((i) => [i.name, i.qty]), [["bulvės", "2 kg"], ["tualetinis popierius", null], ["kava", null]]);
 });
+
+test("catalog v2: beef cuts are found, mince isn't confused with plain beef", () => {
+  assert.equal(autocomplete("beef", catalog)[0].item.name, "jautiena");
+  assert.ok(autocomplete("jaut", catalog).slice(0, 5).some((s) => s.item.name === "jautienos faršas"));
+  assert.equal(matchPhrase("jautienos faršo", catalog)?.item.name, "jautienos faršas");
+  assert.equal(matchPhrase("minced beef", catalog)?.item.name, "jautienos faršas");
+  assert.equal(matchPhrase("merluza", catalog)?.item.name, "jūrų lydeka");
+  const r = parseLocal("kilogramą jautienos faršo, sardinių ir chemijos tualetui", catalog);
+  assert.deepEqual(r.items.map((i) => i.name), ["jautienos faršas", "sardinės", "chemija tualetui"]);
+});

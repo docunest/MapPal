@@ -19,7 +19,15 @@ export const metadata: Metadata = {
   description: "Family points-of-interest indexer",
   // Home Screen app on the iPhone (offline places, /offline).
   appleWebApp: { capable: true, title: "MapPal", statusBarStyle: "default" },
-  icons: { apple: "/apple-touch-icon.png" },
+  // Per-app icons (owner 2026-11-20): this is MapPal's; /grocery, /camper and
+  // /car replace it in their own layout.tsx.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

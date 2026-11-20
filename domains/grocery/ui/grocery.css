@@ -167,14 +167,19 @@
   .tag { font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
   .tag.red { color: var(--danger); }
 
+  /* Small, quick confirmation pill (owner: the big toast was annoying). */
   .toast {
-    position: fixed; left: 12px; right: 12px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30;
-    max-width: 600px; margin: 0 auto;
-    background: #222; color: #fff; border-radius: 12px; padding: 12px 14px;
-    display: flex; gap: 10px; align-items: center; justify-content: space-between;
-    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 30;
+    max-width: min(80vw, 360px);
+    background: rgba(30, 33, 31, 0.88); color: #fff; border-radius: 999px;
+    padding: 5px 6px 5px 12px; font-size: 13px; line-height: 1.2;
+    display: flex; gap: 6px; align-items: center;
+    pointer-events: auto;
+    animation: grocery-toast 2.5s ease forwards;
   }
-  .toast button { background: none; border: none; color: #8fe0b2; font-weight: 700; }
+  .toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast button { background: rgba(255, 255, 255, 0.15); border: none; color: #fff; border-radius: 999px; padding: 2px 9px; font-size: 14px; }
 
   .settings section { background: var(--card); border-radius: var(--radius); padding: 14px; margin-top: 12px; display: grid; gap: 10px; }
   .aisle li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
@@ -183,4 +188,11 @@
   .copy { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
   .copy input { font-size: 13px; }
 
+}
+
+/* Top level: keyframes can't be nested in .grocery-root. */
+@keyframes grocery-toast {
+  0% { opacity: 0; transform: translate(-50%, 6px); }
+  8%, 85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; }
 }

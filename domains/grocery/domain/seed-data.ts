@@ -1,4 +1,6 @@
-// Starter taxonomy so autocomplete works on day one. Lithuanian first, English
+// Starter taxonomy so autocomplete works on day one (v2 2026-11-20: everyday
+// cuts and fish a family really buys in Spain/Portugal — beef/pork mince,
+// steaks, hake, sardines, cured ham — and camper/dog basics; nothing niche). Lithuanian first, English
 // name + aliases for mixing. The family's own catalog grows from here (typed
 // items, DeepSeek-classified items); seed rows are only inserted once (by
 // seed_key) and never overwrite edits.
@@ -32,6 +34,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "špinatai|spinach", "krapai|dill", "petražolės|parsley", "bazilikas|basil", "kalendra|coriander|cilantro",
       "pievagrybiai|mushrooms|grybai, champignons", "kukurūzai|sweet corn|kukurūzas", "porai|leek|poras", "salierai|celery|saliera",
       "ridikėliai|radishes", "imbieras|ginger", "moliūgas|pumpkin|squash",
+      "salotų mišinys|salad mix|salotos maišelyje, mix salad", "šparaginės pupelės|green beans|žaliosios pupelės, judías verdes",
     ],
   },
   {
@@ -40,6 +43,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "duona|bread|juoda duona, ruginė duona|*", "batonas|white loaf|balta duona", "bagetė|baguette|bagete",
       "skrebučiai|toast bread|tostai, toast", "batonėliai|bread rolls|bandelės, rolls", "tortilijos|tortillas|tortilija, wraps",
       "pita|pita bread", "croissantai|croissants|kruasanai, raguoliai", "pyragas|cake|pyragėlis", "trapučiai|crispbread|duonelės",
+      "mėsainių bandelės|burger buns|bandelės mėsainiams", "picos padas|pizza base|pizza dough, masa de pizza",
     ],
   },
   {
@@ -51,6 +55,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "varškė|cottage cheese|varškės, quark", "grietinė|sour cream|grietinės", "jogurtas|yoghurt|jogurtai, yogurt|*",
       "graikiškas jogurtas|greek yoghurt", "kefyras|kefir", "grietinėlė|cream|grietinėlės, nata", "sūrelis|curd snack|sūreliai",
       "lydytas sūris|cream cheese|kreminis sūris, philadelphia", "margarinas|margarine",
+      "rūgpienis|soured milk|rūgęs pienas", "geriamasis jogurtas|drinking yoghurt|jogurtas gerti", "pienas be laktozės|lactose-free milk|sin lactosa, sem lactose", "pjaustytas sūris|sliced cheese|sūris riekelėmis, queso en lonchas", "varškės sūris|curd cheese|lietuviškas sūris, baltas sūris", "plakamoji grietinėlė|whipping cream|nata para montar",
     ],
   },
   {
@@ -59,6 +64,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "vištiena|chicken|vištienos, pollo, frango|*", "vištienos krūtinėlė|chicken breast|filė", "vištienos šlaunelės|chicken thighs|kulšelės",
       "kiauliena|pork|kiaulienos, cerdo", "jautiena|beef|jautienos, ternera", "malta mėsa|minced meat|faršas, mince, carne picada",
       "kalakutiena|turkey|kalakutienos", "šoninė|bacon|bekonas", "kepsniai|steaks|steak", "šašlykas|kebab meat|šašlykai",
+      "jautienos faršas|minced beef|malta jautiena, carne picada de ternera, carne picada|*", "jautienos kepsnys|beef steak|steikas, entrecot, bife", "jautiena troškinimui|stewing beef|ternera para guisar, jautienos gabaliukai", "kiaulienos faršas|minced pork|carne picada de cerdo", "mišrus faršas|mixed mince|kiaulienos ir jautienos faršas, picada mixta", "kiaulienos sprandinė|pork neck|sprandinė, presa ibérica", "karbonadas|pork chops|kiaulienos karbonadas, chuletas de cerdo", "šonkauliukai|pork ribs|kiaulienos šonkauliai, costillas", "vištienos sparneliai|chicken wings|sparneliai, alitas de pollo", "sveika vištiena|whole chicken|visa višta, pollo entero, frango inteiro", "mėsainių paplotėliai|burger patties|kotletai, hamburguesas",
     ],
   },
   {
@@ -66,6 +72,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     products: [
       "dešrelės|sausages|dešrelių, sosiskos", "dešra|salami|rūkyta dešra", "kumpis|ham|kumpio, jamón, fiambre",
       "virta dešra|cooked sausage", "chorizo|chorizo", "pašteta|pâté|paštetas",
+      "vytintas kumpis|cured ham|jamón serrano, presunto, jamón", "lašiniai|salo|rūkyti lašiniai, bekonas lietuviškas",
     ],
   },
   {
@@ -73,6 +80,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     products: [
       "lašiša|salmon|lašišos, salmón", "menkė|cod|bacalao, bacalhau", "silkė|herring|silkės", "krevetės|prawns|shrimp, gambas",
       "tunas|tuna (fresh)|tunas šviežias", "rūkyta žuvis|smoked fish", "kalmarai|squid|calamares",
+      "jūrų lydeka|hake|merluza, pescada", "sardinės|sardines|sardinas", "skumbrė|mackerel|caballa, cavala", "dorada|sea bream", "krabų lazdelės|crab sticks|surimi", "rūkyta lašiša|smoked salmon|salmón ahumado",
     ],
   },
   {
@@ -80,6 +88,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     products: [
       "ledai|ice cream|ledų, helado", "šaldytos daržovės|frozen vegetables", "šaldyta pica|frozen pizza|pica",
       "koldūnai|dumplings|virtiniai, pelmeni", "bulvytės|frozen fries|fri, chips", "šaldytos uogos|frozen berries", "ledukai|ice cubes|ledas",
+      "šaldyti žirneliai|frozen peas|žirneliai", "žuvies piršteliai|fish fingers|varitas de pescado",
     ],
   },
   {
@@ -89,6 +98,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "avižiniai dribsniai|oats|avižos, košė, porridge", "miltai|flour|miltų, harina", "cukrus|sugar|cukraus, azúcar",
       "kuskusas|couscous", "bulgūras|bulgur", "lęšiai|lentils|lentejas", "kepimo milteliai|baking powder",
       "mielės|yeast", "vanilinis cukrus|vanilla sugar", "džiūvėsėliai|breadcrumbs", "makaronai lakštiniai|noodles|lakštiniai",
+      "lazanijos lakštai|lasagne sheets|lazanija", "manų kruopos|semolina|manai", "krakmolas|starch|bulvių krakmolas",
     ],
   },
   {
@@ -100,6 +110,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "garstyčios|mustard", "pesto|pesto", "sojų padažas|soy sauce", "agurkai marinuoti|pickles|rauginti agurkai",
       "uogienė|jam|džemas, mermelada", "medus|honey|miel", "riešutų sviestas|peanut butter|žemės riešutų sviestas",
       "šokoladinis kremas|chocolate spread|nutella", "sultinys|stock cubes|sultinio kubeliai, buljonas",
+      "pomidorų pasta|tomato paste|tomate concentrado", "rauginti kopūstai|sauerkraut", "konservuoti žirneliai|tinned peas", "krienai|horseradish", "sardinės konservuotos|tinned sardines|sardinas en lata",
     ],
   },
   {
@@ -108,6 +119,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "aliejus|oil|saulėgrąžų aliejus, sunflower oil", "alyvuogių aliejus|olive oil|aceite de oliva, azeite",
       "druska|salt|druskos, sal", "pipirai|black pepper|juodieji pipirai", "actas|vinegar|vinagre",
       "paprika malta|paprika powder|pimentón", "prieskoniai|spices|prieskonių mišinys", "cinamonas|cinnamon", "lauro lapai|bay leaves",
+      "raudonėlis|oregano", "česnako milteliai|garlic powder", "kario prieskoniai|curry powder|karis",
     ],
   },
   {
@@ -115,6 +127,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     products: [
       "kava|coffee|kavos, café|*", "kavos pupelės|coffee beans", "kavos kapsulės|coffee capsules|kapsulės", "arbata|tea|arbatos, té",
       "kakava|cocoa", "dribsniai|cereal|kukurūzų dribsniai, cereales", "musli|muesli|granola",
+      "tirpi kava|instant coffee|nescafe",
     ],
   },
   {
@@ -124,6 +137,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "riešutai|nuts|riešutų, frutos secos", "saldainiai|sweets|candy", "guminukai|gummies|želė saldainiai",
       "spragėsiai|popcorn", "džiovinti vaisiai|dried fruit|razinos", "batonėliai užkandžiams|snack bars|granola bars",
       "krekeriai|crackers", "vafliai|wafers",
+      "šokoladiniai batonėliai|chocolate bars|Snickers, Mars, Twix",
     ],
   },
   {
@@ -132,6 +146,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "vanduo|water|vandens, agua, água|*", "gazuotas vanduo|sparkling water|mineralinis", "sultys|juice|sulčių, zumo",
       "apelsinų sultys|orange juice", "limonadas|soft drink|gazuoti gėrimai, soda", "kola|cola|coca cola",
       "gira|kvass", "energetinis gėrimas|energy drink", "ledinė arbata|iced tea",
+      "vanduo 5 l|5 l water|didelis vanduo, garrafa, bidón de agua",
     ],
   },
   {
@@ -156,6 +171,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "muilas|soap|skystas muilas", "dezodorantas|deodorant", "kremas nuo saulės|sunscreen|apsauga nuo saulės, protector solar",
       "skutimosi priemonės|razors|skustuvai", "higieniniai paketai|pads|įklotai", "tamponai|tampons", "vatos diskeliai|cotton pads",
       "ausų krapštukai|cotton buds", "popierinės nosinės|tissues|nosinės",
+      "dantų siūlas|dental floss",
     ],
   },
   {
@@ -166,6 +182,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
       "servetėlės|napkins", "kempinės|sponges|kempinė", "folija|tin foil|aliuminio folija", "maistinė plėvelė|cling film|plėvelė",
       "kepimo popierius|baking paper", "valiklis|cleaner|universalus valiklis", "baterijos|batteries|elementai, AA", "degtukai|matches",
       "žvakės|candles", "dujų balionas|gas canister|dujos, butano", "šiukšlių maišeliai|small bin bags", "maišeliai užšaldymui|freezer bags|zip maišeliai",
+      "chemija tualetui|chemical toilet fluid|WC skystis, Thetford, aqua kem, química WC", "anglys|charcoal|grilio anglys, carbón", "uždegimo kubeliai|fire lighters|pastillas de encendido", "indų šluostės|dish cloths|šluostės",
     ],
   },
   {
@@ -177,6 +194,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
     products: [
       "pleistrai|plasters|pleistras, band-aid", "nuo skausmo|painkillers|ibuprofenas, paracetamolis", "vitaminai|vitamins",
       "repelentas|insect repellent|nuo uodų", "nosies purškalas|nasal spray",
+      "šunų skanėstai|dog treats|skanėstai šuniui", "maišeliai šunims|dog poop bags|maišeliai išmatoms",
     ],
   },
   { id: "kita", nameLt: "Kita", nameEn: "Other", emoji: "🛒", kind: "GROCERY", products: [] },
