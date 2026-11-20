@@ -9,6 +9,21 @@ These are the owner's standing decisions (2026-11-20). Do not ask the owner to
 restate or re-confirm any of them. Everything here is the default for **every**
 app unless the owner explicitly says otherwise for that app.
 
+## 0. Scope and rule changes (read first)
+
+- **The session's goal sets the scope.** Do only what the owner asked in this
+  session. Don't start side work the owner didn't ask for (audits, upkeep,
+  touching other repos, refactors) without asking first, even if this skill
+  allows it elsewhere.
+- **Catch new standing requirements.** If the owner says something that sounds
+  like a rule for all work ("always", "never", "from now on", "every app",
+  "by default"), or something that contradicts this skill, stop and ask one
+  question: *"Add this to the docunest-hosting skill?"* (yes / no / only for
+  this app).
+  - On yes, update the canonical copy, then all repo copies (see the end of
+    this file).
+  - Never silently follow or silently ignore a conflicting instruction.
+
 ## 1. Talking to the owner
 
 - **Results, not process.** Simple words, short. No thought process, no
@@ -34,6 +49,9 @@ app unless the owner explicitly says otherwise for that app.
   - Bigger features need the agreed plan (see each app's `docs/PLAN.md`).
 
 ## 2. Upkeep (part of every task)
+
+> **Status: PAUSED.** Don't run upkeep or the scheduled task until the owner
+> approves this skill and says "upkeep on". Then delete this line.
 
 Every repo has an `upkeep.json` at its root:
 `{"lastAudit": "<ISO time>", "result": "<one line>"}`.
@@ -222,7 +240,49 @@ are **not** a public product. Match security to that:
   - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (realtime only).
   - App-only settings are `<APP>_*` and listed in `.env.example`.
 
-## 8. New app or feature checklist
+## 8. Shared context: switching phone, PC, cloud and voice
+
+The owner works mostly from the phone (cloud sessions, voice chat) and
+sometimes from the PC. Any new session, in any mode, must be able to catch up
+without the owner re-explaining.
+
+- **Where:**
+  - **Voice/chat inbox: a Google Doc named "docunest inbox"** in the owner's
+    Google Drive.
+    - The owner refines plans there by talking to Claude in chat or voice,
+      through the Google Drive connector.
+    - Agents read it at session start through the same connector, connected at
+      claude.ai/customize/connectors. If a session lacks the connector, say so
+      in one line and continue from the repo.
+    - Format: one section per item, headed `[new] <date> <app>: <title>`. An
+      agent that takes an item changes the tag to `[taken <date>]` and copies it
+      into the repo.
+  - **Repo memory: the private repo `docunest/claude`, folder `context/`.** It
+    is the durable record for cloud and PC sessions.
+    - `NOW.md`: one page with the current focus, agreed decisions, next steps,
+      open questions for the owner, and a "Needs PC" list. Newest on top. Every
+      session reads it first.
+    - `INBOX.md`: items taken from the Google Doc, or given in a session, that
+      aren't done yet. Each has a date, a status (new / in progress / done) and
+      a short text.
+    - `projects/<app>.md`: a running log per app with date, what changed
+      (commit links), state and what's next.
+  - **Setup, not done yet:** the first session that has the Google Drive
+    connector creates the doc, checks that it can write to it, checks that chat
+    can edit it, and records the doc link in `NOW.md`. Until then the repo
+    alone is used.
+- **Session start:** read `context/NOW.md`, the open items in `INBOX.md`
+  and in the Google Doc, and `projects/<app>.md` for the app at hand.
+- **Session end, and before the owner switches device or mode:**
+  - update `NOW.md` and the app log;
+  - mark the INBOX items you handled;
+  - commit straight to `main` of `docunest/claude` as `context: <summary>`.
+    Context files need no review.
+  - When the work needs the PC, write the exact next step in `NOW.md` under
+    "Needs PC" so the PC session starts from it.
+- Keep entries short: facts, links and decisions. No transcripts.
+
+## 9. New app or feature checklist
 
 1. Which device(s) use it? Put it in **that device's one app**. On phones,
    that means a section of the web app.
@@ -233,7 +293,7 @@ are **not** a public product. Match security to that:
 6. Not allowed: a new repo, Vercel project, DB, login system, framework, or a
    second app on a device.
 
-## 9. Current state and migration (2026-11-20)
+## 10. Current state and migration (2026-11-20)
 
 The target is **not built yet**. The plan is `docs/HOSTING.md` in
 `docunest/monorepo`. Until a step is done, its app keeps running where it is.
@@ -253,7 +313,8 @@ project.
 
 ## Before you finish
 
-- Upkeep ran if it was due, and `upkeep.json` is updated.
+- `context/NOW.md` and the app log in `docunest/claude` are updated.
+- Upkeep ran if it was due and active, and `upkeep.json` is updated.
 - No new repo, project, DB, login system or framework, and no second app on a
   device.
 - No cross-domain imports or table access. Tables are prefixed and registered,
