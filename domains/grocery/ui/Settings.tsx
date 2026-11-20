@@ -24,12 +24,12 @@ export function Settings({ ctx }: { ctx: Ctx }) {
       </section>
 
       <AisleOrder ctx={ctx} />
+      <Agents ctx={ctx} />
       <CatalogEditor ctx={ctx} />
 
       <section>
         <h3>🔗 {ctx.tr("links")}</h3>
         <CopyField ctx={ctx} label={ctx.tr("familyLink")} value={`${origin}/grocery?t=${token}`} />
-        <CopyField ctx={ctx} label={ctx.tr("mcpLink")} value={`${origin}/api/mcp/${token}`} />
         <p className="muted small">{ctx.tr("homeScreen")}</p>
       </section>
 
@@ -179,5 +179,83 @@ function ProductSheet({ ctx, product, onClose }: { ctx: Ctx; product: CatalogIte
         </div>
       </div>
     </div>
+  );
+}
+
+type Agent = { id: string; name: string; createdAt: string; createdBy: string | null; lastUsedAt: string | null; revokedAt: string | null };
+
+const when = (iso: string, lang: string) =>
+  new Date(iso).toLocaleString(lang === "en" ? "en-GB" : "lt-LT", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** MCP connector links: one per assistant, named, revocable (hard rules §5). */
+function Agents({ ctx }: { ctx: Ctx }) {
+  const [open, setOpen] = useState(false);
+  const [agents, setAgents] = useState<Agent[] | null>(null);
+  const [name, setName] = useState("");
+  const [fresh, setFresh] = useState<{ name: string; url: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  const load = () => call<{ agents: Agent[] }>("/api/grocery/agents").then((r) => setAgents(r.agents)).catch(() => {});
+  useEffect(() => {
+    if (open) void load();
+  }, [open]);
+  const create = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const r = await call<{ token: string; agent: Agent }>("/api/grocery/agents", { method: "POST", body: { name } });
+      setFresh({ name: r.agent.name, url: `${origin}/api/grocery/mcp/${r.token}` });
+      setName("");
+      await load();
+    } catch (err) {
+      ctx.toast(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const revoke = async (a: Agent) => {
+    if (!confirm(ctx.tr("revokeConfirm", { x: a.name }))) return;
+    await call(`/api/grocery/agents/${a.id}`, { method: "DELETE" }).catch(() => {});
+    await load();
+  };
+  return (
+    <section>
+      <button className="link" onClick={() => setOpen(!open)}><h3>{open ? "▾" : "▸"} 🤖 {ctx.tr("agents")}</h3></button>
+      {open ? (
+        <>
+          <p className="muted small">{ctx.tr("agentsHint")}</p>
+          <form className="row" onSubmit={(e) => { e.preventDefault(); void create(); }}>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={ctx.tr("agentName")} maxLength={40} />
+            <button className="primary" type="submit" disabled={busy || !name.trim()}>{ctx.tr("createLink")}</button>
+          </form>
+          {fresh ? (
+            <div className="fresh">
+              <CopyField ctx={ctx} label={`${fresh.name} — ${ctx.tr("newLinkOnce")}`} value={fresh.url} />
+            </div>
+          ) : null}
+          <ul className="agents">
+            {(agents ?? []).map((a) => (
+              <li key={a.id} className={a.revokedAt ? "revoked" : ""}>
+                <div>
+                  <strong>{a.name}</strong>
+                  <div className="muted small">
+                    {ctx.tr("created", { t: when(a.createdAt, ctx.lang) })}
+                    {a.createdBy && a.createdBy !== "setup" ? ` · ${a.createdBy}` : ""} ·{" "}
+                    {a.revokedAt
+                      ? `${ctx.tr("revoked")} ${when(a.revokedAt, ctx.lang)}`
+                      : a.lastUsedAt
+                        ? ctx.tr("lastUsed", { t: when(a.lastUsedAt, ctx.lang) })
+                        : ctx.tr("neverUsed")}
+                  </div>
+                </div>
+                {a.revokedAt ? null : (
+                  <button className="small danger" onClick={() => revoke(a)}>{ctx.tr("revoke")}</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
   );
 }

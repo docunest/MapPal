@@ -59,5 +59,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261120210000_grocery_rls",
     "sql": "-- docunest hard rules §5: every table gets RLS with no policies, so the\n-- public Supabase API (anon key) can't read it. The server's DATABASE_URL role\n-- bypasses RLS, so the app is unaffected.\nALTER TABLE \"grocery_category\" ENABLE ROW LEVEL SECURITY;\nALTER TABLE \"grocery_product\" ENABLE ROW LEVEL SECURITY;\nALTER TABLE \"grocery_entry\" ENABLE ROW LEVEL SECURITY;\nALTER TABLE \"grocery_trip\" ENABLE ROW LEVEL SECURITY;\nALTER TABLE \"grocery_member\" ENABLE ROW LEVEL SECURITY;\nALTER TABLE \"grocery_ai_call\" ENABLE ROW LEVEL SECURITY;\n"
+  },
+  {
+    "name": "20261120220000_grocery_agent_tokens",
+    "sql": "-- CreateTable\nCREATE TABLE \"grocery_agent_token\" (\n    \"id\" TEXT NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"token_hash\" TEXT NOT NULL,\n    \"created_at\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"created_by\" TEXT,\n    \"last_used_at\" TIMESTAMP(3),\n    \"revoked_at\" TIMESTAMP(3),\n\n    CONSTRAINT \"grocery_agent_token_pkey\" PRIMARY KEY (\"id\")\n);\n\n-- CreateIndex\nCREATE UNIQUE INDEX \"grocery_agent_token_token_hash_key\" ON \"grocery_agent_token\"(\"token_hash\");\n\n\n-- docunest hard rules §5: RLS on, no policies.\nALTER TABLE \"grocery_agent_token\" ENABLE ROW LEVEL SECURITY;\n\n-- The first two connector tokens (issued 2026-11-20, hashes were in code) become revocable rows.\nINSERT INTO \"grocery_agent_token\" (\"id\", \"name\", \"token_hash\", \"created_by\") VALUES\n  ('agent_claude_20261120', 'claude', 'e46cd0d6bc88cfd650177fac1b6acb0508469c1543364ce97c7c23ba2e2fcb28', 'setup'),\n  ('agent_chatgpt_20261120', 'chatgpt', '803c1d8f27740a545a63e6aa6861449879c7e89b231185297ccea0ac852b7fd6', 'setup')\nON CONFLICT (\"token_hash\") DO NOTHING;\n"
   }
 ];

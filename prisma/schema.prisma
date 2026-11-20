@@ -694,3 +694,17 @@ model GroceryAiCall {
   @@index([at])
   @@map("grocery_ai_call")
 }
+
+/// MCP connector tokens (one per assistant/integration; docunest hard rules §5).
+/// Only the SHA-256 is stored; the token is shown once when it is issued.
+model GroceryAgentToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  createdBy  String?   @map("created_by")
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  @@map("grocery_agent_token")
+}

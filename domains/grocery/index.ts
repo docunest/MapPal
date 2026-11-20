@@ -19,6 +19,7 @@ export { listMembers, rememberMember } from "./application/members";
 export { setAisleOrder } from "./application/setAisleOrder";
 export { editProduct } from "./application/editProduct";
 export { health } from "./application/health";
+export { issueAgentToken, listAgentTokens, revokeAgentToken } from "./application/agentTokens";
 
 export type { EntryPatch, ProductPatch } from "./domain/types";
 export { App as GroceryApp } from "./ui/App";

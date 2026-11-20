@@ -2,10 +2,12 @@
 // enough for Claude (custom connector) and ChatGPT (developer-mode connector)
 // to read and change the same list the phones use. The token is in the URL
 // (/api/grocery/mcp/<agent token>) because those connectors can't send custom
-// headers. Each agent has its own token (infrastructure/auth.ts).
+// headers. Each agent has its own token, issued and revoked in the app
+// (infrastructure/agentTokens.ts).
 import { autocomplete, matchPhrase, type CatalogItem } from "../domain/text";
 import type { EntryDto } from "../domain/types";
-import { agentFromToken, tokenFrom } from "../infrastructure/auth";
+import { tokenFrom } from "../infrastructure/auth";
+import { agentFromToken } from "../infrastructure/agentTokens";
 import { aiConfigured } from "../infrastructure/deepseek";
 import { loadCatalog, loadState } from "../infrastructure/repo";
 import { addItems, type AddRequest } from "./addItems";
@@ -250,7 +252,7 @@ async function handleOne(msg: RpcMsg, agent: string): Promise<Json | null> {
 
 export async function mcpHandler(req: Request, pathToken?: string): Promise<Response> {
   // Agent tokens only (one per agent, revocable alone) — not the family token.
-  const agent = agentFromToken(pathToken ?? tokenFrom(req));
+  const agent = await agentFromToken(pathToken ?? tokenFrom(req));
   if (!agent) {
     return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "Unauthorized: use this agent's connector URL" } }, { status: 401 });
   }

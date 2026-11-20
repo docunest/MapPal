@@ -15,8 +15,8 @@ Use the **grocery-list MCP connector** tools if they are available:
 `suggest_items`, `search_catalog`.
 
 If the tools are not available, tell the user to add a custom connector with
-this assistant's own connector URL (`https://<MapPal URL>/api/grocery/mcp/<agent token>`;
-the owner has one per assistant), with no authentication. Never ask for the token
+this assistant's own connector URL (`https://<MapPal URL>/api/grocery/mcp/<agent token>`,
+created in the app: ⚙️ Nustatymai → Asistentai → name → Sukurti), with no authentication. Never ask for the token
 in chat, and never invent list contents.
 
 ## How to act

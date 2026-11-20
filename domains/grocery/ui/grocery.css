@@ -200,6 +200,9 @@
   .catalog .rowbtn { padding: 10px 2px; }
   .copy { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
   .copy input { font-size: 13px; }
+  .fresh { background: var(--accent-soft); border-radius: 10px; padding: 10px; }
+  .agents li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .agents li.revoked { opacity: .5; }
 
 }
 

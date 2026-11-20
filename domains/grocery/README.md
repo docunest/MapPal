@@ -35,17 +35,19 @@ so the token must be in that address. (MapPal's manifest, start page `/`, made
 the icon open the MapPal login, 2026-11-20.) Offline
 opening comes from MapPal's service worker (`public/sw.js` keeps the last copy of each page).
 
-MCP connector URL: `/api/grocery/mcp/<agent token>`. Each agent has its own
-token (Claude, ChatGPT), so one can be revoked alone; the family token is not
-accepted there. Only their SHA-256 is in `infrastructure/auth.ts`;
-`GROCERY_AGENT_TOKENS="name:token,…"` on Vercel replaces the list.
+MCP connector URL: `/api/grocery/mcp/<agent token>`. Agent tokens are issued,
+named and revoked in the app (⚙️ → Asistentai): as many as needed, one per
+assistant/integration, so each can be revoked alone. Only their SHA-256 is
+stored (`grocery_agent_token`); the full link is shown once, when it is created.
+The family token is not accepted on MCP. API: `GET/POST /api/grocery/agents`,
+`DELETE /api/grocery/agents/<id>` (family token).
 
 ## Settings
 
 Nothing extra to set: it uses MapPal's `DATABASE_URL` and `DEEPSEEK_API_KEY`.
 DeepSeek calls count against MapPal's shared cap `deepseek:grocery` (200/day,
 3,000/month, shown on `/sources`; `CAP_DEEPSEEK_GROCERY_DAILY` / `_MONTHLY`
-override it) and are logged in `grocery_ai_call`. Optional: `GROCERY_TOKEN`, `GROCERY_AGENT_TOKENS`.
+override it) and are logged in `grocery_ai_call`. Optional: `GROCERY_TOKEN`.
 
 ## Local
 
@@ -58,7 +60,7 @@ Same as MapPal (`npm run dev`). Grocery tests: `test/grocery.test.ts` (part of `
 | `index.ts` | the only public surface (routes import from `@/domains/grocery`) |
 | `domain/` | pure rules, no IO: `text.ts` (fold/stem/autocomplete/matching), `parse.ts` (local sentence parser), `suggest.ts` (purchase rhythm), `seed-data.ts` (24 sections, ~250 products LT+EN), `prompts.ts` (**prompt templates**, see `docs/PROMPTS.md`), `ai.ts` (DeepSeek output validation behind a `ChatJson` port), `types.ts` |
 | `application/` | one use case per file (getState, addItems, updateEntry, finishTrip, parseText, suggestFromHistory, suggestWithAi, classifyNew, …) and `mcp.ts` (MCP server) |
-| `infrastructure/` | `repo.ts` (`grocery_*` tables), `deepseek.ts` (MapPal's shared cap `deepseek:grocery`), `auth.ts` (family + agent tokens), `seed.ts`, `http.ts` |
+| `infrastructure/` | `repo.ts` (`grocery_*` tables), `deepseek.ts` (MapPal's shared cap `deepseek:grocery`), `auth.ts` (family token), `agentTokens.ts` (MCP tokens), `seed.ts`, `http.ts` |
 | `ui/` | the phone UI; `useSync.ts` = polling sync plus offline outbox; `grocery.css` scoped under `.grocery-root` |
 | `test/` | domain tests without DB or network (`npm test`); `test/boundaries.test.ts` + ESLint guard the domain boundary |
 | `docs/` | `PROMPTS.md`, `skill/grocery-list/SKILL.md`, `evidence/` |
