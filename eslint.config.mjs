@@ -5,6 +5,22 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // docunest hard rules §3: a domain imports only itself, the shared core
+  // (for now MapPal's lib/db + AI usage caps) and npm packages. Outside code
+  // reaches a domain only through its index.ts. test/boundaries.test.ts
+  // checks the same thing.
+  {
+    files: ["domains/grocery/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ regex: "^@/(?!lib/db$|lib/sources/usage$|lib/sources/usageDb$)", message: "domains/grocery may import only itself, @/lib/db and @/lib/sources/usage(Db)." }] }],
+    },
+  },
+  {
+    files: ["app/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ regex: "^@/domains/[^/]+/(?!ui/[^/]+\\.css$)", message: "Import a domain only through its index.ts (@/domains/<app>)." }] }],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

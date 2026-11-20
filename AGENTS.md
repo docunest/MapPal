@@ -81,7 +81,7 @@ not the MapPal login): fast planning with autocomplete and dictation (Lithuanian
 plus English), aisle-ordered store view with live crossing-out, long-term
 purchases, "usually buy" suggestions, DeepSeek only where the local catalog
 can't help, and an MCP endpoint for Claude/ChatGPT. A self-contained module
-(`grocery_*` tables, `lib/grocery`, `components/grocery`): see `docs/grocery/README.md`.
+(`domains/grocery`, `grocery_*` tables): see `domains/grocery/README.md`.
 
 ## Region and languages
 Spain and Portugal first. Local sources matter more than English ones:

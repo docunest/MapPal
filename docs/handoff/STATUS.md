@@ -7,12 +7,12 @@ Newest on top. Each entry: date, task, what changed (commits), evidence
 
 - **Task:** owner: a grocery list app for the family (planning, dictation, store view, live sync, long-term items, DeepSeek, MCP/skill, one token link) — then "It must be the same vercel project" and "Do security updates". Logged in DECISIONS.md.
 - **What changed** (branch `claude/grocery-list-app-5k8nfx`, **not on `main` yet**):
-  - `/grocery` module: `lib/grocery`, `components/grocery`, `app/grocery`, `app/api/grocery`, `public/grocery`, `Grocery*` models (`grocery_*` tables), migration `20261120190000_grocery_list`, `isGrocery` in `proxy.ts`. Docs: `docs/grocery/README.md`, prompts `docs/grocery/PROMPTS.md`, skill `docs/grocery/skill/`.
+  - `/grocery` module as DDD domain `domains/grocery` (domain / application / infrastructure / ui / test, `index.ts` the only public surface) + thin routes `app/grocery`, `app/api/grocery`, `public/grocery`, `Grocery*` models (`grocery_*` tables, RLS on), migrations `20261120190000_grocery_list` + `20261120210000_grocery_rls`, `isGrocery` in `proxy.ts`. Boundary guarded by `test/boundaries.test.ts` and ESLint. MCP takes per-agent tokens (Claude, ChatGPT), not the family token. Docs: `domains/grocery/README.md`, prompts `domains/grocery/docs/PROMPTS.md`, skill `domains/grocery/docs/skill/`.
   - Security: Next 16.4.2 → 16.4.6 (5 advisories), Prisma CLI deps pinned via `overrides` (effect, deepmerge-ts), typescript-eslint/minimatch. `npm audit`: 12 → 0.
   - Checked against `.claude/skills/mappal-context`: DeepSeek calls now count against MapPal's shared cap `deepseek:grocery` (200/day, 3,000/month, on `/sources`) and the shared token counters; AI-filed products show ✨; offline banner shows when the list was last synced; live URL kept out of the repo.
-- **Evidence:** `docs/grocery/evidence/` (local production build, two emulated iPhones, synthetic history, AI off). 110 tests, lint, typecheck, build pass. Also running on the branch's Vercel preview (same `map-pal` project): page, token check, DB, seed catalog, parse, MCP OK; AI reported off there (`DEEPSEEK_API_KEY` apparently not set for Preview).
+- **Evidence:** `domains/grocery/docs/evidence/` (local production build, two emulated iPhones, synthetic history, AI off). 110 tests, lint, typecheck, build pass. Also running on the branch's Vercel preview (same `map-pal` project): page, token check, DB, seed catalog, parse, MCP OK; AI reported off there (`DEEPSEEK_API_KEY` apparently not set for Preview).
 - **Not proven:** DeepSeek parsing/shortlist live (no key in the sandbox or on Preview; unit-tested with a fake model); real iPhone Safari Home Screen install; Claude/ChatGPT connector setup. Not tied to Spain/Portugal places (it holds no locations); item names are Lithuanian with some es/pt aliases.
-- **Questions for the owner:** merge to `main` to deploy?
+- **Merged to `main`** on the owner's "Merge" (and standing permission, docunest-hosting §1).
 
 ## 2026-11-16 — Offline places in the web app, Home Screen app, diesel-only fuel
 

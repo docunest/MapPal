@@ -1,7 +1,3 @@
-import { api } from "@/lib/grocery/http";
-import { suggestionContext } from "@/lib/grocery/store";
+import { api, suggestFromHistory } from "@/domains/grocery";
 
-export const GET = api(async () => {
-  const { due } = await suggestionContext();
-  return { suggestions: due.suggestions, source: "history" };
-});
+export const GET = api(async () => suggestFromHistory());

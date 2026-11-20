@@ -1,4 +1,4 @@
-import { isFamilyToken } from "@/lib/grocery/auth";
+import { isFamilyToken } from "@/domains/grocery";
 
 // Home Screen app on the iPhone: Safari and the installed app don't share
 // storage, so the installed app must start from a URL that carries the token.

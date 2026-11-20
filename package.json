@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test test/*.test.ts domains/*/test/*.test.ts",
     "migrations:bundle": "tsx scripts/bundle-migrations.ts"
   },
   "dependencies": {

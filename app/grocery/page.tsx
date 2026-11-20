@@ -1,4 +1,4 @@
-import { App } from "@/components/grocery/App";
+import { GroceryApp as App } from "@/domains/grocery";
 
 export default function GroceryPage() {
   return <App />;

@@ -1,4 +1,3 @@
-import { api } from "@/lib/grocery/http";
-import { loadCatalog } from "@/lib/grocery/store";
+import { api, getCatalog } from "@/domains/grocery";
 
-export const GET = api(async () => loadCatalog());
+export const GET = api(async () => getCatalog());

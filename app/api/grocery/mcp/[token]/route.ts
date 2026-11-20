@@ -1,4 +1,4 @@
-import { mcpHandler } from "@/lib/grocery/mcp";
+import { mcpHandler } from "@/domains/grocery";
 
 // Connector URL with the token in the path: /api/grocery/mcp/<token>
 // (Claude / ChatGPT custom connectors can't add headers).

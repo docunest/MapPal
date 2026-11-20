@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import "./grocery.css";
+import "@/domains/grocery/ui/grocery.css";
 
-// Grocery list module (AGENTS.md G6). Its own token auth (lib/grocery/auth.ts),
+// Grocery list module (AGENTS.md G6). Its own token auth (domains/grocery/infrastructure/auth.ts),
 // not the MapPal login — proxy.ts lets /grocery and /api/grocery through.
 export const metadata: Metadata = {
   title: "Pirkiniai",
