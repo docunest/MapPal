@@ -36,6 +36,7 @@ export function Settings({ ctx }: { ctx: Ctx }) {
       <section>
         <h3>ℹ️ {ctx.tr("status")}</h3>
         <p className="small">Database: {health?.db ?? "…"}<br />AI: {health?.ai ?? "…"}</p>
+        <AiBalance ctx={ctx} />
       </section>
     </div>
   );
@@ -260,5 +261,54 @@ function Agents({ ctx }: { ctx: Ctx }) {
         </>
       ) : null}
     </section>
+  );
+}
+
+type AiStatus = {
+  configured: boolean;
+  model: string;
+  balance: { available: boolean; currency: string | null; total: number | null; low: boolean; error: string | null } | null;
+  today: { calls: number; cap: number };
+  month: { calls: number; cap: number };
+};
+
+/** DeepSeek balance and this app's AI use against its caps. */
+function AiBalance({ ctx }: { ctx: Ctx }) {
+  const [s, setS] = useState<AiStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    setBusy(true);
+    try {
+      setS(await call<AiStatus>("/api/grocery/ai"));
+    } catch {
+      /* offline */
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    call<AiStatus>("/api/grocery/ai").then(setS).catch(() => {});
+  }, []);
+  const money = (b: NonNullable<AiStatus["balance"]>) =>
+    b.total === null ? "?" : `${b.currency === "CNY" ? "¥" : "$"}${b.total.toFixed(2)}`;
+  return (
+    <div className="aibal">
+      {!s ? (
+        <p className="small muted">…</p>
+      ) : !s.configured ? (
+        <p className="small muted">{ctx.tr("aiOff")}</p>
+      ) : (
+        <>
+          <p className={`small${s.balance?.low ? " warn" : ""}`}>
+            💳 {ctx.tr("aiBalance")}: <strong>{s.balance ? (s.balance.error ? s.balance.error : money(s.balance)) : "?"}</strong>
+            {s.balance?.low ? ` — ${ctx.tr("aiLow")}` : ""}
+          </p>
+          <p className="small muted">
+            {ctx.tr("aiUse", { d: s.today.calls, dc: s.today.cap, m: s.month.calls, mc: s.month.cap })}
+          </p>
+        </>
+      )}
+      <button className="small" disabled={busy} onClick={() => void load()}>↻</button>
+    </div>
   );
 }

@@ -103,6 +103,9 @@ const STRINGS = {
   you: ["tu", "you"],
   changeName: ["Keisti vardą", "Change name"],
   working: ["Galvoju…", "Thinking…"],
+  aiBalance: ["DeepSeek likutis", "DeepSeek balance"],
+  aiLow: ["baigiasi, papildyk platform.deepseek.com", "running low, top up at platform.deepseek.com"],
+  aiUse: ["AI užklausos: šiandien {d} iš {dc}, šį mėnesį {m} iš {mc}", "AI requests: today {d} of {dc}, this month {m} of {mc}"],
   byAi: ["Pavadinimą ar skyrių parinko DeepSeek (AI)", "Name or section chosen by DeepSeek (AI)"],
   lastSync: ["sąrašas iš {t}", "list from {t}"],
 } as const;
