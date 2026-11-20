@@ -8,6 +8,26 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## HARD RULE: shared hosting for all docunest apps (owner, 2026-11-20)
+
+All the owner's apps share **one repo (`docunest/monorepo`), one Next.js app,
+one Vercel project, one Supabase Postgres, one login (`core_user`) and one set
+of env vars/API keys**, like old-school hosting. The only separation: each app's
+code lives in its own section (`domains/<app>/`, `app/<app>/`, `app/api/<app>/`,
+`<app>_*` tables) and never imports or touches another app's.
+
+**Before** creating or changing any app, backend, table, migration, env var,
+token, login, repo, Vercel project or deployment, load the
+**`docunest-hosting`** skill (`.claude/skills/docunest-hosting/SKILL.md`;
+canonical copy in `docunest/claude`) and follow it. Never create a new repo,
+Vercel project, database, Supabase project, login system or framework for an
+app. If a task seems to need one, ask the owner first. Don't ask the owner to
+restate this rule.
+
+MapPal is the one allowed exception until its planned move into the monorepo
+(`docunest/monorepo` → `docs/HOSTING.md`, step 4): it keeps its own repo and
+Vercel project for now, but already follows the shared DB, login and key rules.
+
 # MapPal — product goals (read before any work)
 
 MapPal is for one family living **camp life in a camper van in Spain and
