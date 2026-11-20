@@ -282,6 +282,7 @@ function Suggestions({ ctx }: { ctx: Ctx }) {
 
 function ListSection({ ctx, title, entries, onEdit }: { ctx: Ctx; title: string; entries: EntryDto[]; onEdit: (e: EntryDto) => void }) {
   const groups = groupByCategory(entries, ctx.categories);
+  const aiProducts = new Set(ctx.catalog.filter((c) => c.source === "ai").map((c) => c.id));
   return (
     <section className="list">
       <h2>{title}</h2>
@@ -295,7 +296,7 @@ function ListSection({ ctx, title, entries, onEdit }: { ctx: Ctx; title: string;
                   <span className="name">{e.name}</span>
                   {e.qty ? <span className="qty">{e.qty}</span> : null}
                   {e.note ? <span className="muted small note">{e.note}</span> : null}
-                  {e.via === "ai" ? <span className="muted small" title="DeepSeek">✨</span> : null}
+                  {e.via === "ai" || (e.productId && aiProducts.has(e.productId)) ? <span className="muted small" title={ctx.tr("byAi")}>✨</span> : null}
                   {e.addedBy && e.addedBy !== ctx.member ? <span className="who">{e.addedBy}</span> : null}
                 </button>
                 <button

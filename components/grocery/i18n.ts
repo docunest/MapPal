@@ -83,6 +83,8 @@ const STRINGS = {
   you: ["tu", "you"],
   changeName: ["Keisti vardą", "Change name"],
   working: ["Galvoju…", "Thinking…"],
+  byAi: ["Pavadinimą ar skyrių parinko DeepSeek (AI)", "Name or section chosen by DeepSeek (AI)"],
+  lastSync: ["sąrašas iš {t}", "list from {t}"],
 } as const;
 
 export type Key = keyof typeof STRINGS;

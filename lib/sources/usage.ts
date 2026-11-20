@@ -27,6 +27,9 @@ export const DEFAULT_CAPS: Record<string, Cap> = {
   "deepseek:chat": { daily: 150, monthly: 3000 },
   // Scenario agents (top-down plan per area, validator checks per run).
   "deepseek:agent": { daily: 300, monthly: 4000 },
+  // Grocery list module (/grocery): parsing what the catalog can't place,
+  // filing new items, the optional smart shortlist.
+  "deepseek:grocery": { daily: 200, monthly: 3000 },
 };
 
 /** Env override: CAP_GOOGLE_PLACE_DETAILS_ATMOSPHERE_DAILY=10 etc. */

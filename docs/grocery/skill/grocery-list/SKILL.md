@@ -16,7 +16,7 @@ Use the **grocery-list MCP connector** tools if they are available:
 
 If the tools are not available, tell the user to add a custom connector with
 the URL from the app (⚙️ Nustatymai → "MCP jungtis"), which looks like
-`https://map-pal-mike-base.vercel.app/api/grocery/mcp/<token>`, with no authentication. Never ask for the
+`https://<MapPal URL>/api/grocery/mcp/<token>`, with no authentication. Never ask for the
 token in chat, and never invent list contents.
 
 ## How to act

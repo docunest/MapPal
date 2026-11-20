@@ -1,13 +1,16 @@
-// DeepSeek (OpenAI-compatible chat API), same key as MapPal. Every call is
-// logged in grocery_ai_call (purpose, tokens, ok/error) and counted against a
-// daily cap (GROCERY_AI_DAILY_CAP, default 200). Only list/product text is
-// sent — never family names or locations.
+// DeepSeek (OpenAI-compatible chat API), MapPal's key. Every call counts
+// against MapPal's shared cap "deepseek:grocery" (lib/sources/usage.ts, shown
+// on /sources; override with CAP_DEEPSEEK_GROCERY_DAILY/_MONTHLY), adds its
+// tokens to the shared deepseek tokens-in/out counters, and is logged in
+// grocery_ai_call (purpose, ok/error). Only list/product text is sent —
+// never family names or locations.
 import { prisma } from "../../db";
+import { createUsageGuard, today } from "../../sources/usage";
+import { dbUsageStore } from "../../sources/usageDb";
 
 const BASE = "https://api.deepseek.com";
 export const aiModel = () => process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
 export const aiConfigured = () => !!process.env.DEEPSEEK_API_KEY?.trim();
-const dailyCap = () => Number(process.env.GROCERY_AI_DAILY_CAP) || 200;
 
 export class AiUnavailable extends Error {}
 
@@ -25,15 +28,9 @@ export function parseJsonReply(text: string): unknown {
   }
 }
 
-export async function aiCallsToday(): Promise<number> {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return prisma.groceryAiCall.count({ where: { at: { gte: start } } });
-}
-
 export const deepseekChatJson: ChatJson = async (purpose, system, user, opts = {}) => {
   if (!aiConfigured()) throw new AiUnavailable("DEEPSEEK_API_KEY not set");
-  if ((await aiCallsToday()) >= dailyCap()) throw new AiUnavailable("daily AI cap reached");
+  if (!(await createUsageGuard(dbUsageStore).take("deepseek", "grocery"))) throw new AiUnavailable("DeepSeek grocery cap reached (see /sources)");
   const model = aiModel();
   let tokensIn = 0;
   let tokensOut = 0;
@@ -61,6 +58,8 @@ export const deepseekChatJson: ChatJson = async (purpose, system, user, opts = {
     };
     tokensIn = body.usage?.prompt_tokens ?? 0;
     tokensOut = body.usage?.completion_tokens ?? 0;
+    const day = today();
+    await Promise.all([dbUsageStore.add("deepseek", "tokens-in", day, tokensIn), dbUsageStore.add("deepseek", "tokens-out", day, tokensOut)]);
     if (!res.ok) throw new Error(`DeepSeek ${res.status}: ${body.error?.message ?? "request failed"}`);
     const json = parseJsonReply(body.choices?.[0]?.message?.content ?? "");
     await prisma.groceryAiCall.create({ data: { purpose, model, tokensIn, tokensOut, ok: true } });

@@ -121,6 +121,7 @@ function CatalogEditor({ ctx }: { ctx: Ctx }) {
                 <button className="rowbtn" onClick={() => setEdit(p)}>
                   <span className="emoji">{ctx.catEmoji(p.categoryId)}</span>
                   <span className="name">{p.name}</span>
+                  {p.source === "ai" ? <span className="muted small" title={ctx.tr("byAi")}>✨</span> : null}
                   <span className="muted small">{[p.nameEn, ...p.aliases].filter(Boolean).slice(0, 3).join(", ")}</span>
                   {p.uses ? <span className="qty">{p.uses}×</span> : null}
                 </button>

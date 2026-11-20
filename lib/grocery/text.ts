@@ -11,6 +11,8 @@ export type CatalogItem = {
   categoryId: string;
   kind: "GROCERY" | "LONGTERM";
   staple?: boolean;
+  /** seed | user | ai — "ai" means DeepSeek named/filed it (shown with ✨). */
+  source?: string;
   /** Times it was put on the list. */
   uses?: number;
   /** Last time it was put on the list (ISO). */

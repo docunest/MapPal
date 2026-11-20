@@ -191,7 +191,8 @@ function Main({ lang, member, setLang, setMember }: { lang: Lang; member: string
   };
 
   const openCount = ctx.entries.filter((e) => e.status === "OPEN" && e.kind === "GROCERY").length;
-  const statusLabel = sync.status === "offline" ? tr("offline") : sync.status === "pending" ? tr("pending") : sync.status === "unauthorized" ? tr("badLink") : tr("live");
+  const syncedAgo = sync.syncedAt ? new Date(sync.syncedAt).toLocaleString(lang === "en" ? "en-GB" : "lt-LT", { hour: "2-digit", minute: "2-digit" }) : null;
+  const statusLabel = sync.status === "offline" ? `${tr("offline")}${syncedAgo ? ` · ${tr("lastSync", { t: syncedAgo })}` : ""}` : sync.status === "pending" ? tr("pending") : sync.status === "unauthorized" ? tr("badLink") : tr("live");
 
   return (
     <div className="app">

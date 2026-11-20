@@ -15,7 +15,7 @@ export type Op =
   | { opId: string; type: "patch"; id: string; patch: EntryPatch }
   | { opId: string; type: "finish" };
 
-type Snapshot = { version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; categories: CategoryDto[] };
+type Snapshot = { syncedAt?: string; version: string; catalogVersion: string; entries: EntryDto[]; trip: TripDto; categories: CategoryDto[] };
 type Catalog = { version: string; products: CatalogItem[]; categories: CategoryDto[] };
 
 function readJson<T>(key: string): T | null {
@@ -105,10 +105,12 @@ export function useSync(opts: { fast: boolean; member: string | null }) {
     try {
       const v = serverRef.current?.version;
       const r = await call<Snapshot & { unchanged?: boolean }>(`/api/grocery/state${v ? `?v=${encodeURIComponent(v)}` : ""}`);
-      if (!r.unchanged) {
-        serverRef.current = r;
-        lsSet(LS.state, JSON.stringify(r));
-        setServer(r);
+      const syncedAt = new Date().toISOString();
+      const next = r.unchanged ? (serverRef.current ? { ...serverRef.current, syncedAt } : null) : { ...r, syncedAt };
+      if (next) {
+        serverRef.current = next;
+        lsSet(LS.state, JSON.stringify(next));
+        setServer(next);
       }
       if (!catalogRef.current || catalogRef.current.version !== r.catalogVersion) await loadCatalog();
       setStatus(outboxRef.current.length ? "pending" : "live");
@@ -181,5 +183,5 @@ export function useSync(opts: { fast: boolean; member: string | null }) {
   );
 
   const view = server ? applyOps(server, outbox, opts.member) : null;
-  return { view, catalog, status, enqueue, refreshCatalog: loadCatalog, poll };
+  return { view, catalog, status, syncedAt: server?.syncedAt ?? null, enqueue, refreshCatalog: loadCatalog, poll };
 }

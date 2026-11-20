@@ -6,7 +6,7 @@ same Supabase project; owner 2026-11-20, AGENTS.md G6). It lives at `/grocery`
 and has its own token auth, its own `grocery_*` tables and enums, and no imports
 from MapPal code except the shared Prisma client (`lib/db.ts`). See "Removing it" below.
 
-**Open it:** https://map-pal-mike-base.vercel.app/grocery#t=<family token>
+**Open it:** `<MapPal URL>/grocery#t=<family token>` (the live URL and the token are not kept in the repo; ask the owner).
 
 ## What it does
 
@@ -37,8 +37,9 @@ MCP connector URL: `/api/grocery/mcp/<token>`.
 ## Settings
 
 Nothing extra to set: it uses MapPal's `DATABASE_URL` and `DEEPSEEK_API_KEY`.
-Optional: `GROCERY_AI_DAILY_CAP` (default 200 DeepSeek calls a day, logged in
-`grocery_ai_call`), `GROCERY_TOKEN`.
+DeepSeek calls count against MapPal's shared cap `deepseek:grocery` (200/day,
+3,000/month, shown on `/sources`; `CAP_DEEPSEEK_GROCERY_DAILY` / `_MONTHLY`
+override it) and are logged in `grocery_ai_call`. Optional: `GROCERY_TOKEN`.
 
 ## Local
 

@@ -74,6 +74,7 @@ export async function loadCatalog(): Promise<{ categories: CategoryDto[]; produc
       categoryId: p.categoryId,
       kind: p.kind,
       staple: p.staple,
+      source: p.source,
       uses: Number(byId.get(p.id)?.uses ?? 0),
       lastUsedAt: byId.get(p.id)?.last.toISOString() ?? null,
     })),
