@@ -1,10 +1,12 @@
 // Grocery list (Pirkiniai) — the ONLY public surface of this domain
 // (docunest hard rules §3). Route files in app/grocery and app/api/grocery
 // import from here and nothing deeper.
-export { api, body, BadRequest, type Ctx as ApiCtx } from "./infrastructure/http";
+export { agentApi, api, body, BadRequest, whoFrom, type Ctx as ApiCtx } from "./infrastructure/http";
 export { isFamilyToken, memberFrom, requireToken, Unauthorized } from "./infrastructure/auth";
 export { AiUnavailable } from "./infrastructure/deepseek";
 export { mcpHandler } from "./application/mcp";
+export { addForAgent, finishForAgent, listForAgent, markForAgent, removeForAgent, searchCatalogForAgent, suggestForAgent } from "./application/agentActions";
+export { openApiSpec } from "./application/openapi";
 
 export { getState } from "./application/getState";
 export { getCatalog } from "./application/getCatalog";

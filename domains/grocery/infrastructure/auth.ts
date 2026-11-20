@@ -16,7 +16,8 @@ export function isFamilyToken(token: string | undefined | null, env: Record<stri
 
 export function tokenFrom(req: Request): string | undefined {
   const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-  return (bearer ?? req.headers.get("x-grocery-token") ?? new URL(req.url).searchParams.get("t") ?? undefined)?.trim();
+  const q = new URL(req.url).searchParams;
+  return (bearer ?? req.headers.get("x-grocery-token") ?? req.headers.get("x-api-key") ?? q.get("t") ?? q.get("key") ?? undefined)?.trim();
 }
 
 /** Display name of the family member making the call ("x-member" header, set in the app). */

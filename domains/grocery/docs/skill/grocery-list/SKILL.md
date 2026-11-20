@@ -10,7 +10,9 @@ see the same data, live). Names are Lithuanian; English is understood.
 
 ## Connection
 
-Use the **grocery-list MCP connector** tools if they are available:
+Use the **grocery-list MCP connector** tools if they are available (or the same
+actions over REST — `listItems`, `addItems`, `markBought`, `removeItems`,
+`finishShopping`, `suggestItems`, `searchCatalog` — when it is set up as OpenAPI actions):
 `get_list`, `add_items`, `mark_bought`, `remove_items`, `finish_shopping`,
 `suggest_items`, `search_catalog`.
 

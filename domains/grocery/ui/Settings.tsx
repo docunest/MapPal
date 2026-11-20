@@ -192,7 +192,7 @@ function Agents({ ctx }: { ctx: Ctx }) {
   const [open, setOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[] | null>(null);
   const [name, setName] = useState("");
-  const [fresh, setFresh] = useState<{ name: string; url: string } | null>(null);
+  const [fresh, setFresh] = useState<{ name: string; url: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const origin = typeof location !== "undefined" ? location.origin : "";
   const load = () => call<{ agents: Agent[] }>("/api/grocery/agents").then((r) => setAgents(r.agents)).catch(() => {});
@@ -204,7 +204,7 @@ function Agents({ ctx }: { ctx: Ctx }) {
     setBusy(true);
     try {
       const r = await call<{ token: string; agent: Agent }>("/api/grocery/agents", { method: "POST", body: { name } });
-      setFresh({ name: r.agent.name, url: `${origin}/api/grocery/mcp/${r.token}` });
+      setFresh({ name: r.agent.name, url: `${origin}/api/grocery/mcp/${r.token}`, token: r.token });
       setName("");
       await load();
     } catch (err) {
@@ -224,13 +224,16 @@ function Agents({ ctx }: { ctx: Ctx }) {
       {open ? (
         <>
           <p className="muted small">{ctx.tr("agentsHint")}</p>
+          <CopyField ctx={ctx} label={ctx.tr("openApiUrl")} value={`${origin}/api/grocery/v1/openapi.json`} />
           <form className="row" onSubmit={(e) => { e.preventDefault(); void create(); }}>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={ctx.tr("agentName")} maxLength={40} />
             <button className="primary" type="submit" disabled={busy || !name.trim()}>{ctx.tr("createLink")}</button>
           </form>
           {fresh ? (
             <div className="fresh">
-              <CopyField ctx={ctx} label={`${fresh.name} — ${ctx.tr("newLinkOnce")}`} value={fresh.url} />
+              <p className="small"><strong>{fresh.name}</strong> — {ctx.tr("newLinkOnce")}</p>
+              <CopyField ctx={ctx} label={ctx.tr("mcpUrl")} value={fresh.url} />
+              <CopyField ctx={ctx} label={ctx.tr("apiKey")} value={fresh.token} />
             </div>
           ) : null}
           <ul className="agents">

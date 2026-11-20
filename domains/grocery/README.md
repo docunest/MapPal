@@ -42,6 +42,19 @@ stored (`grocery_agent_token`); the full link is shown once, when it is created.
 The family token is not accepted on MCP. API: `GET/POST /api/grocery/agents`,
 `DELETE /api/grocery/agents/<id>` (family token).
 
+**REST for OpenAPI actions** (ChatGPT custom GPT actions, Gemini, scripts): the
+same assistant tokens as API keys (`Authorization: Bearer`, `X-API-Key` or
+`?key=`), schema at `/api/grocery/v1/openapi.json` (public, no secrets).
+`GET/POST /items`, `POST /items/bought`, `POST /items/remove`,
+`POST /trip/finish`, `GET /suggestions`, `GET /catalog?q=` under
+`/api/grocery/v1`. MCP and REST share `application/agentActions.ts`, so they
+behave the same.
+
+Setting up a ChatGPT GPT: Configure → Actions → Import from URL
+(`<MapPal URL>/api/grocery/v1/openapi.json`) → Authentication: API key,
+Bearer, paste the key from ⚙️ → Asistentai. Anything else that accepts
+OpenAPI actions (e.g. Gemini, where custom actions are offered) uses the same schema and key.
+
 ## Settings
 
 Nothing extra to set: it uses MapPal's `DATABASE_URL` and `DEEPSEEK_API_KEY`.

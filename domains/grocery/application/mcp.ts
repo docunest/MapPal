@@ -4,19 +4,9 @@
 // (/api/grocery/mcp/<agent token>) because those connectors can't send custom
 // headers. Each agent has its own token, issued and revoked in the app
 // (infrastructure/agentTokens.ts).
-import { autocomplete, matchPhrase, type CatalogItem } from "../domain/text";
-import type { EntryDto } from "../domain/types";
 import { tokenFrom } from "../infrastructure/auth";
 import { agentFromToken } from "../infrastructure/agentTokens";
-import { aiConfigured } from "../infrastructure/deepseek";
-import { loadCatalog, loadState } from "../infrastructure/repo";
-import { addItems, type AddRequest } from "./addItems";
-import { classifyNew } from "./classifyNew";
-import { finishTrip } from "./finishTrip";
-import { parseText } from "./parseText";
-import { suggestFromHistory } from "./suggestFromHistory";
-import { suggestWithAi } from "./suggestWithAi";
-import { updateEntry } from "./updateEntry";
+import { addForAgent, finishForAgent, listForAgent, markForAgent, removeForAgent, searchCatalogForAgent, suggestForAgent } from "./agentActions";
 
 const SERVER = { name: "grocery-list", title: "Family grocery list (Pirkiniai)", version: "1.0.0" };
 
@@ -97,118 +87,57 @@ const text = (t: string, structured?: unknown, isError = false) => ({
   isError,
 });
 
-async function listText(includeBought = true) {
-  const { entries, categories, trip } = await loadState();
-  const cat = new Map(categories.map((c) => [c.id, c]));
-  const shown = entries.filter((e) => includeBought || e.status === "OPEN");
-  const lines: string[] = [];
-  for (const kind of ["GROCERY", "LONGTERM"] as const) {
-    const part = shown.filter((e) => e.kind === kind);
-    if (!part.length) continue;
-    lines.push(kind === "GROCERY" ? "## Groceries" : "## Long-term (buy when possible)");
-    for (const c of categories) {
-      const inCat = part.filter((e) => e.categoryId === c.id);
-      if (!inCat.length) continue;
-      lines.push(`${c.emoji} ${c.nameLt} / ${c.nameEn}`);
-      for (const e of inCat) lines.push(`- [${e.status === "BOUGHT" ? "x" : " "}] ${e.name}${e.qty ? ` × ${e.qty}` : ""}${e.note ? ` (${e.note})` : ""}  {id:${e.id}}`);
-    }
-  }
-  const open = shown.filter((e) => e.status === "OPEN").length;
-  const head = `${open} to buy${trip ? `, shopping trip in progress since ${trip.startedAt}` : ""}.`;
-  return {
-    text: [head, ...lines].join("\n") || "The list is empty.",
-    structured: { trip, items: shown.map((e) => ({ ...e, section: cat.get(e.categoryId)?.nameEn })) },
-  };
-}
-
-function findEntries(refs: string[], entries: EntryDto[], products: CatalogItem[]): { hit: EntryDto[]; missing: string[] } {
-  // Match against the product's English name and aliases too ("potatoes" → bulvės).
-  const byProduct = new Map(products.map((p) => [p.id, p]));
-  const asCatalog: CatalogItem[] = entries.map((e) => {
-    const p = e.productId ? byProduct.get(e.productId) : undefined;
-    return { id: e.id, name: e.name, nameEn: p?.nameEn, aliases: p?.aliases ?? [], categoryId: e.categoryId, kind: e.kind };
-  });
-  const hit: EntryDto[] = [];
-  const missing: string[] = [];
-  for (const ref of refs) {
-    const byId = entries.find((e) => e.id === ref);
-    const m = byId ? null : matchPhrase(ref, asCatalog);
-    const e = byId ?? (m && m.confidence >= 0.6 ? entries.find((x) => x.id === m.item.id) : undefined);
-    if (e) hit.push(e);
-    else missing.push(ref);
-  }
-  return { hit, missing };
-}
-
 async function callTool(name: string, args: Json, agent: string) {
   const who = typeof args.who === "string" && args.who.trim() ? args.who.trim().slice(0, 40) : agent;
   switch (name) {
     case "get_list": {
-      const r = await listText(args.include_bought !== false);
-      return text(r.text, r.structured);
+      const r = await listForAgent(args.include_bought !== false);
+      const lines: string[] = [`${r.toBuy} to buy${r.trip ? `, shopping trip in progress since ${r.trip.startedAt}` : ""}.`];
+      let section = "";
+      let longTerm = false;
+      for (const it of r.items) {
+        if (it.longTerm && !longTerm) {
+          longTerm = true;
+          section = "";
+          lines.push("## Long-term (buy when possible)");
+        }
+        if (it.section !== section) {
+          section = it.section;
+          lines.push(`${it.sectionLt} / ${it.section}`);
+        }
+        lines.push(`- [${it.bought ? "x" : " "}] ${it.name}${it.qty ? ` × ${it.qty}` : ""}${it.note ? ` (${it.note})` : ""}  {id:${it.id}}`);
+      }
+      return text(r.items.length ? lines.join("\n") : "The list is empty.", r);
     }
     case "add_items": {
-      const { products } = await loadCatalog();
-      const input: AddRequest[] = [];
-      let mode = "local";
-      if (typeof args.text === "string" && args.text.trim()) {
-        const parsed = await parseText(args.text);
-        mode = parsed.mode;
-        input.push(...parsed.items.map((i) => ({ ...i, categoryId: i.categoryId ?? null })));
-      }
-      if (Array.isArray(args.items)) {
-        for (const it of args.items as Json[]) {
-          if (typeof it.name !== "string") continue;
-          const m = matchPhrase(it.name, products);
-          input.push({
-            name: it.name,
-            productId: m && m.confidence >= 0.75 ? m.item.id : null,
-            qty: typeof it.qty === "string" ? it.qty : null,
-            note: typeof it.note === "string" ? it.note : null,
-            kind: it.long_term === true ? "LONGTERM" : null,
-            categoryId: it.long_term === true ? "ilgalaikiai" : null,
-          });
-        }
-      }
-      const { results, removed, toClassify } = await addItems(input, who, "mcp");
-      if (toClassify.length) await classifyNew(toClassify);
-      const lines = results.map((r) => `${r.merged ? "already on list" : "added"}: ${r.entry.name}${r.entry.qty ? ` × ${r.entry.qty}` : ""}${r.createdProduct ? " (new product)" : ""}`);
-      if (removed) lines.push(`removed ${removed}`);
-      return text(`${lines.join("\n") || "Nothing recognised."}\n(parsed: ${mode})`, { results: results.map((r) => r.entry), removed, parsedBy: mode });
+      const r = await addForAgent(args, who, "mcp");
+      const lines = [
+        ...r.added.map((a) => `added: ${a.name}${a.qty ? ` × ${a.qty}` : ""}${a.newProduct ? " (new product)" : ""}`),
+        ...r.alreadyOnList.map((a) => `already on list: ${a.name}${a.qty ? ` × ${a.qty}` : ""}`),
+      ];
+      if (r.removed) lines.push(`removed ${r.removed}`);
+      return text(`${lines.join("\n") || "Nothing recognised."}\n(parsed: ${r.parsedBy})`, r);
     }
-    case "mark_bought":
+    case "mark_bought": {
+      const bought = args.bought !== false;
+      const r = await markForAgent(args.items, bought, who);
+      return text(`${bought ? "crossed out" : "back to buy"}: ${r.done.map((e) => e.name).join(", ") || "nothing"}${r.notOnList.length ? `\nnot on the list: ${r.notOnList.join(", ")}` : ""}`, r);
+    }
     case "remove_items": {
-      const refs = Array.isArray(args.items) ? (args.items as unknown[]).filter((x): x is string => typeof x === "string") : [];
-      const [{ entries }, { products }] = await Promise.all([loadState(), loadCatalog()]);
-      const { hit, missing } = findEntries(refs, entries, products);
-      const status = name === "remove_items" ? "REMOVED" : args.bought === false ? "OPEN" : "BOUGHT";
-      for (const e of hit) await updateEntry(e.id, { status }, who);
-      const verb = status === "REMOVED" ? "removed" : status === "BOUGHT" ? "crossed out" : "back to buy";
-      return text(`${verb}: ${hit.map((e) => e.name).join(", ") || "nothing"}${missing.length ? `\nnot on the list: ${missing.join(", ")}` : ""}`, { done: hit.map((e) => e.id), missing });
+      const r = await removeForAgent(args.items, who);
+      return text(`removed: ${r.removed.map((e) => e.name).join(", ") || "nothing"}${r.notOnList.length ? `\nnot on the list: ${r.notOnList.join(", ")}` : ""}`, r);
     }
     case "finish_shopping": {
-      const r = await finishTrip(who);
-      return text(`Trip finished: ${r.bought} bought. ${r.carried} groceries stay on the list for next time, ${r.longTerm} long-term.`, r);
+      const r = await finishForAgent(who);
+      return text(`Trip finished: ${r.bought} bought. ${r.stayOnList} groceries stay on the list for next time, ${r.longTerm} long-term.`, r);
     }
     case "suggest_items": {
-      if (args.use_ai === true && aiConfigured()) {
-        const r = await suggestWithAi();
-        return text(r.items.map((i) => `- ${i.name}: ${i.reason}`).join("\n") + (r.tips.length ? `\n${r.tips.join("\n")}` : ""), r);
-      }
-      const { suggestions } = await suggestFromHistory();
-      const lines = suggestions.map((s) =>
-        s.reason === "due" ? `- ${s.name} (every ~${s.intervalDays} d, last ${s.daysSince} d ago)` : s.reason === "staple" ? `- ${s.name} (staple)` : `- ${s.name} (bought ${s.daysSince} d ago)`,
-      );
-      return text(lines.join("\n") || "Nothing due right now.", { suggestions, source: "history" });
+      const r = await suggestForAgent(args.use_ai === true);
+      return text((r.items.map((i) => `- ${i.name} (${i.reason})`).join("\n") || "Nothing due right now.") + (r.tips.length ? `\n${r.tips.join("\n")}` : ""), r);
     }
     case "search_catalog": {
-      const { products, categories } = await loadCatalog();
-      const cat = new Map(categories.map((c) => [c.id, c]));
-      const hits = autocomplete(String(args.query ?? ""), products, 10);
-      return text(
-        hits.map((h) => `- ${h.item.name}${h.item.nameEn ? ` / ${h.item.nameEn}` : ""} — ${cat.get(h.item.categoryId)?.nameEn}${h.item.aliases.length ? ` (also: ${h.item.aliases.join(", ")})` : ""}`).join("\n") || "No match.",
-        { products: hits.map((h) => h.item) },
-      );
+      const r = await searchCatalogForAgent(String(args.query ?? ""));
+      return text(r.products.map((p) => `- ${p.name}${p.nameEn ? ` / ${p.nameEn}` : ""} — ${p.section}${p.aliases.length ? ` (also: ${p.aliases.join(", ")})` : ""}`).join("\n") || "No match.", r);
     }
   }
   return text(`Unknown tool ${name}`, undefined, true);

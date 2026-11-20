@@ -165,3 +165,15 @@ test("parseWithAi: dish ingredients keep their dish (opt-out review groups them)
   const r = await parseWithAi("reikia blynams ir duonos", { catalog, categories: [], listNames: [] }, fake);
   assert.deepEqual(r.map((i) => [i.name, i.forDish]), [["miltai", "blynai"], ["kiaušiniai", "blynai"], ["pienas", "blynai"], ["duona", null]]);
 });
+
+import { openApiSpec } from "../application/openapi";
+
+test("OpenAPI: 3.1, server under /api/grocery/v1, unique operationIds, bearer auth", () => {
+  const s = openApiSpec("https://example.test");
+  assert.equal(s.openapi, "3.1.0");
+  assert.equal(s.servers[0].url, "https://example.test/api/grocery/v1");
+  const ops = Object.values(s.paths).flatMap((p) => Object.values(p as Record<string, { operationId: string }>).map((o) => o.operationId));
+  assert.deepEqual(ops, ["listItems", "addItems", "markBought", "removeItems", "finishShopping", "suggestItems", "searchCatalog"]);
+  assert.equal(new Set(ops).size, ops.length);
+  assert.equal(s.components.securitySchemes.bearerAuth.scheme, "bearer");
+});
