@@ -576,3 +576,121 @@ model DockLog {
   @@index([at])
   @@map("mappal_dock_log")
 }
+
+// ═════════════════════════════════════════════════════════════════════════
+// Grocery list module (owner 2026-11-20, AGENTS.md G6) — everything below
+// belongs to /grocery only (lib/grocery, components/grocery, app/grocery,
+// app/api/grocery). Tables/enums are prefixed grocery_, not mappal_, so the
+// module can be dropped on its own: see docs/grocery/README.md "Removing it".
+// ═════════════════════════════════════════════════════════════════════════
+
+enum GroceryKind {
+  GROCERY
+  LONGTERM
+
+  @@map("grocery_kind")
+}
+
+enum GroceryEntryStatus {
+  OPEN
+  BOUGHT
+  REMOVED
+
+  @@map("grocery_entry_status")
+}
+
+/// Supermarket section. sortOrder = the aisle order the store view follows.
+model GroceryCategory {
+  id        String           @id // slug, e.g. "pieno"
+  nameLt    String           @map("name_lt")
+  nameEn    String           @map("name_en")
+  emoji     String
+  kind      GroceryKind      @default(GROCERY)
+  sortOrder Int              @map("sort_order")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+  products  GroceryProduct[]
+
+  @@map("grocery_category")
+}
+
+/// The family's catalog: everything ever bought, aliases in any language.
+/// source: seed (shipped list) | user (typed) | ai (DeepSeek).
+model GroceryProduct {
+  id         String          @id @default(cuid())
+  name       String
+  nameEn     String?         @map("name_en")
+  aliases    String[]        @default([])
+  categoryId String          @map("category_id")
+  category   GroceryCategory @relation(fields: [categoryId], references: [id])
+  kind       GroceryKind     @default(GROCERY)
+  staple     Boolean         @default(false)
+  source     String          @default("user")
+  seedKey    String?         @unique @map("seed_key")
+  hidden     Boolean         @default(false)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @default(now()) @updatedAt @map("updated_at")
+  entries    GroceryEntry[]
+
+  @@map("grocery_product")
+}
+
+/// One line on the list. OPEN until bought; "Finish shopping" archives the
+/// BOUGHT lines (= purchase history), OPEN ones stay for the next trip.
+/// via: typed | pick | suggest | ai | mcp (where the line came from).
+model GroceryEntry {
+  id         String             @id
+  productId  String?            @map("product_id")
+  product    GroceryProduct?    @relation(fields: [productId], references: [id])
+  name       String
+  categoryId String             @map("category_id")
+  kind       GroceryKind        @default(GROCERY)
+  qty        String?
+  note       String?
+  status     GroceryEntryStatus @default(OPEN)
+  via        String             @default("typed")
+  addedBy    String?            @map("added_by")
+  addedAt    DateTime           @default(now()) @map("added_at")
+  boughtAt   DateTime?          @map("bought_at")
+  boughtBy   String?            @map("bought_by")
+  tripId     String?            @map("trip_id")
+  archived   Boolean            @default(false)
+  updatedAt  DateTime           @default(now()) @updatedAt @map("updated_at")
+
+  @@index([archived])
+  @@index([productId])
+  @@map("grocery_entry")
+}
+
+/// A shopping trip: starts with the first tick, ends with "Finish shopping".
+model GroceryTrip {
+  id        String    @id @default(cuid())
+  startedAt DateTime  @default(now()) @map("started_at")
+  startedBy String?   @map("started_by")
+  endedAt   DateTime? @map("ended_at")
+  endedBy   String?   @map("ended_by")
+
+  @@map("grocery_trip")
+}
+
+model GroceryMember {
+  name       String   @id
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  @@map("grocery_member")
+}
+
+/// Every DeepSeek call from the grocery module: purpose, tokens, ok/error.
+model GroceryAiCall {
+  id        String   @id @default(cuid())
+  at        DateTime @default(now())
+  purpose   String
+  model     String
+  tokensIn  Int      @default(0) @map("tokens_in")
+  tokensOut Int      @default(0) @map("tokens_out")
+  ok        Boolean
+  error     String?
+
+  @@index([at])
+  @@map("grocery_ai_call")
+}

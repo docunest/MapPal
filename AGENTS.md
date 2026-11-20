@@ -49,6 +49,14 @@ The Z1 wall screen (docunest/android-apps → `camper/`) pushes its state to
 shows status and controls from anywhere. Token: only its SHA-256 is in the repo.
 See `docs/DOCK.md`.
 
+## G6 — Family grocery list (owner-approved 2026-11-20)
+A shared shopping list for the family's phones at `/grocery` (own token link,
+not the MapPal login): fast planning with autocomplete and dictation (Lithuanian
+plus English), aisle-ordered store view with live crossing-out, long-term
+purchases, "usually buy" suggestions, DeepSeek only where the local catalog
+can't help, and an MCP endpoint for Claude/ChatGPT. A self-contained module
+(`grocery_*` tables, `lib/grocery`, `components/grocery`): see `docs/grocery/README.md`.
+
 ## Region and languages
 Spain and Portugal first. Local sources matter more than English ones:
 Spanish, Portuguese, Catalan, Galician and Basque Wikipedias, OSM tags with

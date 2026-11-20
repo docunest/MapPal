@@ -3,6 +3,16 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-20 — Grocery list module (G6) + security updates
+
+- **Task:** owner: a grocery list app for the family (planning, dictation, store view, live sync, long-term items, DeepSeek, MCP/skill, one token link) — then "It must be the same vercel project" and "Do security updates". Logged in DECISIONS.md.
+- **What changed** (branch `claude/grocery-list-app-5k8nfx`, **not on `main` yet**):
+  - `/grocery` module: `lib/grocery`, `components/grocery`, `app/grocery`, `app/api/grocery`, `public/grocery`, `Grocery*` models (`grocery_*` tables), migration `20261120190000_grocery_list`, `isGrocery` in `proxy.ts`. Docs: `docs/grocery/README.md`, prompts `docs/grocery/PROMPTS.md`, skill `docs/grocery/skill/`.
+  - Security: Next 16.4.2 → 16.4.6 (5 advisories), Prisma CLI deps pinned via `overrides` (effect, deepmerge-ts), typescript-eslint/minimatch. `npm audit`: 12 → 0.
+- **Evidence:** `docs/grocery/evidence/` (local production build, two emulated iPhones, synthetic history, AI off). 110 tests, lint, typecheck, build pass.
+- **Not proven:** DeepSeek parsing/shortlist live (no key in the sandbox; unit-tested with a fake model); real iPhone Safari Home Screen install; Claude/ChatGPT connector setup.
+- **Questions for the owner:** merge to `main` to deploy?
+
 ## 2026-11-16 — Offline places in the web app, Home Screen app, diesel-only fuel
 
 - **Task:** owner: "Can I have the same [offline data] as webapp?" → approved plan (Home Screen app + Offline page + Nearby fallback; manual download tap) and "diesel only" for the web Fuel tab. Logged in DECISIONS.md.

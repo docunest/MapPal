@@ -22,8 +22,11 @@ export default auth((req) => {
   // Car places on the phone with the dock token (/car#t=<token>, kept in the
   // browser): the page is only a shell, its data needs the token (/api/dock).
   const isCarPage = req.nextUrl.pathname === "/car";
+  // Grocery list module (lib/grocery/auth.ts): family token link
+  // (/grocery#t=<token>), its API and MCP connector check the token themselves.
+  const isGrocery = req.nextUrl.pathname === "/grocery" || req.nextUrl.pathname.startsWith("/grocery/") || req.nextUrl.pathname.startsWith("/api/grocery/");
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isGrocery || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
