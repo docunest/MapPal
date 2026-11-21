@@ -281,3 +281,94 @@ export async function googlePlacePhoto(
     credit: who ? `Google Maps · ${who}` : "Google Maps",
   };
 }
+
+// --- Agent Phase 0 (lib/agent): one Details call per checked place ---------
+// Text Search IDs (free) → Place Details with the fields a judge needs (one
+// Enterprise + Atmosphere call, capped by the same SKU counter as the tap
+// details) → optionally one photo (Place Photo SKU). Returned to the agent
+// live; MapPal stores only the place ID (Google's terms).
+export interface GoogleAgentPlace {
+  id: string;
+  mapsUri?: string;
+  rating?: number;
+  ratingCount?: number;
+  priceLevel?: string;
+  businessStatus?: string;
+  openNow?: boolean;
+  hours?: string[];
+  summary?: string;
+  flags: string[];
+  reviews: Array<{ rating?: number; when?: string; text: string }>;
+  photos: Array<{ name: string; credit?: string; width?: number; height?: number }>;
+}
+
+interface GoogleAgentRaw {
+  id: string;
+  location?: { latitude: number; longitude: number };
+  googleMapsUri?: string;
+  rating?: number;
+  userRatingCount?: number;
+  priceLevel?: string;
+  businessStatus?: string;
+  currentOpeningHours?: { openNow?: boolean; weekdayDescriptions?: string[] };
+  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  editorialSummary?: { text?: string };
+  reviews?: Array<{ rating?: number; relativePublishTimeDescription?: string; text?: { text?: string }; originalText?: { text?: string } }>;
+  photos?: Array<{ name: string; widthPx?: number; heightPx?: number; authorAttributions?: Array<{ displayName?: string }> }>;
+  [flag: string]: unknown;
+}
+
+const AGENT_FLAGS: Array<[string, string]> = [
+  ["servesCoffee", "coffee"], ["servesBeer", "beer"], ["servesWine", "wine"], ["servesBreakfast", "breakfast"],
+  ["servesLunch", "lunch"], ["servesDinner", "dinner"], ["servesVegetarianFood", "vegetarian"], ["goodForChildren", "good for children"],
+  ["menuForChildren", "kids menu"], ["outdoorSeating", "outdoor seating"], ["liveMusic", "live music"], ["allowsDogs", "dogs allowed"],
+];
+
+export async function googleAgentDetails(place: { name: string; lat: number; lng: number }, ctx: SourceContext, lang = "es"): Promise<GoogleAgentPlace | null> {
+  const ref: PlaceRef = { key: "", mode: "utility", name: place.name, lat: place.lat, lng: place.lng, wiki: [], refs: {}, userLang: lang, localLangs: [] };
+  const id = await findPlaceId(ref, ctx);
+  if (!id) return null;
+  await guard(ctx, "place-details-atmosphere");
+  const p = await call<GoogleAgentRaw>(`/places/${encodeURIComponent(id)}?languageCode=${encodeURIComponent(lang)}`, {
+    method: "GET",
+    fieldMask: [
+      "id", "location", "googleMapsUri", "rating", "userRatingCount", "priceLevel", "businessStatus", "currentOpeningHours",
+      "regularOpeningHours", "editorialSummary", "reviews", "photos", ...AGENT_FLAGS.map(([f]) => f),
+    ].join(","),
+  });
+  // Name search can land on another branch or another place — ignore it then.
+  if (p.location && distanceMeters(place, { lat: p.location.latitude, lng: p.location.longitude }) > 300) return null;
+  return {
+    id: p.id,
+    mapsUri: p.googleMapsUri,
+    rating: p.rating,
+    ratingCount: p.userRatingCount,
+    priceLevel: p.priceLevel,
+    businessStatus: p.businessStatus,
+    openNow: p.currentOpeningHours?.openNow,
+    hours: p.regularOpeningHours?.weekdayDescriptions ?? p.currentOpeningHours?.weekdayDescriptions,
+    summary: p.editorialSummary?.text,
+    flags: AGENT_FLAGS.filter(([f]) => p[f] === true).map(([, label]) => label),
+    reviews: (p.reviews ?? [])
+      .map((r) => ({ rating: r.rating, when: r.relativePublishTimeDescription, text: r.originalText?.text ?? r.text?.text ?? "" }))
+      .filter((r) => r.text),
+    photos: (p.photos ?? []).map((ph) => ({
+      name: ph.name,
+      width: ph.widthPx,
+      height: ph.heightPx,
+      credit: ph.authorAttributions?.map((a) => a.displayName).filter(Boolean).join(", ") || undefined,
+    })),
+  };
+}
+
+/** One photo's bytes by its resource name (Place Photo SKU, capped). */
+export async function googlePhotoMedia(name: string, ctx: SourceContext, maxWidthPx = 480): Promise<{ bytes: ArrayBuffer; contentType: string }> {
+  await guard(ctx, "place-photo");
+  const res = await fetch(`${BASE}/${name}/media?maxWidthPx=${maxWidthPx}`, {
+    headers: { "X-Goog-Api-Key": process.env.GOOGLE_MAPS_API_KEY?.trim() ?? "" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (res.status === 429) throw new SourceCappedError("Google photo quota reached");
+  if (!res.ok) throw new Error(`Google photo ${res.status}`);
+  return { bytes: await res.arrayBuffer(), contentType: res.headers.get("content-type") ?? "image/jpeg" };
+}

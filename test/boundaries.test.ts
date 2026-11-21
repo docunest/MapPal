@@ -7,8 +7,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = path.join(__dirname, "..");
-// Shared core until hosting step 1 moves it to domains/core: DB client, AI caps/usage, DeepSeek balance.
-const CORE = new Set(["@/lib/db", "@/lib/sources/usage", "@/lib/sources/usageDb", "@/lib/ai/deepseek"]);
+// Shared core until hosting step 1 moves it to domains/core: DB client, AI caps/usage, DeepSeek balance, MCP protocol.
+const CORE = new Set(["@/lib/db", "@/lib/sources/usage", "@/lib/sources/usageDb", "@/lib/ai/deepseek", "@/lib/mcp/server"]);
 
 function files(dir: string): string[] {
   const out: string[] = [];

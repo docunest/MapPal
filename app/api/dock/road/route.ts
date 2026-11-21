@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recordFix } from "@/lib/agent";
 import { dockCaller } from "@/lib/dock/auth";
 import { packCorridorPois } from "@/lib/dock/packPois";
 import { ROAD_LAYERS, corridorPois, osrmRoute, type RoadLayer } from "@/lib/dock/road";
@@ -49,6 +50,11 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { from, to } = parsed.data;
+  // Travel state for the agent (lib/agent): the car is here and heading there. Never blocks the route.
+  void Promise.all([
+    recordFix({ kind: "position", source: "car (Road ahead request)", ...from }),
+    recordFix({ kind: "destination", source: "car route destination (Road ahead)", ...to }),
+  ]).catch(() => undefined);
   const layers = parsed.data.layers ?? (Object.keys(ROAD_LAYERS) as RoadLayer[]);
   const key = [from.lat, from.lng, to.lat, to.lng].map((v) => v.toFixed(3)).join(",") + "|" + layers.join(",");
   const hit = cache.get(key);

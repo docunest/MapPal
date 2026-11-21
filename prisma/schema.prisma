@@ -577,6 +577,105 @@ model DockLog {
   @@map("mappal_dock_log")
 }
 
+// --- Hybrid agent, Phase 0 cost test (docs/PLAN.md → "Hybrid agent backend —
+// Phase 0", code in lib/agent/). An outside agent (Claude Code with the MCP
+// connector) checks places the server pre-filtered; every run logs what it
+// cost. Reviews are AI output and are labelled so. Google content is passed
+// to the agent live and never stored here (Google's terms): only place IDs
+// and the agent's own verdicts are kept.
+
+// One run: the dry-run plan (zone, candidates, estimate), its caps, what it
+// has spent so far (counters), and the owner's /usage numbers at the end.
+model AgentRun {
+  id             String    @id @default(cuid())
+  // planned → running → capped | done (or cancelled)
+  status         String
+  agent          String
+  plan           Json
+  caps           Json
+  counters       Json
+  cappedBy       String?
+  usageBeforePct Float?
+  usageAfterPct  Float?
+  model          String?
+  report         String?
+  approvedAt     DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  reviews AgentReview[]
+
+  @@index([createdAt])
+  @@map("mappal_agent_run")
+}
+
+// The agent's verdict on one place in one run. A place reviewed within the
+// freshness window (30 days) is not checked again (cache).
+model AgentReview {
+  id            String    @id @default(cuid())
+  runId         String
+  run           AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  candidate     String // "c3" / "e2" in the run's plan
+  category      String // "cafes" | "exploration"
+  osmRef        String
+  googlePlaceId String?
+  name          String
+  lat           Float
+  lng           Float
+  verdict       String // real | fake | stale
+  confidence    Float
+  relevant      Boolean
+  keep          Boolean
+  summary       String
+  // vibe, availability (kitchen hours, peaks, risks), food tags, price
+  // samples, access, how to get there, parking, safety, photo (non-Google)
+  data          Json
+  evidence      Json
+  agent         String
+  // The owner's 👍/👎 on the run page: "real and relevant" for the pass test.
+  ownerRating   String?
+  ownerRatedAt  DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([runId, candidate])
+  @@index([osmRef, createdAt])
+  @@map("mappal_agent_review")
+}
+
+// Tile status per category (design doc "Tile"): geohash-5 cells a run
+// finished. "partial" = some candidates in it weren't checked (cap).
+model AgentTile {
+  id        String   @id // "<geohash>:<category>"
+  geohash   String
+  category  String
+  status    String // indexed | partial
+  runId     String
+  checked   Int
+  kept      Int
+  indexedAt DateTime
+
+  @@index([geohash])
+  @@map("mappal_agent_tile")
+}
+
+// Where the family is / is heading, from sources that aren't stored
+// elsewhere (the head unit's Road ahead request: from = position, to =
+// destination). Shared links, bookmarks, GPS logs and stops are read from
+// their own tables. Only the newest 500 are kept.
+model TravelFix {
+  id     String   @id @default(cuid())
+  kind   String // position | destination
+  source String
+  label  String?
+  lat    Float
+  lng    Float
+  at     DateTime @default(now())
+
+  @@index([at])
+  @@map("mappal_travel_fix")
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // Grocery list module (owner 2026-11-20, AGENTS.md G6) — everything below
 // belongs to /grocery only (lib/grocery, components/grocery, app/grocery,

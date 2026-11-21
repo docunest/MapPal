@@ -12,7 +12,7 @@ const eslintConfig = defineConfig([
   {
     files: ["domains/grocery/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [{ regex: "^@/(?!lib/db$|lib/sources/usage$|lib/sources/usageDb$|lib/ai/deepseek$)", message: "domains/grocery may import only itself and the shared core: @/lib/db, @/lib/sources/usage(Db), @/lib/ai/deepseek." }] }],
+      "no-restricted-imports": ["error", { patterns: [{ regex: "^@/(?!lib/db$|lib/sources/usage$|lib/sources/usageDb$|lib/ai/deepseek$|lib/mcp/server$)", message: "domains/grocery may import only itself and the shared core: @/lib/db, @/lib/sources/usage(Db), @/lib/ai/deepseek, @/lib/mcp/server." }] }],
     },
   },
   {

@@ -4,6 +4,7 @@
 // (/api/grocery/mcp/<agent token>) because those connectors can't send custom
 // headers. Each agent has its own token, issued and revoked in the app
 // (infrastructure/agentTokens.ts).
+import { serveMcp, textResult, type McpServerDef, type McpTool } from "@/lib/mcp/server";
 import { tokenFrom } from "../infrastructure/auth";
 import { agentFromToken } from "../infrastructure/agentTokens";
 import { addForAgent, finishForAgent, listForAgent, markForAgent, removeForAgent, searchCatalogForAgent, suggestForAgent } from "./agentActions";
@@ -15,7 +16,7 @@ Groceries are bought on every supermarket trip; LONGTERM items (heater, tools, c
 Use add_items with free text (any language; it is matched against the family catalog, unknown things are classified).
 The list is grouped in supermarket aisle order. Items not bought stay on the list for the next trip.`;
 
-const TOOLS = [
+const TOOLS: McpTool[] = [
   {
     name: "get_list",
     title: "Show the shopping list",
@@ -79,13 +80,8 @@ const TOOLS = [
 ];
 
 type Json = Record<string, unknown>;
-type RpcMsg = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Json };
 
-const text = (t: string, structured?: unknown, isError = false) => ({
-  content: [{ type: "text", text: t }],
-  ...(structured !== undefined ? { structuredContent: structured } : {}),
-  isError,
-});
+const text = textResult;
 
 async function callTool(name: string, args: Json, agent: string) {
   const who = typeof args.who === "string" && args.who.trim() ? args.who.trim().slice(0, 40) : agent;
@@ -143,59 +139,10 @@ async function callTool(name: string, args: Json, agent: string) {
   return text(`Unknown tool ${name}`, undefined, true);
 }
 
-async function handleOne(msg: RpcMsg, agent: string): Promise<Json | null> {
-  const isNotification = msg.id === undefined || msg.id === null;
-  const reply = (result: unknown) => ({ jsonrpc: "2.0", id: msg.id, result });
-  const error = (code: number, message: string) => ({ jsonrpc: "2.0", id: msg.id ?? null, error: { code, message } });
-  try {
-    switch (msg.method) {
-      case "initialize": {
-        const requested = typeof msg.params?.protocolVersion === "string" ? msg.params.protocolVersion : "2025-06-18";
-        return reply({ protocolVersion: requested, capabilities: { tools: { listChanged: false } }, serverInfo: SERVER, instructions: INSTRUCTIONS });
-      }
-      case "ping":
-        return reply({});
-      case "tools/list":
-        return reply({ tools: TOOLS });
-      case "tools/call": {
-        const name = String(msg.params?.name ?? "");
-        const args = (msg.params?.arguments ?? {}) as Json;
-        try {
-          return reply(await callTool(name, args, agent));
-        } catch (err) {
-          return reply(text(`Error: ${err instanceof Error ? err.message : String(err)}`, undefined, true));
-        }
-      }
-      case "resources/list":
-        return reply({ resources: [] });
-      case "prompts/list":
-        return reply({ prompts: [] });
-      default:
-        if (isNotification) return null;
-        return error(-32601, `Method not found: ${msg.method}`);
-    }
-  } catch (err) {
-    return error(-32603, err instanceof Error ? err.message : String(err));
-  }
-}
+
+const SERVER_DEF: McpServerDef<string> = { info: SERVER, instructions: INSTRUCTIONS, tools: TOOLS, call: callTool };
 
 export async function mcpHandler(req: Request, pathToken?: string): Promise<Response> {
   // Agent tokens only (one per agent, revocable alone) — not the family token.
-  const agent = await agentFromToken(pathToken ?? tokenFrom(req));
-  if (!agent) {
-    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "Unauthorized: use this agent's connector URL" } }, { status: 401 });
-  }
-  if (req.method === "GET") return new Response("This MCP server answers POST only (no SSE stream).", { status: 405, headers: { Allow: "POST" } });
-  if (req.method === "DELETE") return new Response(null, { status: 204 });
-  let payload: unknown;
-  try {
-    payload = await req.json();
-  } catch {
-    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 });
-  }
-  const msgs = (Array.isArray(payload) ? payload : [payload]) as RpcMsg[];
-  const out = (await Promise.all(msgs.map((m) => handleOne(m, agent)))).filter((r): r is Json => r !== null);
-  if (!out.length) return new Response(null, { status: 202 });
-  return Response.json(Array.isArray(payload) ? out : out[0], { headers: { "Cache-Control": "no-store" } });
+  return serveMcp(req, SERVER_DEF, await agentFromToken(pathToken ?? tokenFrom(req)));
 }
-

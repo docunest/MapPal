@@ -17,13 +17,15 @@ export interface Cap {
 // DeepSeek isn't free but costs ~nothing per call; capped anyway.
 export const DEFAULT_CAPS: Record<string, Cap> = {
   "google:text-search-ids": { daily: 600, monthly: 15000 },
-  "google:place-details-atmosphere": { daily: 30, monthly: 900 },
+  // Daily 50 (was 30) so one agent cost-test run (≤ 40 details, lib/agent) fits a day;
+  // the monthly cap still keeps everything inside the 1,000 free.
+  "google:place-details-atmosphere": { daily: 50, monthly: 900 },
   "google:nearby-search-pro": { daily: 120, monthly: 4500 },
   // Car-place photos: listing a place's photos is an IDs-only field; the
   // photo download is its own SKU (1,000 free/month). Each place is fetched
   // once per device per 30 days (cached on the head unit / phone).
   "google:place-photo-list": { daily: 100, monthly: 3000 },
-  "google:place-photo": { daily: 30, monthly: 900 },
+  "google:place-photo": { daily: 50, monthly: 900 },
   "deepseek:chat": { daily: 150, monthly: 3000 },
   // Scenario agents (top-down plan per area, validator checks per run).
   "deepseek:agent": { daily: 300, monthly: 4000 },

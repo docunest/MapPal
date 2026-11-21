@@ -18,7 +18,8 @@ export const OVERPASS_ENDPOINTS = [
 
 // Mirrors like overpass.kumi.systems rate-limit requests with no
 // identifying User-Agent.
-export const MAPPAL_USER_AGENT = "MapPal/0.2 (family travel + POI app; contact: 1lukas1@gmail.com)";
+// MAPPAL_USER_AGENT in the environment replaces it (local test runs use a generic one).
+export const MAPPAL_USER_AGENT = process.env.MAPPAL_USER_AGENT?.trim() || "MapPal/0.2 (family travel + POI app; contact: 1lukas1@gmail.com)";
 
 export interface OverpassElement {
   type: "node" | "way" | "relation" | "area";
@@ -89,7 +90,9 @@ export async function overpassQuery(query: string, options: OverpassOptions = {}
   const deadline = options.totalBudgetMs ? Date.now() + options.totalBudgetMs : Infinity;
   let lastError: Error | null = null;
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
+  // OVERPASS_ENDPOINTS="url1,url2" replaces the list (e.g. where only one mirror is reachable).
+  const endpoints = process.env.OVERPASS_ENDPOINTS?.split(",").map((s) => s.trim()).filter(Boolean) ?? OVERPASS_ENDPOINTS;
+  for (const endpoint of endpoints) {
     for (let attempt = 0; attempt < attempts; attempt++) {
       const remaining = deadline - Date.now();
       if (remaining < 1500) {
