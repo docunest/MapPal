@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AgentNav } from "@/components/agent/AgentNav";
 import { costLog, listRuns, reviewsOf } from "@/lib/agent";
 
 // Agent cost-test runs (docs/PLAN.md → "Hybrid agent backend — Phase 0"), newest first.
@@ -18,6 +19,7 @@ async function Runs() {
   const rows = await Promise.all(runs.map(async (r) => ({ run: r, log: costLog(r, await reviewsOf(r.id)) })));
   return (
     <main className="mx-auto max-w-3xl p-4">
+      <AgentNav here="/agent/runs" />
       <h1 className="text-xl font-semibold">Agent runs</h1>
       <p className="mt-1 text-sm text-neutral-600">Cost tests: cafes and exploration around the latest known location. Verdicts are AI.</p>
       {!rows.length && <p className="mt-4 text-sm">No runs yet. Connect Claude Code to the agent connector and ask it to run the cost test.</p>}

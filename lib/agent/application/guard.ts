@@ -1,6 +1,7 @@
 // Loading a run for an agent call, with the state rules in one place.
 import { CAP_LABEL, type CapName } from "../domain/caps";
 import type { Counters } from "../domain/types";
+import { logEvent } from "../infrastructure/events";
 import { getRun, updateRun, type RunRow } from "../infrastructure/repo";
 
 export class RunError extends Error {}
@@ -26,5 +27,6 @@ export const spentLine = (c: Counters, caps: RunRow["caps"]) =>
 export async function capRun(run: RunRow, cap: CapName, counters: Counters): Promise<string> {
   const reason = `${CAP_LABEL[cap]} cap reached`;
   await updateRun(run.id, { status: "capped", cappedBy: reason, counters });
+  await logEvent(run.id, { kind: "cap", summary: `CAP HIT: ${reason}`, data: { cap, counters } });
   return `CAP HIT: ${reason}. Stop now. Submit reviews for every place you've seen (submit_reviews), then call finish_run and report to the owner.`;
 }

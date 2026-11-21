@@ -599,6 +599,12 @@ model AgentRun {
   usageAfterPct  Float?
   model          String?
   report         String?
+  // Claude's own token use for the run's session, as the agent read it from
+  // its transcript (scripts/claude-session-usage.mjs) — null when not reported.
+  claudeInputTokens      Int?
+  claudeOutputTokens     Int?
+  claudeCacheReadTokens  Int?
+  claudeCacheWriteTokens Int?
   approvedAt     DateTime?
   finishedAt     DateTime?
   createdAt      DateTime  @default(now())
@@ -657,6 +663,71 @@ model AgentTile {
 
   @@index([geohash])
   @@map("mappal_agent_tile")
+}
+
+// Everything that happened in a run, in order, under the run's id (the
+// correlation id): location hints and the estimate, the zone, OSM cells read
+// or fetched, rule results, every batch/page/image/Google call with its cost,
+// reviews, caps, the finish. Index work outside a run gets its own id
+// ("idx_…"). The debug page draws these on a map.
+model AgentEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  at        DateTime @default(now())
+  kind      String
+  summary   String
+  data      Json     @default("{}")
+  tokens    Int      @default(0)
+  lat       Float?
+  lng       Float?
+
+  @@index([runId, at])
+  @@index([at])
+  @@map("mappal_agent_event")
+}
+
+// The place index: OpenStreetMap read once per cell (geohash-4, about 30 × 20
+// km in Iberia) and kept, so a run over 15 or 100 km is a database lookup,
+// not a live Overpass query. A cell is refreshed after 30 days.
+model OsmCell {
+  geohash    String   @id
+  status     String // ok | failed
+  fetchedAt  DateTime
+  count      Int      @default(0)
+  durationMs Int      @default(0)
+  error      String?
+  runId      String? // correlation id of the work that fetched it
+
+  @@map("mappal_osm_cell")
+}
+
+model OsmPlace {
+  osmRef    String   @id // "node/123"
+  layer     String // food | explore | parking | stay | town
+  name      String?
+  lat       Float
+  lng       Float
+  tags      Json
+  cell      String // geohash-4
+  fetchedAt DateTime
+
+  @@index([lat, lng])
+  @@index([cell])
+  @@index([layer, lat, lng])
+  @@map("mappal_osm_place")
+}
+
+// Agent connector tokens, issued on /agent/tokens: shown once, only the
+// SHA-256 is kept, each revocable alone (docunest hard rules §5).
+model AgentToken {
+  id         String    @id @default(cuid())
+  name       String
+  hash       String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@map("mappal_agent_token")
 }
 
 // Where the family is / is heading, from sources that aren't stored

@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Agent fixes after the owner's review — done
+
+Owner: location must combine many hints (car GPS is one of them; shared links, history, a pin) into a good-enough guess; a stored place index instead of live Overpass per run (15 or 100 km should be nothing); replace the token ("no questions asked"); merging without asking is fine; a measured budget log (tokens vs the weekly %), no guessing; a debug view with a correlation id that shows on a map what was guessed, indexed, checked and what it cost. Report: STATUS.md, same date.
+
 ## 2026-11-21 — Review app (swipe per person + map) — done
 
 Owner: Tinder-style review of the agent's places, like / undecided / don't like / never, per name (e.g. owner and partner vote separately), a filter first (area around me or a pin, 20/50 km, kind, whose votes, "see way more"), a map mode with votes, sent-to-car links and places actually visited (GPS), desktop for planning; "start with phone version"; later: browse the backlog and per-category settings, and see whether the agent has indexed an area. Report: STATUS.md, same date.

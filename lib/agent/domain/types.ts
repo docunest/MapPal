@@ -37,6 +37,8 @@ export interface Dropped {
   name: string;
   osmRef: string;
   reason: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface ZoneTown extends LatLng {

@@ -62,3 +62,30 @@ out tags center qt;
 nwr["amenity"="parking"]${a};
 out tags center qt;`;
 }
+
+/** Everything the runs need from one index cell, in one Overpass call (bbox = spatial index). */
+export function cellQuery(b: { s: number; w: number; n: number; e: number }, timeoutS = 90): string {
+  const a = `(${b.s.toFixed(5)},${b.w.toFixed(5)},${b.n.toFixed(5)},${b.e.toFixed(5)})`;
+  return `[out:json][timeout:${timeoutS}];
+(
+  nwr["amenity"~"^(cafe|bar|pub|restaurant|ice_cream|fast_food|biergarten)$"]${a};
+  nwr["tourism"~"^(camp_site|caravan_site)$"]${a};
+  node["place"~"^(city|town|village)$"]${a};
+  node["place"="hamlet"]["population"]${a};
+  node["place"="hamlet"]["wikipedia"]${a};
+  nwr["natural"~"^(cave_entrance|gorge|canyon|arch|hot_spring|cliff|sinkhole)$"]${a};
+  nwr["waterway"="waterfall"]${a};
+  nwr["man_made"~"^(adit|mineshaft|headframe)$"]${a};
+  nwr["historic"~"^(mine|mine_shaft|ruins|castle|tower|aqueduct)$"]${a};
+  nwr["building"="ruins"]["name"]${a};
+  nwr["ruins"="yes"]["name"]${a};
+  nwr["abandoned:building"]["name"]${a};
+  nwr["abandoned:man_made"]["name"]${a};
+  way["railway"~"^(abandoned|disused)$"]["tunnel"="yes"]${a};
+  nwr["tourism"="viewpoint"]["name"]${a};
+  nwr["natural"~"^(valley|peak)$"]["wikidata"]${a};
+  relation["route"="hiking"]["wikidata"]${a};
+  nwr["amenity"="parking"]${a};
+);
+out tags center qt;`;
+}

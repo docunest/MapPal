@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { AgentNav } from "@/components/agent/AgentNav";
 import { RateButtons } from "@/components/agent/RateButtons";
+import { RunDebug } from "@/components/agent/RunDebug";
 import { costLog, getRun, PASS_THUMBS, PASS_WEEKLY_PCT, reviewsOf } from "@/lib/agent";
 
 // One cost-test run: what it spent, what it kept (with 👍/👎 for the pass
@@ -109,10 +110,8 @@ async function Run({ params }: { params: PageProps<"/agent/runs/[id]">["params"]
   const z = run.plan.zone;
   const box = "rounded border border-neutral-200 p-3 text-sm";
   return (
-    <main className="mx-auto max-w-3xl p-4">
-      <Link href="/agent/runs" className="text-sm underline">
-        ← all runs
-      </Link>
+    <main className="mx-auto max-w-5xl p-4">
+      <AgentNav here="/agent/runs" />
       <h1 className="mt-2 text-xl font-semibold">
         {z.campsite.name} <span className="text-base font-normal text-neutral-500">· {run.status}</span>
       </h1>
@@ -144,9 +143,20 @@ async function Run({ params }: { params: PageProps<"/agent/runs/[id]">["params"]
             Real and relevant (your 👍): {log.rated ? `${log.thumbsUp}/${log.rated}` : "not rated yet"}
             {log.relevancePass !== null ? ` ${log.relevancePass ? "✅" : "❌"} (need ${PASS_THUMBS * 100} %)` : ""}
           </li>
+          {log.claude && (
+            <li>
+              Claude&apos;s own use: {log.claude.total.toLocaleString()} tokens (in {log.claude.input.toLocaleString()}, out {log.claude.output.toLocaleString()}, cache read {log.claude.cacheRead.toLocaleString()}, cache write {log.claude.cacheWrite.toLocaleString()})
+              {log.claudeTokensPerWeeklyPct ? ` → ${log.claudeTokensPerWeeklyPct.toLocaleString()} per 1 % of the week` : ""}
+            </li>
+          )}
           {run.cappedBy && <li>Stopped: {run.cappedBy}</li>}
         </ul>
         <p className="mt-2 text-xs text-neutral-500">Estimate before the run: {run.plan.estimate.text}</p>
+      </section>
+
+      <section className="mt-3">
+        <h2 className="mb-1 font-semibold">Under the hood</h2>
+        <RunDebug runId={run.id} />
       </section>
 
       <section className={`mt-3 ${box}`}>

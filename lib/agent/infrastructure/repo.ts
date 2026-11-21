@@ -18,6 +18,10 @@ export interface RunRow {
   usageAfterPct: number | null;
   model: string | null;
   report: string | null;
+  claudeInputTokens: number | null;
+  claudeOutputTokens: number | null;
+  claudeCacheReadTokens: number | null;
+  claudeCacheWriteTokens: number | null;
   approvedAt: Date | null;
   finishedAt: Date | null;
   createdAt: Date;
@@ -29,14 +33,17 @@ const asRun = (r: Awaited<ReturnType<typeof prisma.agentRun.findUnique>>): RunRo
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
 
-export async function createRun(agent: string, plan: Plan, caps: Caps, counters: Counters): Promise<RunRow> {
-  const r = await prisma.agentRun.create({ data: { status: "planned", agent, plan: json(plan), caps: json(caps), counters: json(counters) } });
+export async function createRun(agent: string, plan: Plan, caps: Caps, counters: Counters, id?: string): Promise<RunRow> {
+  const r = await prisma.agentRun.create({ data: { ...(id ? { id } : {}), status: "planned", agent, plan: json(plan), caps: json(caps), counters: json(counters) } });
   return asRun(r)!;
 }
 
 export const getRun = async (id: string) => asRun(await prisma.agentRun.findUnique({ where: { id } }));
 
-export async function updateRun(id: string, data: Partial<Pick<RunRow, "status" | "plan" | "counters" | "cappedBy" | "usageBeforePct" | "usageAfterPct" | "model" | "report" | "approvedAt" | "finishedAt">>) {
+export async function updateRun(
+  id: string,
+  data: Partial<Pick<RunRow, "status" | "plan" | "counters" | "cappedBy" | "usageBeforePct" | "usageAfterPct" | "model" | "report" | "approvedAt" | "finishedAt" | "claudeInputTokens" | "claudeOutputTokens" | "claudeCacheReadTokens" | "claudeCacheWriteTokens">>,
+) {
   const { plan, counters, ...rest } = data;
   await prisma.agentRun.update({ where: { id }, data: { ...rest, ...(plan ? { plan: json(plan) } : {}), ...(counters ? { counters: json(counters) } : {}) } });
 }

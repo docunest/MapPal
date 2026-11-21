@@ -58,7 +58,7 @@ export function ScopePanel({
         label={`Around — ${status.centerLabel}`}
         value={scope.center}
         onChange={(v) => (v === "pin" ? onPickPin() : set({ center: v }))}
-        options={[["me", "📍 Me"], ["car", "🚐 Car / last shared"], ["pin", scope.pin ? "📌 My pin (change)" : "📌 Pin on map…"]]}
+        options={[["me", "📍 This phone's GPS"], ["car", "🧭 Best guess (car, shared links…)"], ["pin", scope.pin ? "📌 My pin (change)" : "📌 Pin on map…"]]}
       />
       <Chips label="Distance" value={scope.radiusKm} onChange={(v) => set({ radiusKm: v })} options={RADII.map((r) => [r, r ? `${r} km` : "Anywhere"])} />
       <div>

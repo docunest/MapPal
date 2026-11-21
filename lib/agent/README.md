@@ -27,7 +27,45 @@ Routes: `app/api/agent/mcp/[token]` (connector), `app/api/agent/reviews/[id]`
 `mappal_agent_review`, `mappal_agent_tile`, `mappal_travel_fix` (RLS on).
 Places also land in `mappal_poi` (position, ids, the agent's labels).
 
+## Location: every hint, one best guess
+
+`get_travel_state` (and the review app's "Best guess") combine every hint:
+the owner's pin (`set_location`), the car's GPS log, the car's route requests
+(Road ahead), car bookmarks, links shared from a phone, the current stop.
+Each source has a trust weight, halved every 12 h; a hint that would need
+impossible driving (> 90 km/h + 50 km) from the last reliable fix is set
+aside as an outlier; the estimate is the weighted centre of the hints near
+the strongest one, with an accuracy circle that grows with age. The agent
+sees every hint with its weight and note, and can override with
+`set_location` or `plan_run` lat/lng. Hints are history (4 weeks), drawn on
+`/agent/debug`.
+
+## Place index: OpenStreetMap read once, kept in the database
+
+`mappal_osm_cell` / `mappal_osm_place`: one Overpass call per geohash-4 cell
+(≈ 30 × 20 km in Iberia; four quarters if the whole cell fails), every cafe,
+exploration spot, parking, campsite and town in it stored; refreshed after 30
+days. `plan_run` fills missing cells around its target first (≤ ~80 s), then
+reads the database. `index_area` (agent) and "Index around…" on
+`/agent/debug` fill bigger areas (100 km ≈ 40–60 cells), nearest first,
+~90 s per call. A failed cell shows red on the map with its error.
+
+## Correlation id, debug map, budget log
+
+Every run's id (`run_…`, index jobs `idx_…`) is on every event in
+`mappal_agent_event`: location hints and estimate, target, zone, cells
+fetched (count, time, error), rule results, each place served (text/photo
+tokens, Google, pages), pages, images, reviews, caps, finish.
+`/agent/runs/<id>` → "Under the hood": all of it on a map (hints, estimate
+circle, zone circles, cells, candidates coloured by fate: dropped / over the
+cap / to check / kept / not kept) and as a filterable timeline.
+`/agent/budget`: measured numbers only — tokens served, Claude's own tokens
+(from its transcript via `.claude/skills/recheck-location/usage.mjs`), the
+`/usage` week % before → after, and Claude tokens per 1 % of the week.
+
 ## Connect Claude Code
+
+Make a token on `/agent/tokens` (shown once, copy the command):
 
 ```
 claude mcp add --transport http mappal-agent https://<MapPal host>/api/agent/mcp/<agent token>
@@ -37,13 +75,9 @@ Then: "recheck location" (the skill runs the steps).
 
 ## Tokens
 
-One per agent. Only SHA-256 hashes are in git (`infrastructure/auth.ts`, a
-default for "claude"). `MAPPAL_AGENT_TOKENS=name:sha256hex,…` on Vercel
-replaces the list; remove a name to revoke that agent. Make a token:
-
-```
-node -e 'const c=require("crypto");const t=c.randomBytes(24).toString("base64url");console.log(t, c.createHash("sha256").update(t).digest("hex"))'
-```
+One per agent, issued and revoked on `/agent/tokens`; only the SHA-256 is
+stored (`mappal_agent_token`). `MAPPAL_AGENT_TOKENS=name:sha256hex,…` on
+Vercel can add more. There is no built-in token any more.
 
 ## Caps (per run)
 
@@ -57,7 +91,6 @@ Google content goes to the agent live and is never stored here.
 ## Is it alive?
 
 - `POST /api/agent/mcp/<token>` with `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
-  → 9 tools; a wrong token → 401.
-- `/agent/runs` (family login) lists runs with their cost.
-- Tests: `node --import tsx --test test/agent.test.ts` (real OSM captures for
-  Peniche and Arenas de Cabrales in `test/fixtures/agent/`).
+  → 11 tools; a wrong token → 401.
+- `/agent/debug` shows the index cells and the location hints.
+- Tests: `node --import tsx --test test/agent.test.ts`.

@@ -8,9 +8,9 @@ const WEEKS = (n: number) => new Date(Date.now() - n * 7 * 86_400_000);
 export async function loadFixes(): Promise<Fix[]> {
   const since = WEEKS(4);
   const [fixes, items, logs, stops] = await Promise.all([
-    prisma.travelFix.findMany({ where: { at: { gte: since } }, orderBy: { at: "desc" }, take: 50 }),
+    prisma.travelFix.findMany({ where: { at: { gte: since } }, orderBy: { at: "desc" }, take: 300 }),
     prisma.dockItem.findMany({ where: { createdAt: { gte: since }, lat: { not: null }, lng: { not: null } }, orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.dockLog.findMany({ where: { tag: "GPS", at: { gte: since } }, orderBy: { at: "desc" }, take: 200 }),
+    prisma.dockLog.findMany({ where: { tag: "GPS", at: { gte: since } }, orderBy: { at: "desc" }, take: 5000, select: { msg: true, at: true, device: true } }),
     prisma.stop.findMany({ where: { deletedAt: null, status: { in: ["CURRENT", "FUTURE"] } }, orderBy: { updatedAt: "desc" }, take: 30 }),
   ]);
   const out: Fix[] = [];
@@ -29,13 +29,15 @@ export async function loadFixes(): Promise<Fix[]> {
       at: i.createdAt,
     });
   }
-  // Newest GPS fix in the head unit's log (one is enough).
+  // The head unit's GPS log: a track, at most one fix per 30 min (the estimate
+  // uses the newest; the rest are history for the continuity check and the map).
+  let lastKept = Infinity;
   for (const l of logs) {
     const p = coordsInLogLine(l.msg);
-    if (p) {
-      out.push({ kind: "position", source: `car GPS log (${l.device})`, label: `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`, ...p, at: l.at });
-      break;
-    }
+    if (!p || lastKept - l.at.getTime() < 1_800_000) continue;
+    lastKept = l.at.getTime();
+    out.push({ kind: "position", source: `car GPS log (${l.device})`, label: `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`, ...p, at: l.at });
+    if (out.length > 400) break;
   }
   for (const s of stops) {
     out.push({

@@ -1,11 +1,12 @@
 // Agent tokens (docunest hard rules §5: one token per agent, revocable
-// alone). Only SHA-256 hashes are in git. MAPPAL_AGENT_TOKENS on Vercel
-// ("name:sha256hex,name2:sha256hex") replaces the default list; an empty
-// value turns the connector off.
-import { createHash, timingSafeEqual } from "node:crypto";
+// alone). Issued on /agent/tokens and kept only as SHA-256 in
+// mappal_agent_token. MAPPAL_AGENT_TOKENS on Vercel ("name:sha256hex,…") can
+// add more. The token posted in chat on 2026-11-21 was never in the table and
+// its hash is no longer in the code, so it no longer works.
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { prisma } from "@/lib/db";
 
-// "claude": the owner's Claude Code connector, generated 2026-11-21.
-const DEFAULT_TOKENS = "claude:b7173e7912a1a344c39b864217877c31540b01223fb1ad7171689d79ed6595dc";
+export const sha256hex = (s: string) => createHash("sha256").update(s.trim()).digest("hex");
 
 export function parseTokenList(list: string): Array<{ name: string; hash: Buffer }> {
   return list
@@ -19,11 +20,33 @@ export function parseTokenList(list: string): Array<{ name: string; hash: Buffer
     .filter((t) => t.name && t.hash.length === 32);
 }
 
-/** The agent's name for a valid token, null otherwise. */
-export function agentFromToken(token: string | undefined | null, env: Record<string, string | undefined> = process.env): string | null {
+/** The agent's name for a token from the env list, null otherwise. */
+export function agentFromEnvToken(token: string | undefined | null, env: Record<string, string | undefined> = process.env): string | null {
   if (!token || token.length < 20) return null;
-  const list = parseTokenList(env.MAPPAL_AGENT_TOKENS ?? DEFAULT_TOKENS);
   const got = createHash("sha256").update(token.trim()).digest();
-  for (const t of list) if (timingSafeEqual(got, t.hash)) return t.name;
+  for (const t of parseTokenList(env.MAPPAL_AGENT_TOKENS ?? "")) if (timingSafeEqual(got, t.hash)) return t.name;
   return null;
 }
+
+/** Env list first, then the issued tokens. */
+export async function agentFromToken(token: string | undefined | null): Promise<string | null> {
+  if (!token || token.length < 20) return null;
+  const fromEnv = agentFromEnvToken(token);
+  if (fromEnv) return fromEnv;
+  const row = await prisma.agentToken.findUnique({ where: { hash: sha256hex(token) } }).catch(() => null);
+  if (!row || row.revokedAt) return null;
+  void prisma.agentToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => undefined);
+  return row.name;
+}
+
+export async function issueToken(name: string) {
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!clean) throw new Error("name required");
+  const token = randomBytes(24).toString("base64url");
+  const row = await prisma.agentToken.create({ data: { name: clean, hash: sha256hex(token) } });
+  return { id: row.id, name: row.name, token };
+}
+
+export const listTokens = () => prisma.agentToken.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, createdAt: true, lastUsedAt: true, revokedAt: true } });
+
+export const revokeToken = (id: string) => prisma.agentToken.update({ where: { id }, data: { revokedAt: new Date() } });

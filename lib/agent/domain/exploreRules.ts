@@ -49,7 +49,7 @@ export function exploreRules(things: OsmThing[], zone: Zone): RuleResult & { par
     if (!k) continue;
     const [kind, weight] = k;
     const name = nameOf(t.tags);
-    const drop = (reason: string) => dropped.push({ name: name ?? `(unnamed ${kind})`, osmRef: t.ref, reason });
+    const drop = (reason: string) => dropped.push({ name: name ?? `(unnamed ${kind})`, osmRef: t.ref, reason, lat: t.lat, lng: t.lng });
     const famous = !!(t.tags.wikidata || t.tags.wikipedia);
     if (!name && !famous && kind !== "cave" && kind !== "mine") { drop("no name on the map"); continue; }
     if (t.tags.access === "private" || t.tags.access === "no") { drop(`access=${t.tags.access} on the map`); continue; }

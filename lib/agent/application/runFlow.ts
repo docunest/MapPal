@@ -5,6 +5,7 @@ import { digestText } from "../domain/digest";
 import { reviewsSchema, type ReviewInput } from "../domain/review";
 import { AGENT_CATEGORIES, type AgentCategory, type Candidate } from "../domain/types";
 import { enrich } from "../infrastructure/enrich";
+import { logEvent } from "../infrastructure/events";
 import { reviewsOf, saveReviews, updateRun } from "../infrastructure/repo";
 import { fetchImage, fetchPage, type FetchedImage } from "../infrastructure/web";
 import { assertSpending, capRun, loadRun, RunError, spentLine } from "./guard";
@@ -19,6 +20,7 @@ export async function startRun(runId: unknown, ownerApproved: unknown): Promise<
   if (ownerApproved !== true) throw new RunError("owner_approved must be true — only after the owner said yes to the dry run.");
   if (run.status !== "planned") throw new RunError(`Run is already ${run.status}.`);
   await updateRun(run.id, { status: "running", approvedAt: new Date() });
+  await logEvent(run.id, { kind: "start", summary: "owner approved the dry run; run started" });
   const c = run.plan.categories;
   return {
     text: `Run ${run.id} started. Call next_batch with category "cafes" (${c.cafes.candidates.length} to check) and "exploration" (${c.exploration.candidates.length}), ${run.caps.batchSize} places per batch. Submit reviews after each batch.`,
@@ -77,6 +79,14 @@ export async function nextBatch(runId: unknown, category: unknown): Promise<Agen
     counters.tokens += tt + it;
     counters.textTokens += tt;
     counters.imageTokens += it;
+    await logEvent(run.id, {
+      kind: "batch.place",
+      summary: `${c.id} ${c.name}: ${tt + it} tokens (text ${tt}, photo ${it})${e.spent.googleDetails ? ", Google details" : ""}${e.spent.googlePhotos ? ", Google photo" : ""}${e.spent.pages ? ", 1 page" : ""}`,
+      data: { candidate: c.id, category: cat, osmRef: c.osmRef, textTokens: tt, imageTokens: it, spent: e.spent, photo: e.enrichment.photo?.source, notes: e.enrichment.notes },
+      tokens: tt + it,
+      lat: c.lat,
+      lng: c.lng,
+    });
     if (e.image) counters.images += 1;
     counters.served[cat] += 1;
     const stored: Candidate = plan.categories[cat].candidates.find((x) => x.id === c.id)!;
@@ -131,6 +141,7 @@ export async function fetchPageForAgent(runId: unknown, url: unknown): Promise<A
   counters.tokens += tt;
   counters.textTokens += tt;
   await updateRun(run.id, { counters });
+  await logEvent(run.id, { kind: "page", summary: `page ${url.slice(0, 120)}: ${tt} tokens`, data: { url }, tokens: tt });
   return { text: `${text}\n\n${spentLine(counters, run.caps)}` };
 }
 
@@ -152,6 +163,7 @@ export async function fetchImageForAgent(runId: unknown, url: unknown): Promise<
   counters.tokens += it;
   counters.imageTokens += it;
   await updateRun(run.id, { counters });
+  await logEvent(run.id, { kind: "image", summary: `image ${url.slice(0, 120)}: ${it} tokens`, data: { url, width: image.width, height: image.height }, tokens: it });
   return { text: spentLine(counters, run.caps), images: [{ before: `Image ${url} (${image.width ?? "?"}×${image.height ?? "?"}, ~${it} tokens)`, image }] };
 }
 
@@ -171,6 +183,10 @@ export async function submitReviews(runId: unknown, reviews: unknown, agent: str
       return { review: r, category: c.category, osmRef: c.osmRef, googlePlaceId: c.googlePlaceId, name: c.name, lat: c.lat, lng: c.lng, photo: c.photo };
     }),
   );
+  for (const r of parsed.data) {
+    const c = byId.get(r.candidate)!;
+    await logEvent(run.id, { kind: "review", summary: `${r.candidate} ${c.name}: ${r.verdict} ${Math.round(r.confidence * 100)} %, ${r.keep ? "kept" : "not kept"} (AI)`, data: { candidate: r.candidate, osmRef: c.osmRef, verdict: r.verdict, keep: r.keep, relevant: r.relevant }, lat: c.lat, lng: c.lng });
+  }
   const saved = await reviewsOf(run.id);
   const counters = { ...run.counters, reviews: saved.length, kept: saved.filter((r) => r.keep).length };
   await updateRun(run.id, { counters });

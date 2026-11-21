@@ -2,6 +2,7 @@
 // run spent, what it kept, and the pass test (< 5 % of the weekly
 // allowance, most kept places real and relevant).
 import { AGENT_CATEGORIES } from "../domain/types";
+import { logEvent } from "../infrastructure/events";
 import { markTiles, reviewsOf, updateRun, type RunRow } from "../infrastructure/repo";
 import { loadRun, RunError } from "./guard";
 
@@ -30,9 +31,17 @@ export interface CostLog {
   rated: number;
   thumbsUp: number;
   relevancePass: boolean | null;
+  claude: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number } | null;
+  claudeTokensPerWeeklyPct: number | null; // how many of Claude's tokens 1 % of the week bought in this run
 }
 
 type ReviewRow = Awaited<ReturnType<typeof reviewsOf>>[number];
+
+function claudeOf(run: RunRow) {
+  if (run.claudeInputTokens === null && run.claudeOutputTokens === null) return null;
+  const c = { input: run.claudeInputTokens ?? 0, output: run.claudeOutputTokens ?? 0, cacheRead: run.claudeCacheReadTokens ?? 0, cacheWrite: run.claudeCacheWriteTokens ?? 0 };
+  return { ...c, total: c.input + c.output + c.cacheRead + c.cacheWrite };
+}
 
 export function costLog(run: RunRow, reviews: ReviewRow[]): CostLog {
   const c = run.counters;
@@ -70,6 +79,11 @@ export function costLog(run: RunRow, reviews: ReviewRow[]): CostLog {
     rated: rated.length,
     thumbsUp: up,
     relevancePass: rated.length && rated.length >= Math.ceil(kept.length / 2) ? up / rated.length >= PASS_THUMBS : null,
+    claude: claudeOf(run),
+    claudeTokensPerWeeklyPct: (() => {
+      const c = claudeOf(run);
+      return c && weeklyPct ? Math.round(c.total / weeklyPct) : null;
+    })(),
   };
 }
 
@@ -79,7 +93,10 @@ export function costText(log: CostLog): string {
     `Status: ${log.status}${log.cappedBy ? ` (${log.cappedBy})` : ""}.`,
     `${cats}. ${log.real}/${log.reviews} reviewed places rated real by the agent.`,
     `Served to the agent: ${log.tokens} tokens (text ${log.textTokens}, images ${log.imageTokens}), ${log.pages} pages, ${log.images} images, Google ${log.googleDetails} details + ${log.googlePhotos} photos.`,
-    `Per kept place: ${log.tokensPerKept ?? "–"} tokens${log.weeklyPctPerKept !== null ? `, ${log.weeklyPctPerKept} % of the week` : ""}.`,
+    log.claude
+      ? `Claude's own use (transcript): ${log.claude.total} tokens = input ${log.claude.input}, output ${log.claude.output}, cache read ${log.claude.cacheRead}, cache write ${log.claude.cacheWrite}${log.claudeTokensPerWeeklyPct ? ` → ${log.claudeTokensPerWeeklyPct} tokens per 1 % of the week` : ""}.`
+      : "Claude's own use: not reported (run usage.mjs from the skill and pass its numbers).",
+    `Per kept place: ${log.tokensPerKept ?? "–"} tokens served${log.weeklyPctPerKept !== null ? `, ${log.weeklyPctPerKept} % of the week` : ""}.`,
     log.weeklyPct === null
       ? "Weekly allowance: not measured (pass usage_before_pct and usage_after_pct from /usage)."
       : `Weekly allowance used: ${log.weeklyPct} % → ${log.costPass ? "PASS" : "FAIL"} (limit ${PASS_WEEKLY_PCT} %).`,
@@ -92,7 +109,12 @@ export function costText(log: CostLog): string {
 
 const pct = (v: unknown) => (typeof v === "number" && v >= 0 && v <= 100 ? v : null);
 
-export async function finishRun(args: { run_id?: unknown; usage_before_pct?: unknown; usage_after_pct?: unknown; model?: unknown; notes?: unknown }, baseUrl: string) {
+const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+
+export async function finishRun(
+  args: { run_id?: unknown; usage_before_pct?: unknown; usage_after_pct?: unknown; model?: unknown; notes?: unknown; claude_input_tokens?: unknown; claude_output_tokens?: unknown; claude_cache_read_tokens?: unknown; claude_cache_write_tokens?: unknown },
+  baseUrl: string,
+) {
   const run = await loadRun(args.run_id);
   if (run.status === "planned") throw new RunError("This run never started (dry run only). Nothing to finish.");
   const before = pct(args.usage_before_pct) ?? run.usageBeforePct;
@@ -127,9 +149,25 @@ export async function finishRun(args: { run_id?: unknown; usage_before_pct?: unk
     model: typeof args.model === "string" ? args.model.slice(0, 60) : run.model,
     report: typeof args.notes === "string" ? args.notes.slice(0, 4000) : run.report,
     finishedAt: new Date(),
+    claudeInputTokens: count(args.claude_input_tokens) ?? run.claudeInputTokens,
+    claudeOutputTokens: count(args.claude_output_tokens) ?? run.claudeOutputTokens,
+    claudeCacheReadTokens: count(args.claude_cache_read_tokens) ?? run.claudeCacheReadTokens,
+    claudeCacheWriteTokens: count(args.claude_cache_write_tokens) ?? run.claudeCacheWriteTokens,
   };
-  await updateRun(run.id, { status, usageBeforePct: before, usageAfterPct: after, model: updated.model, report: updated.report, finishedAt: updated.finishedAt });
+  await updateRun(run.id, {
+    status,
+    usageBeforePct: before,
+    usageAfterPct: after,
+    model: updated.model,
+    report: updated.report,
+    finishedAt: updated.finishedAt,
+    claudeInputTokens: updated.claudeInputTokens,
+    claudeOutputTokens: updated.claudeOutputTokens,
+    claudeCacheReadTokens: updated.claudeCacheReadTokens,
+    claudeCacheWriteTokens: updated.claudeCacheWriteTokens,
+  });
   const log = costLog(updated, reviews);
+  await logEvent(run.id, { kind: "finish", summary: `finished: ${log.tokens} tokens served${log.claude ? `, Claude ${log.claude.total} tokens` : ""}${log.weeklyPct !== null ? `, ${log.weeklyPct} % of the week` : ""}`, data: log, tokens: 0 });
   return { text: `${costText(log)}\nRun page: ${baseUrl}/agent/runs/${run.id}`, log };
 }
 

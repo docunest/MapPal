@@ -7,3 +7,8 @@ export { recordFix } from "./infrastructure/travelSources";
 export { coordsInLogLine } from "./domain/travelState";
 export { travelState } from "./domain/travelState";
 export { loadFixes } from "./infrastructure/travelSources";
+export { runDebug, indexOverview } from "./application/debug";
+export { getTravelState } from "./application/travel";
+export { indexArea } from "./infrastructure/osmIndex";
+export { newCorrelationId } from "./infrastructure/events";
+export { issueToken, listTokens, revokeToken } from "./infrastructure/auth";

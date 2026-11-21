@@ -117,9 +117,9 @@ export function ReviewApp() {
   const car = layers?.travel.position ?? layers?.travel.target ?? null;
   const center = useMemo(() => {
     if (scope.center === "pin" && scope.pin) return { ...scope.pin, label: "your pin" };
-    if (scope.center === "car" && car) return { lat: car.lat, lng: car.lng, label: `${car.label} (car / last shared)` };
+    if (scope.center === "car" && car) return { lat: car.lat, lng: car.lng, label: `best guess: ${car.label}` };
     if (me) return { ...me, label: "where you are" };
-    if (car) return { lat: car.lat, lng: car.lng, label: `${car.label} (no GPS here — car / last shared)` };
+    if (car) return { lat: car.lat, lng: car.lng, label: `best guess: ${car.label} (no GPS on this device)` };
     return { ...LISBON, label: "Lisbon (no location yet)" };
   }, [scope.center, scope.pin, car, me]);
 

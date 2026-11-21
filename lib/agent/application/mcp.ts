@@ -9,19 +9,33 @@ import { finishRun, runStatus } from "./finish";
 import { RunError } from "./guard";
 import { planRun } from "./planRun";
 import { fetchImageForAgent, fetchPageForAgent, nextBatch, startRun, submitReviews, type AgentReply } from "./runFlow";
-import { getTravelState, travelText } from "./travel";
+import { getTravelState, setLocation, travelText } from "./travel";
+import { indexArea } from "../infrastructure/osmIndex";
+import { newCorrelationId } from "../infrastructure/events";
 
 const INFO = { name: "mappal-agent", title: "MapPal place agent (Phase 0 cost test)", version: "0.1.0" };
 
 const INSTRUCTIONS = `MapPal: a family (two adults, teenagers, a 6-year-old, a dog) living in a camper van in Spain and Portugal. Phase 0 is a COST TEST: check cafes and exploration spots around their latest known location, and log what it costs.
-Flow: 1) ask the owner for their Claude weekly usage % (/usage) BEFORE you start; 2) get_travel_state; 3) plan_run = dry run, free; 4) show the plan to the owner and WAIT for a yes; 5) start_run(owner_approved=true); 6) next_batch("cafes") → submit_reviews, repeat; then the same for "exploration"; 7) ask the owner for /usage AFTER; 8) finish_run with both numbers; tell the owner the cost line and the run page link.
+Flow: 1) ask the owner for their Claude weekly usage % (/usage) BEFORE you start; 2) get_travel_state — check the hints; if the owner says otherwise, set_location; 3) plan_run = dry run, free (it fills the place index around the target if needed; for a bigger area use index_area first); 4) show the plan to the owner and WAIT for a yes; 5) start_run(owner_approved=true); 6) next_batch("cafes") → submit_reviews, repeat; then the same for "exploration"; 7) ask the owner for /usage AFTER and run the skill's usage.mjs --since <start time> for your own token use; 8) finish_run with both; tell the owner the cost line and the run page link.
 Hard rules: the server counts everything it sends you and stops you at the caps ("CAP HIT"): then stop, submit reviews for what you saw, finish_run, report. Never work around a cap. fetch_page/fetch_image only when it changes a verdict or adds a menu/price for a place you keep. Summaries in your own words (don't copy Google review text). Your verdicts are AI output and are shown as such.`;
 
 const runId = { type: "string", description: "Run id from plan_run" };
 const reviewsJson = z.toJSONSchema(reviewsSchema) as Record<string, unknown>;
 
 const TOOLS: McpTool[] = [
-  { name: "get_travel_state", title: "Where is the family?", description: "Latest known position from any source (car GPS log, car bookmark, link shared from a phone, current stop, Road ahead) and the destinations; says which point plan_run will use and why.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
+  { name: "get_travel_state", title: "Where is the family?", description: "Best guess of the family's position from every hint (car GPS log, car route requests, car bookmarks, links shared from a phone, the owner's pin, stops), with each hint, its weight and whether it was used or set aside (too old, outlier); the destinations; and the point plan_run will use.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
+  {
+    name: "set_location",
+    title: "Pin where the family is",
+    description: "Record the family's position as the owner told you (outranks every other hint, fades over a day like the others). Returns the new travel state.",
+    inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, label: { type: "string" } }, required: ["lat", "lng"] },
+  },
+  {
+    name: "index_area",
+    title: "Fill the place index for an area",
+    description: "Reads OpenStreetMap for every missing or stale (> 30 days) cell (≈ 30 × 20 km) within radius_km of a point and stores it, nearest first, for up to ~90 s per call. Free. Call again until 'missing' is 0. Without lat/lng it uses the travel-state target.",
+    inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number", description: "default 30, max 150" }, refresh: { type: "boolean", description: "fetch again even if fresh" } } },
+  },
   {
     name: "plan_run",
     title: "Dry run: plan a cost test",
@@ -47,7 +61,21 @@ const TOOLS: McpTool[] = [
     name: "finish_run",
     title: "Finish and log the cost",
     description: "Closes the run, marks the tiles, and returns the cost log with the pass test. Pass the owner's Claude weekly usage % from /usage before and after the run.",
-    inputSchema: { type: "object", properties: { run_id: runId, usage_before_pct: { type: "number" }, usage_after_pct: { type: "number" }, model: { type: "string", description: "Model you ran on" }, notes: { type: "string", description: "Yield report: what was worth it, what wasn't and why" } }, required: ["run_id"] },
+    inputSchema: {
+      type: "object",
+      properties: {
+        run_id: runId,
+        usage_before_pct: { type: "number" },
+        usage_after_pct: { type: "number" },
+        claude_input_tokens: { type: "number", description: "From the skill's usage.mjs (this session's transcript, since the run started)" },
+        claude_output_tokens: { type: "number" },
+        claude_cache_read_tokens: { type: "number" },
+        claude_cache_write_tokens: { type: "number" },
+        model: { type: "string", description: "Model you ran on" },
+        notes: { type: "string", description: "Yield report: what was worth it, what wasn't and why" },
+      },
+      required: ["run_id"],
+    },
   },
   { name: "get_run", title: "Cost log so far", description: "The run's counters, kept places and pass test so far.", inputSchema: { type: "object", properties: { run_id: runId }, required: ["run_id"] }, annotations: { readOnlyHint: true } },
 ];
@@ -72,9 +100,27 @@ async function call(name: string, args: Record<string, unknown>, ctx: Ctx): Prom
     switch (name) {
       case "get_travel_state":
         return textResult(travelText(await getTravelState()));
+      case "set_location":
+        return textResult(await setLocation(args));
+      case "index_area": {
+        let lat = num(args.lat);
+        let lng = num(args.lng);
+        if (lat === undefined || lng === undefined) {
+          const s = await getTravelState();
+          if (!s.target) return textResult("No location known: pass lat/lng.", undefined, true);
+          ({ lat, lng } = s.target);
+        }
+        const radius = Math.min(150, Math.max(1, num(args.radius_km) ?? 30));
+        const id = newCorrelationId();
+        const p = await indexArea({ lat, lng }, radius, id, 90_000, args.refresh === true);
+        return textResult(
+          `Index ${radius} km around ${lat.toFixed(4)},${lng.toFixed(4)} (job ${id}): ${p.cells} cells — ${p.fresh.length} already fresh, ${p.fetched.length} fetched now (${p.fetched.reduce((s, r) => s + r.count, 0)} places), ${p.failed.length} failed${p.failed.length ? ` (${p.failed.map((f) => `${f.cell}: ${f.error}`).join("; ")})` : ""}, ${p.missing.length} still missing${p.missing.length ? " — call index_area again" : ""}.\nDebug: ${ctx.baseUrl}/agent/debug?job=${id}`,
+          { job: id, ...p, fetched: p.fetched.map((f) => ({ cell: f.cell, count: f.count })) },
+        );
+      }
       case "plan_run": {
         const { run, text } = await planRun(ctx.agent, { lat: num(args.lat), lng: num(args.lng), label: typeof args.label === "string" ? args.label : undefined });
-        return textResult(`${text}\nRun page: ${ctx.baseUrl}/agent/runs/${run.id}`, { run_id: run.id });
+        return textResult(`${text}\nRun page (with the debug map): ${ctx.baseUrl}/agent/runs/${run.id}`, { run_id: run.id });
       }
       case "start_run":
         return toResult(await startRun(args.run_id, args.owner_approved));
@@ -107,7 +153,7 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : u
 const DEF: McpServerDef<Ctx> = { info: INFO, instructions: INSTRUCTIONS, tools: TOOLS, call };
 
 export async function agentMcpHandler(req: Request, token: string | undefined): Promise<Response> {
-  const agent = agentFromToken(token);
+  const agent = await agentFromToken(token);
   const url = new URL(req.url);
   const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host}`;
   return serveMcp(req, DEF, agent ? { agent, baseUrl } : null);

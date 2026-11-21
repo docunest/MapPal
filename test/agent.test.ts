@@ -20,7 +20,7 @@ import { reviewsSchema } from "../lib/agent/domain/review";
 import { coordsInLogLine, isHereLink, travelState, type Fix } from "../lib/agent/domain/travelState";
 import { emptyCounters, type Candidate, type OsmThing } from "../lib/agent/domain/types";
 import { pickZone } from "../lib/agent/domain/zone";
-import { agentFromToken, parseTokenList } from "../lib/agent/infrastructure/auth";
+import { agentFromEnvToken, parseTokenList } from "../lib/agent/infrastructure/auth";
 import { safeUrl } from "../lib/agent/infrastructure/web";
 import { serveMcp, textResult, type McpServerDef } from "../lib/mcp/server";
 
@@ -243,10 +243,11 @@ test("web fetches refuse internal addresses", () => {
 test("agent tokens: only hashes in config, one name per token", () => {
   const hash = createHash("sha256").update("token-for-claude-xxxxxxxx").digest("hex");
   const env = { MAPPAL_AGENT_TOKENS: `claude:${hash},chatgpt:${"0".repeat(64)}` };
-  assert.equal(agentFromToken("token-for-claude-xxxxxxxx", env), "claude");
-  assert.equal(agentFromToken("wrong-token-xxxxxxxxxxxxx", env), null);
-  assert.equal(agentFromToken(undefined, env), null);
-  assert.equal(agentFromToken("token-for-claude-xxxxxxxx", { MAPPAL_AGENT_TOKENS: "" }), null);
+  assert.equal(agentFromEnvToken("token-for-claude-xxxxxxxx", env), "claude");
+  assert.equal(agentFromEnvToken("wrong-token-xxxxxxxxxxxxx", env), null);
+  assert.equal(agentFromEnvToken(undefined, env), null);
+  assert.equal(agentFromEnvToken("token-for-claude-xxxxxxxx", { MAPPAL_AGENT_TOKENS: "" }), null);
+  assert.equal(agentFromEnvToken("token-for-claude-xxxxxxxx", {}), null); // no built-in tokens any more
   assert.equal(parseTokenList("a:zz,b").length, 0);
 });
 
@@ -289,4 +290,64 @@ test("exploration rules: spots ranked, private/unnamed/long-distance dropped, pa
   assert.equal(r.candidates[0].parking?.name, "Aparcamiento");
   assert.ok(r.candidates[0].parking!.distanceM < 150);
   assert.deepEqual(r.dropped.map((d) => d.reason), ["access=private on the map", "long-distance trail, not a spot", "no name on the map"]);
+});
+
+// --- Location estimate, place-index cells (2026-11-21 evening) ---
+import { estimateLocation } from "../lib/agent/domain/travelState";
+import { cellBox, cellOf, cellsForCircle, layerOf, quarters } from "../lib/agent/domain/cells";
+import { cellQuery } from "../lib/agent/domain/queries";
+
+const hint = (source: string, label: string, lat: number, lng: number, hoursAgo: number): Fix => ({ kind: "position", source, label, lat, lng, at: new Date(at(12).getTime() - hoursAgo * 3_600_000) });
+
+test("estimate: car GPS beats an older shared link; both near → combined, accuracy small", () => {
+  const { estimate, hints } = estimateLocation(
+    [hint("car GPS log (unit)", "gps", 39.4036, -9.1386, 0.5), hint("shared from a phone (iPhone)", "café", 39.405, -9.135, 3)],
+    at(12),
+  );
+  assert.ok(estimate);
+  assert.equal(estimate!.source, "car GPS log (unit)");
+  assert.ok(estimate!.accuracyKm <= 8);
+  assert.ok(hints.every((h) => h.used));
+});
+
+test("estimate: an impossible jump is an outlier, not the location", () => {
+  const { estimate, hints } = estimateLocation(
+    [hint("car GPS log (unit)", "Caldas", 39.4036, -9.1386, 2), hint("shared from a phone (iPhone)", "Madrid link", 40.4168, -3.7038, 1.5), hint("car GPS log (unit)", "Óbidos", 39.36, -9.157, 1)],
+    at(12),
+  );
+  assert.match(hints.find((h) => h.label === "Madrid link")!.note, /outlier/);
+  assert.ok(Math.abs(estimate!.lat - 39.36) < 0.05);
+});
+
+test("estimate: the owner's pin outranks everything; old hints fade and widen the circle", () => {
+  const pinned = estimateLocation([hint("car GPS log (unit)", "gps", 39.40, -9.13, 1), hint("owner pin", "here", 39.36, -9.157, 1)], at(12)).estimate!;
+  assert.equal(pinned.label, "here");
+  const old = estimateLocation([hint("car GPS log (unit)", "gps", 39.40, -9.13, 30)], at(12)).estimate!;
+  assert.ok(old.confidence < 0.2);
+  assert.equal(old.accuracyKm, 60);
+  assert.equal(estimateLocation([hint("car GPS log (unit)", "gps", 39.4, -9.13, 24 * 20)], at(12)).estimate, null);
+});
+
+test("place-index cells: geohash-4 boxes cover the circle, nearest first; quarters tile the box", () => {
+  const c = { lat: 39.4036, lng: -9.1386 };
+  const cells = cellsForCircle({ ...c, radiusM: 16_000 });
+  assert.equal(cells[0], cellOf(c));
+  assert.ok(cells.length >= 2 && cells.length <= 12, String(cells.length));
+  const b = cellBox(cells[0]);
+  assert.ok(b.s <= c.lat && c.lat <= b.n && b.w <= c.lng && c.lng <= b.e);
+  const q = quarters(b);
+  assert.equal(q.length, 4);
+  assert.equal(q[0].s, b.s);
+  assert.equal(q[3].e, b.e);
+  const big = cellsForCircle({ ...c, radiusM: 100_000 });
+  assert.ok(big.length > 20 && big.length < 120, String(big.length));
+  assert.match(cellQuery(b), /\(39\.\d+,-\d+\.\d+,39\.\d+,-\d+\.\d+\)/);
+});
+
+test("place-index layers", () => {
+  assert.equal(layerOf({ amenity: "cafe" }), "food");
+  assert.equal(layerOf({ amenity: "parking" }), "parking");
+  assert.equal(layerOf({ tourism: "caravan_site" }), "stay");
+  assert.equal(layerOf({ place: "town" }), "town");
+  assert.equal(layerOf({ natural: "cave_entrance" }), "explore");
 });

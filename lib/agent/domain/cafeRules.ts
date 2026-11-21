@@ -29,7 +29,7 @@ export function cafeRules(things: OsmThing[], zone: Zone): RuleResult {
     if (seen.has(t.ref)) continue;
     seen.add(t.ref);
     const name = nameOf(tags);
-    const drop = (reason: string) => dropped.push({ name: name ?? `(unnamed ${amenity})`, osmRef: t.ref, reason });
+    const drop = (reason: string) => dropped.push({ name: name ?? `(unnamed ${amenity})`, osmRef: t.ref, reason, lat: t.lat, lng: t.lng });
     if (!name) { drop("no name on the map"); continue; }
     if (amenity === "fast_food") { drop("fast food"); continue; }
     if (tags.brand || tags["brand:wikidata"]) { drop(`chain (${tags.brand ?? tags["brand:wikidata"]})`); continue; }

@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-21 — Agent: location = weighted, decaying hints with an outlier check and the owner's pin on top; place index stored per geohash-4 cell (30-day refresh) instead of live Overpass per run; tokens issued in the app (the one posted in chat is dead); budget log shows measured numbers only (served tokens, Claude transcript tokens, /usage %); every step logged under the run id and drawn on a debug map; merging without asking is fine — owner.
 - 2026-11-21 — Review app: four votes (like / undecided / don't like / never), per name handle; default pool = agent picks, wider on request; desktop = the same page, wide layout (no separate desktop app — one web app per hard rules); "been here" = a car GPS fix within 75 m — owner's request + agent defaults.
 - 2026-11-21 — Hybrid agent Phase 0 built as planned (owner: "Build"): server does the free lookups and enforces caps, Claude Code with the MCP connector judges; weekly % measured with the owner's `/usage` before/after; Google content passed to the agent live, never stored.
 - 2026-11-20 — Grocery list app (G6) built as a module of MapPal in the same Vercel project (owner: "It must be the same vercel project"): `/grocery`, own family-token link, `grocery_*` tables, DeepSeek via MapPal's key. Earlier the same day it was built as `docunest/monorepo/apps/grocery` with its own Vercel project; that copy was removed.

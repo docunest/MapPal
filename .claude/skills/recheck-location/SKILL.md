@@ -19,9 +19,13 @@ claude mcp add --transport http mappal-agent https://<MapPal host>/api/agent/mcp
 
 1. **Usage before.** Ask the owner to type `/usage` and tell you the weekly %
    ("Current week (all models)"). One number. Write it down.
-2. `get_travel_state` — say in one line where they are and which stop the run
-   will use (or use the point the owner names: `plan_run` with lat/lng).
-3. `plan_run` — the dry run, free. Show the owner, short: the zone and why,
+2. `get_travel_state` — every location hint with its weight, and the best
+   guess. Say in one line where they are and which stop the run will use. If
+   the owner says otherwise, `set_location` (or `plan_run` with lat/lng).
+   Note the time now (ISO) — the start for step 7.
+3. `plan_run` — the dry run, free. It reads the place index and fetches any
+   missing cell around the target first; for a bigger area (a week's route),
+   call `index_area` with a radius until it says 0 missing. Show the owner, short: the zone and why,
    how many cafes and exploration spots will be checked, the estimate, any
    notes (a failed OSM query → offer to re-plan in a minute).
    **Ask: "Start? (yes/no)" and wait.**
@@ -35,12 +39,16 @@ claude mcp add --transport http mappal-agent https://<MapPal host>/api/agent/mcp
    - Summaries in your own words; don't copy review text.
 6. **CAP HIT** in any reply: stop at once. Submit reviews for what you saw,
    then go to step 7. Never work around a cap.
-7. **Usage after.** Ask the owner for `/usage` again.
-8. `finish_run(run_id, usage_before_pct, usage_after_pct, model, notes)` —
+7. **Usage after.** Ask the owner for `/usage` again, and read your own token
+   use from this session's transcript:
+   `node <this skill's folder>/usage.mjs --since <the time from step 2>`
+   (prints claude_input_tokens, claude_output_tokens, claude_cache_read_tokens,
+   claude_cache_write_tokens).
+8. `finish_run(run_id, usage_before_pct, usage_after_pct, claude_* numbers, model, notes)` —
    in `notes` put a short yield report: what was worth it, what produced
    little and why (bad rule, sparse area, missing source).
 9. Tell the owner in 2–3 lines: kept places, % of the week used (pass < 5 %),
-   and the run page link. Ask them to tap 👍/👎 on the kept places there; that
+   and the run page link (its "Under the hood" map shows every step and cost). Ask them to tap 👍/👎 on the kept places there; that
    is the "real and relevant" half of the test (pass ≥ 70 % 👍).
 
 ## Keep it cheap
