@@ -23,15 +23,51 @@ const cond = z.object({
 });
 export type Cond = z.infer<typeof cond>;
 
-export const profileSchema = z.object({
-  useCase: z.string().regex(/^[a-z][a-z0-9-]*$/),
+const selectCond = cond.extend({ kind: z.string(), points: z.number() });
+const dropCond = cond.extend({ reason: z.string() });
+const scoreCond = cond.extend({ points: z.number(), label: z.string().optional() });
+const slugPart = z.string().regex(/^[a-z][a-z0-9-]*$/);
+const layerList = z.array(z.enum(["food", "explore", "parking", "stay", "town"])).min(1);
+const areaShape = z.union([z.object({ kind: z.literal("towns") }), z.object({ kind: z.literal("radius"), km: z.number().positive().max(100) })]);
+
+/**
+ * One use case as stored (mappal_rule_version.config). Use cases nest:
+ * "parent" names another use case (Food → Cafes, Cool bars…). A child
+ * inherits every setting it leaves out, and its drop/score rules come after
+ * its parents'. A use case without "select" is a group: it runs no brief of
+ * its own, it gives its children shared text and rules. The resolved,
+ * complete form the engine runs is Profile (see tree.ts → resolveProfile).
+ */
+export const nodeSchema = z.object({
+  useCase: slugPart,
   title: z.string(),
+  parent: slugPart.optional(),
+  idPrefix: z.string().regex(/^[a-z]{1,3}$/).optional(),
+  layers: layerList.optional(),
+  area: areaShape.optional(),
+  select: z.array(selectCond).default([]),
+  drop: z.array(dropCond).default([]),
+  score: z.array(scoreCond).default([]),
+  distancePenaltyPerKm: z.number().min(0).optional(),
+  townEdgePenalty: z.boolean().optional(),
+  dedupeByNameWithinM: z.number().min(0).optional(),
+  parkingWithinM: z.number().min(0).optional(),
+  spreadByTown: z.boolean().optional(),
+  pageSize: z.number().int().min(1).max(50).optional(),
+  criteria: z.string().default(""),
+});
+export type UseCaseNode = z.input<typeof nodeSchema>;
+
+export const profileSchema = z.object({
+  useCase: slugPart,
+  title: z.string(),
+  parent: slugPart.optional(),
   idPrefix: z.string().regex(/^[a-z]{1,3}$/),
-  layers: z.array(z.enum(["food", "explore", "parking", "stay", "town"])).min(1),
-  area: z.union([z.object({ kind: z.literal("towns") }), z.object({ kind: z.literal("radius"), km: z.number().positive().max(100) })]),
-  select: z.array(cond.extend({ kind: z.string(), points: z.number() })).min(1),
-  drop: z.array(cond.extend({ reason: z.string() })),
-  score: z.array(cond.extend({ points: z.number(), label: z.string().optional() })),
+  layers: layerList,
+  area: areaShape,
+  select: z.array(selectCond).min(1),
+  drop: z.array(dropCond),
+  score: z.array(scoreCond),
   distancePenaltyPerKm: z.number().min(0).default(0),
   townEdgePenalty: z.boolean().default(false),
   dedupeByNameWithinM: z.number().min(0).default(0),

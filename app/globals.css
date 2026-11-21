@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* The app is designed light. A phone in dark mode used to turn the body text
+   light grey while the cards stay white (unreadable), so: light only, and
+   Tailwind's dark: variants apply only under an explicit .dark class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -12,11 +17,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {

@@ -1,6 +1,7 @@
 "use client";
 
-import { CATEGORY_LABEL, type VoteValue } from "./shared";
+import { KindPicker, type KindNode } from "./KindPicker";
+import type { VoteValue } from "./shared";
 
 export type CenterSource = "me" | "car" | "pin";
 
@@ -42,7 +43,7 @@ export function ScopePanel({
   voter,
   status,
   onPickPin,
-  useCases,
+  kinds,
 }: {
   scope: ScopeUi;
   onChange: (s: ScopeUi) => void;
@@ -50,7 +51,7 @@ export function ScopePanel({
   voter: string;
   status: { inArea: number; left: number; mine: Record<string, number>; index: string; centerLabel: string };
   onPickPin: () => void;
-  useCases: Array<{ key: string; title: string }>;
+  kinds: KindNode[];
 }) {
   const set = (patch: Partial<ScopeUi>) => onChange({ ...scope, ...patch });
   const others = voters.filter((v) => v !== voter);
@@ -64,18 +65,8 @@ export function ScopePanel({
       />
       <Chips label="Distance" value={scope.radiusKm} onChange={(v) => set({ radiusKm: v })} options={RADII.map((r) => [r, r ? `${r} km` : "Anywhere"])} />
       <div>
-        <div className="mb-1 text-xs font-medium text-neutral-500">Kind</div>
-        <div className="flex flex-wrap gap-1">
-          {(useCases.length ? useCases.map((u) => [u.key, u.title] as const) : Object.entries(CATEGORY_LABEL)).map(([k, label]) => {
-            const on = scope.categories.includes(k);
-            return (
-              <button key={k} type="button" onClick={() => set({ categories: on ? scope.categories.filter((c) => c !== k) : [...scope.categories, k] })} className={`rounded-full border px-3 py-1 text-sm ${on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
-                {label}
-              </button>
-            );
-          })}
-          {!scope.categories.length && <span className="self-center text-xs text-neutral-500">all kinds</span>}
-        </div>
+        <div className="mb-1 text-xs font-medium text-neutral-500">Kind {scope.categories.length ? "" : "— all kinds"}</div>
+        <KindPicker tree={kinds} value={scope.categories} onChange={(categories) => set({ categories })} />
       </div>
       <Chips
         label="Which places"

@@ -24,10 +24,14 @@ export function locationLayer(zone: Zone, estimateLine: string | null): { text: 
   return { text, hash: shortHash(text) };
 }
 
-export function usecaseLayer(p: Profile, body: string, v: LayerRef, stats: { found: number; dropped: Record<string, number> }) {
+/** Layer 4: the use case's text with its parents' first (Food › Cool bars), each with its version and hash. */
+export function usecaseLayer(p: Profile, chain: Array<{ title: string; body: string } & LayerRef>, stats: { found: number; dropped: Record<string, number> }) {
   const reasons = Object.entries(stats.dropped).map(([r, n]) => `${n} ${r}`).join(", ") || "none";
-  return `## 4. Use case: ${p.title} (rules v${v.version} · ${v.hash})
-${body}
+  const head = chain.map((c) => c.title).join(" › ");
+  const versions = chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ");
+  const text = chain.length > 1 ? chain.map((c) => `${c.title}: ${c.body}`).join("\n") : (chain[0]?.body ?? "");
+  return `## 4. Use case: ${head} (rules ${versions})
+${text}
 How these places were picked (deterministic rules, no AI): ${stats.found} matching places in the place index around the zone; dropped by the rules: ${reasons}. The rest are ranked by the rules' points (${p.select.map((s) => `${s.kind} ${s.points}`).filter((x, i, a) => a.indexOf(x) === i).slice(0, 8).join(", ")}…) and shown best first.`;
 }
 

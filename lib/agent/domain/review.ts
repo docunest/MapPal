@@ -9,7 +9,7 @@ const evidence = z.object({
 });
 
 export const reviewSchema = z.object({
-  candidate: z.string().regex(/^[ce]\d+$/, "candidate id like c3 or e2"),
+  candidate: z.string().regex(/^[a-z]{1,3}\d+$/, "candidate id like c3, b2 or e5 (the id shown in the brief)"),
   verdict: z.enum(["real", "fake", "stale"]),
   confidence: z.number().min(0).max(1),
   relevant: z.boolean().describe("matches what the family wants"),

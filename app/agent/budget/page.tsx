@@ -79,7 +79,7 @@ async function Table() {
                 <td className="p-1">{log.claude ? `${n(log.claude.cacheRead)} / ${n(log.claude.cacheWrite)}` : "–"}</td>
                 <td className="p-1">{run.usageBeforePct !== null ? `${run.usageBeforePct} → ${run.usageAfterPct ?? "?"}` : "–"}</td>
                 <td className={`p-1 font-medium ${log.costPass === false ? "text-red-700" : log.costPass ? "text-green-700" : ""}`}>{log.weeklyPct !== null ? `${log.weeklyPct} %` : "–"}</td>
-                <td className="p-1">{log.kept.cafes + log.kept.exploration}</td>
+                <td className="p-1">{log.keptTotal}</td>
                 <td className="p-1">{n(log.claudeTokensPerWeeklyPct)}</td>
                 <td className="p-1">{log.googleDetails + log.googlePhotos}</td>
               </tr>

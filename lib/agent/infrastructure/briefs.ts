@@ -2,21 +2,21 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-/** The negative list: places of this use case within the search area already judged (any time) or sent in an open brief (24 h). */
+/** The negative list: places of these use cases (the whole tree, e.g. Food and all its children) within the search area already judged (any time) or sent in an open brief (24 h). */
 export interface Known {
   name: string;
   lat?: number;
   lng?: number;
 }
 
-export async function knownPlaces(useCase: string, area: { lat: number; lng: number; radiusM: number }): Promise<Map<string, Known>> {
+export async function knownPlaces(useCases: string[], area: { lat: number; lng: number; radiusM: number }): Promise<Map<string, Known>> {
   const dLat = area.radiusM / 111_320;
   const dLng = area.radiusM / (111_320 * Math.cos((area.lat * Math.PI) / 180));
   const box = { lat: { gte: area.lat - dLat, lte: area.lat + dLat }, lng: { gte: area.lng - dLng, lte: area.lng + dLng } };
   const inBox = (c: { lat?: number; lng?: number }) => c.lat === undefined || c.lng === undefined || (Math.abs(c.lat - area.lat) <= dLat && Math.abs(c.lng - area.lng) <= dLng);
   const [reviews, open] = await Promise.all([
-    prisma.agentReview.findMany({ where: { category: useCase, ...box }, select: { osmRef: true, name: true, lat: true, lng: true } }),
-    prisma.brief.findMany({ where: { useCase, status: "open", createdAt: { gte: new Date(Date.now() - 86_400_000) } }, select: { candidates: true } }),
+    prisma.agentReview.findMany({ where: { category: { in: useCases }, ...box }, select: { osmRef: true, name: true, lat: true, lng: true } }),
+    prisma.brief.findMany({ where: { useCase: { in: useCases }, status: "open", createdAt: { gte: new Date(Date.now() - 86_400_000) } }, select: { candidates: true } }),
   ]);
   const out = new Map<string, Known>();
   for (const r of reviews) out.set(r.osmRef, { name: r.name, lat: r.lat, lng: r.lng });

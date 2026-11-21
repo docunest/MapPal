@@ -14,8 +14,9 @@ import { pageText } from "../lib/agent/domain/html";
 import { imageSize } from "../lib/agent/domain/image";
 import { toThings } from "../lib/agent/domain/osm";
 import { spread } from "../lib/agent/domain/plan";
-import { CAFES, EXPLORATION } from "../lib/agent/domain/defaults";
-import { condHolds, profileSchema, runProfile, type Profile } from "../lib/agent/domain/profile";
+import { CAFES, DEFAULT_RULES, FOOD } from "../lib/agent/domain/defaults";
+import { condHolds, nodeSchema, profileSchema, runProfile, type Profile } from "../lib/agent/domain/profile";
+import { chainOf, expand, resolveProfile, rootOf, selectsBelow, treeProblems, buildUseCaseTree } from "../lib/agent/domain/tree";
 import { knownLayer, locationLayer, usecaseLayer } from "../lib/agent/domain/brief";
 import { reviewsSchema } from "../lib/agent/domain/review";
 import { coordsInLogLine, isHereLink, travelState, type Fix } from "../lib/agent/domain/travelState";
@@ -24,6 +25,12 @@ import { pickZone } from "../lib/agent/domain/zone";
 import { agentFromEnvToken, parseTokenList } from "../lib/agent/infrastructure/auth";
 import { safeUrl } from "../lib/agent/infrastructure/web";
 import { serveMcp, textResult, type McpServerDef } from "../lib/mcp/server";
+
+// The default use-case tree, resolved (Food → Cafes… inherit area, page size, drop/score rules).
+const defaultItems = DEFAULT_RULES.filter((r) => r.config).map((r) => ({ config: r.config! }));
+const TREE = buildUseCaseTree(defaultItems);
+const rules = (key: string) => resolveProfile(chainOf(TREE, key).map((e) => e.item));
+const FOOD_KIDS = ["bars", "cafes", "fast-food", "restaurants"];
 
 const fixture = (name: string, kind: string) => JSON.parse(readFileSync(path.join(__dirname, "fixtures/agent", `${name}--${kind}.json`), "utf8"));
 
@@ -40,7 +47,7 @@ function planFor(name: string, known = new Set<string>()) {
     const page = (p.spreadByTown ? spread(fresh, p.pageSize) : fresh.slice(0, p.pageSize)).map((c, i) => ({ ...c, id: `${p.idPrefix}${i + 1}` }));
     return { ...r, page, rest: fresh.length - page.length };
   };
-  return { zone, cafes, exploration, c: run(CAFES, cafes), e: run(EXPLORATION, exploration) };
+  return { zone, cafes, exploration, c: run(rules("cafes"), cafes), b: run(rules("bars"), cafes), r: run(rules("restaurants"), cafes), f: run(rules("fast-food"), cafes), e: run(rules("exploration"), exploration) };
 }
 
 test("geohash matches the reference encoding", () => {
@@ -73,11 +80,13 @@ test("no campsite nearby → the zone centres on the target and says so", () => 
   assert.equal(zone.cafeCircles.length, 1);
 });
 
-test("cafe rules (as data) drop fast food, chains, fancy and unnamed places, with the reason", () => {
-  const { zone, c } = planFor("peniche");
-  assert.ok(c.dropped.some((d) => d.reason === "fast food"));
+test("food rules (as data) drop chains, fancy and unnamed places, with the reason; each sub-type picks its own kinds", () => {
+  const { zone, c, b, r, f } = planFor("peniche");
   assert.ok(c.dropped.every((d) => d.reason));
-  assert.ok(!c.candidates.some((x) => x.kind === "fast_food"));
+  assert.ok(c.candidates.every((x) => x.kind === "cafe" || x.kind === "ice_cream"));
+  assert.ok(b.candidates.every((x) => ["bar", "pub", "biergarten"].includes(x.kind)) && b.candidates.length > 0);
+  assert.ok(r.candidates.every((x) => x.kind === "restaurant") && r.candidates.length > 0);
+  assert.ok(f.candidates.every((x) => x.kind === "fast_food"));
   const fake: OsmThing[] = [
     { ref: "node/1", lat: 39.357, lng: -9.379, tags: { amenity: "cafe", name: "Starbucks", brand: "Starbucks" } },
     { ref: "node/2", lat: 39.357, lng: -9.379, tags: { amenity: "restaurant", name: "Restaurante Gastronómico Mar" } },
@@ -85,18 +94,24 @@ test("cafe rules (as data) drop fast food, chains, fancy and unnamed places, wit
     { ref: "node/4", lat: 39.357, lng: -9.379, tags: { amenity: "bar", name: "Tasca do Zé", opening_hours: "Mo-Su 08:00-24:00" } },
     { ref: "node/5", lat: 39.357, lng: -9.379, tags: { "disused:amenity": "cafe", amenity: "cafe", name: "Old" } },
   ];
-  const f = runProfile(CAFES, fake, zone);
-  assert.deepEqual(f.candidates.map((x) => x.name), ["Tasca do Zé"]);
-  assert.deepEqual(f.dropped.map((d) => d.reason.split(" (")[0]), ["chain", "fancy", "no name on the map", "marked closed on the map"]);
-  assert.equal(f.dropped[0].reason, "chain (Starbucks)");
+  const all = ["cafes", "bars", "restaurants"].map((k) => runProfile(rules(k), fake, zone));
+  assert.deepEqual(all.flatMap((x) => x.candidates.map((c) => c.name)), ["Tasca do Zé"]);
+  assert.deepEqual(all.flatMap((x) => x.dropped.map((d) => d.reason.split(" (")[0])), ["chain", "marked closed on the map", "no name on the map", "fancy"]);
+  assert.equal(all[0].dropped[0].reason, "chain (Starbucks)");
+  // Fast food keeps chains (that's the point of it); the parent's rules still drop unnamed ones.
+  const ff = runProfile(rules("fast-food"), [{ ref: "node/9", lat: 39.357, lng: -9.379, tags: { amenity: "fast_food", name: "McDonald's", brand: "McDonald's" } }, { ref: "node/10", lat: 39.357, lng: -9.379, tags: { amenity: "fast_food" } }], zone);
+  assert.deepEqual(ff.candidates.map((x) => x.name), ["McDonald's"]);
+  assert.equal(ff.dropped[0].reason, "no name on the map");
 });
 
-test("Peniche page 1: 25 cafes spread over every town, 15 exploration spots", () => {
-  const { c, e } = planFor("peniche");
-  assert.equal(c.found, 128);
-  assert.equal(c.page.length, 25);
-  for (const town of ["Peniche", "Ferrel", "Serra d'El-Rei"]) assert.ok(c.page.some((x) => x.circle === town), town);
-  assert.deepEqual(c.page.map((x) => x.id).slice(0, 3), ["c1", "c2", "c3"]);
+test("Peniche page 1: every food sub-type spread over the towns, 15 exploration spots", () => {
+  const { c, b, r, f, e } = planFor("peniche");
+  assert.equal(c.found + b.found + r.found + f.found, 128); // the old single "cafes" rule found the same 128
+  for (const [x, prefix] of [[c, "c"], [b, "b"], [r, "r"]] as const) {
+    assert.ok(x.page.length > 0 && x.page.length <= 25);
+    assert.equal(x.page[0].id, `${prefix}1`);
+  }
+  for (const town of ["Peniche", "Ferrel"]) assert.ok(r.page.some((x) => x.circle === town), town);
   assert.equal(e.page.length, 15);
   assert.equal(e.page[0].name, "Gruta da Furninha");
   assert.ok(e.page.some((x) => /Forte|Fortaleza/.test(x.name)));
@@ -109,8 +124,8 @@ test("deterministic: same rules + same places → same page in the same order, w
   const z = fixture("peniche", "zone");
   const zone = pickZone({ ...z.arg, label: "peniche", source: "fixture" }, toThings(z.elements));
   const shuffled = [...toThings(fixture("peniche", "cafes").elements)].reverse();
-  const r = runProfile(CAFES, shuffled, zone);
-  assert.deepEqual(r.candidates.map((x) => x.osmRef), a.c.candidates.map((x) => x.osmRef));
+  const rr = runProfile(rules("restaurants"), shuffled, zone);
+  assert.deepEqual(rr.candidates.map((x) => x.osmRef), a.r.candidates.map((x) => x.osmRef));
 });
 
 test("Arenas de Cabrales: caves near the village; exploration stays inside 15 km", () => {
@@ -122,11 +137,11 @@ test("Arenas de Cabrales: caves near the village; exploration stays inside 15 km
 
 test("negative list: known places never come back; 'more' = the next places", () => {
   const first = planFor("peniche");
-  const known = new Set(first.c.page.map((x) => x.osmRef));
+  const known = new Set(first.r.page.map((x) => x.osmRef));
   const second = planFor("peniche", known);
-  assert.ok(!second.c.page.some((x) => known.has(x.osmRef)));
-  assert.equal(second.c.page.length, 25);
-  assert.equal(second.c.rest, first.c.rest - 25);
+  assert.ok(!second.r.page.some((x) => known.has(x.osmRef)));
+  assert.equal(second.r.page.length, Math.min(first.r.page.length, first.r.rest));
+  assert.equal(second.r.rest, Math.max(0, first.r.rest - first.r.page.length));
 });
 
 test("brief layers: text and hashes depend only on their inputs", () => {
@@ -137,7 +152,9 @@ test("brief layers: text and hashes depend only on their inputs", () => {
   const k1 = knownLayer([{ name: "A", osmRef: "node/2" }, { name: "B", osmRef: "node/1" }]);
   assert.equal(knownLayer([{ name: "B", osmRef: "node/1" }, { name: "A", osmRef: "node/2" }]).hash, k1.hash);
   assert.match(k1.text, /never return these \(2/);
-  assert.match(usecaseLayer(CAFES, CAFES.criteria, { version: 3, hash: "abc" }, { found: 10, dropped: { "fast food": 2 } }), /rules v3 · abc[\s\S]*2 fast food/);
+  assert.match(usecaseLayer(rules("exploration"), [{ title: "Exploration", body: "x", version: 3, hash: "abc" }], { found: 10, dropped: { "fast food": 2 } }), /rules v3 · abc[\s\S]*2 fast food/);
+  const nested = usecaseLayer(rules("bars"), [{ title: "Food", body: "Eat.", version: 2, hash: "f00" }, { title: "Cool bars", body: "Drink.", version: 1, hash: "ba5" }], { found: 3, dropped: {} });
+  assert.match(nested, /Use case: Food › Cool bars \(rules v2 · f00 › v1 · ba5\)\nFood: Eat\.\nCool bars: Drink\./);
 });
 
 test("rule conditions: match / hasAny / missingAll / regex / kinds", () => {
@@ -147,8 +164,9 @@ test("rule conditions: match / hasAny / missingAll / regex / kinds", () => {
   assert.ok(condHolds({ missingAll: ["wikidata"], noName: true }, { natural: "cave_entrance" }));
   assert.ok(!condHolds({ kinds: ["cave"] }, {}, "mine"));
   assert.ok(condHolds({ regex: { keys: ["cuisine"], pattern: "\\bfish\\b" } }, { cuisine: "fish;regional" }));
-  assert.ok(profileSchema.safeParse(CAFES).success && profileSchema.safeParse(EXPLORATION).success);
-  assert.ok(!profileSchema.safeParse({ ...CAFES, idPrefix: "Cafe1" }).success);
+  assert.ok(profileSchema.safeParse(rules("cafes")).success && profileSchema.safeParse(rules("exploration")).success);
+  assert.ok(!nodeSchema.safeParse({ ...CAFES, idPrefix: "Cafe1" }).success);
+  assert.ok(!profileSchema.safeParse(CAFES).success, "a child alone isn't complete — it needs its parent's settings");
 });
 
 test("spread keeps every town's best three before filling by score", () => {
@@ -231,7 +249,9 @@ test("digest: every line says its source; Google lines only when Google answered
 test("review format: ids from the run, bounded text, enums", () => {
   const ok = reviewsSchema.safeParse([{ candidate: "c3", verdict: "real", confidence: 0.8, relevant: true, keep: true, summary: "Small local bar.", vibe: "bar-style", evidence: [{ kind: "photo", note: "terrace with locals" }] }]);
   assert.ok(ok.success);
-  assert.ok(!reviewsSchema.safeParse([{ candidate: "x1", verdict: "real", confidence: 0.8, relevant: true, keep: true, summary: "", evidence: [] }]).success);
+  // Any use case's prefix (c, b, r, f, e…); the pull itself rejects ids it didn't send.
+  assert.ok(reviewsSchema.safeParse([{ candidate: "b12", verdict: "real", confidence: 0.8, relevant: true, keep: true, summary: "", evidence: [] }]).success);
+  for (const bad of ["C1", "1x", "cafe1", "b"]) assert.ok(!reviewsSchema.safeParse([{ candidate: bad, verdict: "real", confidence: 0.8, relevant: true, keep: true, summary: "", evidence: [] }]).success, bad);
   assert.ok(!reviewsSchema.safeParse([{ candidate: "c1", verdict: "maybe", confidence: 2, relevant: true, keep: true, summary: "", evidence: [] }]).success);
 });
 
@@ -313,7 +333,7 @@ test("exploration rules: spots ranked, private/unnamed/long-distance dropped, pa
     { ref: "node/6", lat: zone.explore.lat + 0.5, lng: zone.explore.lng, tags: { natural: "cave_entrance", name: "Far away" } },
   ];
   const parking: OsmThing[] = [{ ref: "node/5", lat: p.lat + 0.001, lng: p.lng, tags: { amenity: "parking", name: "Aparcamiento", fee: "no" } }];
-  const r = runProfile(EXPLORATION, things, zone, parking);
+  const r = runProfile(rules("exploration"), things, zone, parking);
   assert.deepEqual(r.candidates.map((c) => c.name), ["Cueva Test"]);
   assert.equal(r.candidates[0].parking?.name, "Aparcamiento");
   assert.ok(r.candidates[0].parking!.distanceM < 150);
@@ -378,4 +398,70 @@ test("place-index layers", () => {
   assert.equal(layerOf({ tourism: "caravan_site" }), "stay");
   assert.equal(layerOf({ place: "town" }), "town");
   assert.equal(layerOf({ natural: "cave_entrance" }), "explore");
+});
+
+// --- Nested use cases (2026-11-21 night) ---
+test("use-case tree: Food is a group with four sub-types; Exploration stands alone", () => {
+  // Depth first, siblings by title (Cafes, Cool bars, Fast food, Restaurants); * = group.
+  assert.deepEqual(TREE.map((e) => `${e.depth}:${e.key}${e.runs ? "" : "*"}`), ["0:exploration", "0:food*", "1:cafes", "1:bars", "1:fast-food", "1:restaurants"]);
+  assert.deepEqual(TREE.filter((e) => e.depth === 0).map((e) => e.key), ["exploration", "food"]);
+  assert.deepEqual([...TREE.find((e) => e.key === "food")!.children].sort(), FOOD_KIDS);
+  assert.deepEqual([...expand(TREE, ["food"])].sort(), ["food", ...FOOD_KIDS].sort());
+  assert.deepEqual([...expand(TREE, ["bars", "old-thing"])], ["bars", "old-thing"]);
+  assert.equal(rootOf(TREE, "bars"), "food");
+});
+
+test("a sub-type inherits what it leaves out; parent drop/score rules come first", () => {
+  const bars = rules("bars");
+  assert.equal(bars.area.kind, "towns");
+  assert.equal(bars.pageSize, FOOD.pageSize);
+  assert.equal(bars.idPrefix, "b");
+  assert.equal(bars.drop[0].reason, "no name on the map");
+  assert.ok(bars.drop.some((d) => d.reason.startsWith("chain")));
+  assert.equal(bars.score[0].label, "hours mapped");
+  assert.match(bars.criteria, /^Places to eat[\s\S]*\nWant: bar-style/);
+  // A child can override: its own page size wins.
+  const tree = buildUseCaseTree([...defaultItems, { config: { useCase: "tapas", title: "Tapas", parent: "bars", idPrefix: "t", pageSize: 5, select: [{ kind: "tapas", match: { cuisine: "~tapas" }, points: 1 }] } }]);
+  const tapas = resolveProfile(chainOf(tree, "tapas").map((e) => e.item));
+  assert.equal(tapas.pageSize, 5);
+  assert.equal(tapas.area.kind, "towns");
+  assert.equal(chainOf(tree, "tapas").map((e) => e.key).join(">"), "food>bars>tapas");
+});
+
+test("tree problems: unknown parent, loops, duplicate id prefix, nothing to inherit", () => {
+  assert.deepEqual(treeProblems(defaultItems), []);
+  const add = (config: Record<string, unknown>) => treeProblems([...defaultItems, { config }]);
+  assert.match(add({ useCase: "kebab", title: "Kebab", parent: "fod", idPrefix: "k", select: [{ kind: "k", match: { cuisine: "kebab" }, points: 1 }] }).join(), /parent "fod" doesn't exist/);
+  assert.match(add({ useCase: "kebab", title: "Kebab", parent: "food", idPrefix: "b", select: [{ kind: "k", match: { cuisine: "kebab" }, points: 1 }] }).join(), /id prefix "b" is already used by bars/);
+  assert.match(add({ useCase: "kebab", title: "Kebab", idPrefix: "k", select: [{ kind: "k", match: { cuisine: "kebab" }, points: 1 }] }).join(), /kebab: .*layers.*set it here or on a parent/);
+  const loop = treeProblems([{ config: { useCase: "a", title: "A", parent: "b" } }, { config: { useCase: "b", title: "B", parent: "a" } }]);
+  assert.match(loop.join(), /loops back/);
+});
+
+// --- Manual run: the pasted answer ---
+import { parseReply, resultsIn } from "../lib/agent/application/manual";
+
+test("manual run: the JSON is found in a chat answer, whatever its shape", () => {
+  const r = { candidate: "c1", verdict: "real", confidence: 0.8, relevant: true, keep: true, summary: "ok", evidence: [] };
+  const fenced = `Here you go:\n\`\`\`json\n{"run_id": "run_20261121_abcdef12", "briefs": {"brf_20261121_00000001": [${JSON.stringify(r)}]}}\n\`\`\`\nHope it helps.`;
+  const j = parseReply(fenced) as { run_id: string };
+  assert.equal(j.run_id, "run_20261121_abcdef12");
+  assert.deepEqual(resultsIn(j).map((x) => x.candidate), ["c1"]);
+  // A bare list, brief objects, smart quotes from a phone keyboard.
+  assert.deepEqual(resultsIn(parseReply(`[${JSON.stringify(r)}, ${JSON.stringify({ ...r, candidate: "b2" })}]`)).map((x) => x.candidate), ["c1", "b2"]);
+  assert.deepEqual(resultsIn(parseReply(`[{"brief_id": "brf_x", "results": [${JSON.stringify(r)}]}]`)).length, 1);
+  assert.equal(resultsIn(parseReply('{“candidate”: “e4”, “verdict”: “real”}'))[0].candidate, "e4");
+  // Nested evidence objects with their own fields aren't mistaken for results.
+  assert.equal(resultsIn({ briefs: { b: [{ ...r, evidence: [{ kind: "osm", note: "x" }] }] } }).length, 1);
+  assert.throws(() => parseReply("sorry, I can't"), /Couldn't find JSON/);
+});
+
+test("a place goes to its most specific use case", () => {
+  const items = [...defaultItems, { config: { useCase: "kebab", title: "Kebab", parent: "fast-food", idPrefix: "k", select: [{ kind: "kebab", match: { amenity: "fast_food", cuisine: "~kebab" }, points: 1 }] } }];
+  const tree = buildUseCaseTree(items);
+  const below = selectsBelow(tree, "fast-food");
+  assert.equal(below.length, 1);
+  assert.ok(below.some((s) => condHolds(s, { amenity: "fast_food", cuisine: "kebab;pizza" })));
+  assert.ok(!below.some((s) => condHolds(s, { amenity: "fast_food", cuisine: "burger" })));
+  assert.deepEqual(selectsBelow(tree, "food").length, 1 + ["cafes", "bars", "restaurants", "fast-food"].reduce((n, k) => n + rules(k).select.length, 0));
 });

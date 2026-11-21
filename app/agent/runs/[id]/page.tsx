@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { AgentNav } from "@/components/agent/AgentNav";
 import { RateButtons } from "@/components/agent/RateButtons";
 import { RunDebug } from "@/components/agent/RunDebug";
-import { costLog, getRun, PASS_THUMBS, PASS_WEEKLY_PCT, reviewsOf } from "@/lib/agent";
+import { costLog, getRun, PASS_THUMBS, PASS_WEEKLY_PCT, reviewsOf, titlesOfUseCases } from "@/lib/agent";
 
 // One cost-test run: what it spent, what it kept (with 👍/👎 for the pass
 // test), what the rules dropped. Verdicts are AI; facts link to their source.
@@ -105,7 +105,7 @@ async function Run({ params }: { params: PageProps<"/agent/runs/[id]">["params"]
   const { id } = await params;
   const run = await getRun(id);
   if (!run) notFound();
-  const reviews = await reviewsOf(run.id);
+  const [reviews, titles] = await Promise.all([reviewsOf(run.id), titlesOfUseCases()]);
   const log = costLog(run, reviews);
   const z = run.plan.zone;
   const box = "rounded border border-neutral-200 p-3 text-sm";
@@ -133,9 +133,11 @@ async function Run({ params }: { params: PageProps<"/agent/runs/[id]">["params"]
           <li>
             Pages {log.pages}/{run.caps.pages} · images {log.images}/{run.caps.images} · Google {log.googleDetails} details, {log.googlePhotos} photos (free tier)
           </li>
-          <li>
-            Cafes: {log.found.cafes} on the map → {log.checked.cafes} checked → {log.kept.cafes} kept · Exploration: {log.found.exploration} → {log.checked.exploration} → {log.kept.exploration}
-          </li>
+          {Object.keys(log.found).map((cat) => (
+            <li key={cat}>
+              {titles[cat] ?? cat}: {log.found[cat]} on the map → {log.checked[cat] ?? 0} checked → {log.kept[cat] ?? 0} kept
+            </li>
+          ))}
           <li>
             Per kept place: {log.tokensPerKept?.toLocaleString() ?? "–"} tokens{log.weeklyPctPerKept !== null ? `, ${log.weeklyPctPerKept} % of the week` : ""}
           </li>
@@ -170,12 +172,12 @@ async function Run({ params }: { params: PageProps<"/agent/runs/[id]">["params"]
         ))}
       </section>
 
-      {(["cafes", "exploration"] as const).map((cat) => {
+      {Object.keys(run.plan.categories).map((cat) => {
         const list = reviews.filter((r) => r.category === cat);
         const pc = run.plan.categories[cat];
         return (
           <section key={cat} className="mt-4">
-            <h2 className="font-semibold">{cat === "cafes" ? "Cafes and bars" : "Exploration"}</h2>
+            <h2 className="font-semibold">{titles[cat] ?? cat}</h2>
             {!list.length && <p className="text-sm text-neutral-600">No reviews yet.</p>}
             <ul className="mt-2 space-y-2">
               {list.map((r) => (

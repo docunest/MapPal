@@ -36,8 +36,8 @@ hashes it used (`mappal_brief`).
 1. **Charter** — the master rules (versioned, `mappal_rule` "charter").
 2. **Output format** — the JSON the agent returns ("output-format"; the server checks it with `domain/review.ts`).
 3. **Location** — the best guess and the zone (from the hints and the place index).
-4. **Use case** — what the family wants (text) + the rules as data (`domain/profile.ts`: select / drop / score / page size …), one per use case ("usecase:cafes", "usecase:exploration", more can be added).
-5. **Known places** — the negative list: everything of this use case in the area already judged (any time) or in an open brief (24 h); same name within the rule's dedupe distance counts as the same place. "More" = pull again → the next page.
+4. **Use case** — what the family wants (text) + the rules as data (`domain/profile.ts`: select / drop / score / page size …). Use cases nest (`domain/tree.ts`): Food (a group, no "select") → Cafes, Cool bars, Restaurants, Fast food; Exploration on its own. A sub-type names its `parent`, inherits every setting it leaves out, gets its parents' drop/score rules first and their text before its own (the brief shows "Food › Cool bars" with each node's version and hash). A place belongs to its most specific use case (what a sub-type selects is left out of its parent). Saving checks the tree: parent exists, no loop, everything resolves, id prefixes unique. Untouched defaults follow newer code defaults (a new version by "default"); edited rules are never overwritten.
+5. **Known places** — the negative list: everything of this use case's whole tree (e.g. all of Food) in the area already judged (any time) or in an open brief (24 h); same name within the rule's dedupe distance counts as the same place. "More" = pull again → the next page.
 6. **Places to judge** — the next page after the rules and the negative list, with facts (OSM, Wikipedia/Commons cached 30 days; Google live, never stored) and one photo each.
 
 Connector tools: `get_travel_state`, `set_location`, `index_area`, `preview_briefs` (free) →
@@ -45,6 +45,16 @@ owner's yes → `get_briefs` (every brief at once) → `submit_results` → `fin
 `fetch_page`, `fetch_image`, `get_run`, and the rules: `get_rules`, `rule_history`,
 `update_rule` (a new version, with a note; takes effect at once), `restore_rule`.
 The same tools over REST: `POST /api/agent/v1/<tool>` with `Authorization: Bearer <token>`.
+
+**Manual run** (`/review` → Browse → Manual run, or `POST /api/agent/manual` then
+`/api/agent/manual/import`): pick use cases (a group = all its sub-types), preview
+for free, build — the same briefs as `get_briefs`, as one text with photos as
+links and a "How to answer" footer — copy or share it into any chat agent
+(ChatGPT, Claude.ai, Gemini…), paste its JSON answer back. The answer may be in
+any shape (code fences, a bare list, brief objects); every object with a
+"candidate" is saved to the brief that sent that place, then the pull is
+finished (`manual: <agent>` as the model). The payload survives the phone
+switching apps (kept on the device).
 
 People manage the same rules on `/review` → **Config** (edit, history, restore,
 new use case, tokens). **Browse** shows what's indexed and judged on a map and

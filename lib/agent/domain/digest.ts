@@ -48,7 +48,8 @@ const SHOW_TAGS = [
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-export function digestText(c: Candidate, e: Enrichment): string {
+/** photoLinks: a manual run pastes text only, so the photo goes in as its link instead of an attached image. */
+export function digestText(c: Candidate, e: Enrichment, opts: { photoLinks?: boolean } = {}): string {
   const lines: string[] = [];
   lines.push(`### ${c.id} · ${c.name} — ${c.kind} · ${c.near} · OSM ${c.osmRef} · ${c.lat.toFixed(5)},${c.lng.toFixed(5)}`);
   const tags = SHOW_TAGS.filter((k) => c.tags[k]).map((k) => `${k}=${clip(c.tags[k], 90)}`);
@@ -57,7 +58,7 @@ export function digestText(c: Candidate, e: Enrichment): string {
     const p = c.parking;
     const extra = ["fee", "maxheight", "surface", "access", "capacity"].filter((k) => p.tags[k]).map((k) => `${k}=${p.tags[k]}`);
     lines.push(`Parking (OSM ${p.osmRef}): ${p.name ?? "unnamed"} ${p.distanceM} m away${extra.length ? ` (${extra.join(", ")})` : ""}`);
-  } else if (c.category === "exploration") lines.push("Parking: none mapped within 3 km");
+  } else if ((c.family ?? c.category) === "exploration") lines.push("Parking: none mapped within 3 km");
   const g = e.google;
   if (g) {
     const bits = [
@@ -73,7 +74,7 @@ export function digestText(c: Candidate, e: Enrichment): string {
     for (const r of g.reviews.slice(0, 3)) lines.push(`Review${r.rating ? ` ${r.rating}★` : ""}${r.when ? ` (${r.when})` : ""}: "${clip(r.text.replace(/\s+/g, " "), 260)}"`);
   }
   if (e.wiki) lines.push(`Wikipedia (${e.wiki.lang}) ${e.wiki.title}: ${clip(e.wiki.lead.replace(/\s+/g, " "), 700)}`);
-  if (e.photo) lines.push(`Photo below: ${e.photo.source}${e.photo.credit ? ` · ${e.photo.credit}` : ""}`);
+  if (e.photo) lines.push(opts.photoLinks && e.photo.url ? `Photo: ${e.photo.url} (${e.photo.source}${e.photo.credit ? ` · ${e.photo.credit}` : ""})` : `Photo below: ${e.photo.source}${e.photo.credit ? ` · ${e.photo.credit}` : ""}`);
   else lines.push("Photo: none found");
   for (const n of e.notes) lines.push(`Note: ${n}`);
   return lines.join("\n");

@@ -36,6 +36,7 @@ const base = (c: PlanCandidate, checked: boolean): ReviewPlace => ({
   photo: photoFrom(c.photo),
   parking: c.parking ? { name: c.parking.name, distanceM: c.parking.distanceM } : undefined,
   googlePlaceId: c.googlePlaceId,
+  rawTags: c.tags, // for re-sorting into the current use-case tree; dropped before the reply
 });
 
 /** Every place any run found: reviewed ones with the newest verdict, the rest unchecked. */

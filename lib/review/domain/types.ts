@@ -35,7 +35,7 @@ export interface AgentView {
 export interface ReviewPlace {
   key: string; // OSM ref
   name: string;
-  category: string; // "cafes" | "exploration"
+  category: string; // a use case (cafes, bars, exploration…); the filter takes a group (food) as all of its use cases
   kind: string; // cafe, bar, cave, ruins…
   lat: number;
   lng: number;
@@ -45,6 +45,7 @@ export interface ReviewPlace {
   photo?: ReviewPhoto;
   parking?: { name?: string; distanceM: number };
   googlePlaceId?: string;
+  rawTags?: Record<string, string>; // server-side only
   // Filled per request:
   distanceM?: number;
   bearing?: number;

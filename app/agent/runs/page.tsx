@@ -21,7 +21,7 @@ async function Runs() {
     <main className="mx-auto max-w-3xl p-4">
       <AgentNav here="/agent/runs" />
       <h1 className="text-xl font-semibold">Agent runs</h1>
-      <p className="mt-1 text-sm text-neutral-600">Cost tests: cafes and exploration around the latest known location. Verdicts are AI.</p>
+      <p className="mt-1 text-sm text-neutral-600">Pulls — by Claude Code through the connector, or pasted by hand (manual run) — around a location. Verdicts are AI.</p>
       {!rows.length && <p className="mt-4 text-sm">No runs yet. Connect Claude Code to the agent connector and ask it to run the cost test.</p>}
       <ul className="mt-4 space-y-2">
         {rows.map(({ run, log }) => (
@@ -31,7 +31,7 @@ async function Runs() {
             </Link>
             <div className="text-sm text-neutral-600">
               {run.status}
-              {run.cappedBy ? ` (${run.cappedBy})` : ""} · {log.tokens.toLocaleString()} tokens · kept {log.kept.cafes} cafes, {log.kept.exploration} spots
+              {run.cappedBy ? ` (${run.cappedBy})` : ""} · {log.tokens.toLocaleString()} tokens · kept {log.keptTotal} ({Object.entries(log.kept).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(", ") || "none"})
               {log.weeklyPct !== null ? ` · ${log.weeklyPct} % of the week ${log.costPass ? "✅" : "❌"}` : ""}
             </div>
           </li>

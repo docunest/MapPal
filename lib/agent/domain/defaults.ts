@@ -1,7 +1,7 @@
 // First versions of every brief layer. Seeded once into mappal_rule /
 // mappal_rule_version; after that the database is the source of truth
 // (edited on /review → Config or by an agent with update_rule).
-import type { Profile } from "./profile";
+import type { Profile, UseCaseNode } from "./profile";
 
 export const CHARTER = `You are checking places for one family (two adults, teenagers, a 6-year-old and a dog) who live in a camper van in Spain and Portugal and move every few days.
 Rules:
@@ -22,7 +22,7 @@ export const OUTPUT_FORMAT = `Return results with submit_results(brief_id, resul
   "keep": true|false,
   "summary": "≤ 400 characters, own words",
   "evidence": [ { "kind": "osm|google|web|photo|wikipedia|reviews|other", "url": "optional", "note": "what it showed" } ],   // ≤ 8
-  // cafes and bars, when known:
+  // food places (cafes, bars, restaurants, fast food), when known:
   "vibe": "bar-style|hipster|local-family|fancy|workers-pub|touristy|other", "vibe_confidence": 0–1,
   "availability": { "kitchen_hours": "...", "peak_times": "...", "risks": [ { "flag": "...", "note": "..." } ] },
   "food_tags": ["pizza", "tapas"], "price_samples": [ { "item": "...", "price": 9.5, "size": "...", "currency": "EUR", "seen": "where" } ],
@@ -30,36 +30,25 @@ export const OUTPUT_FORMAT = `Return results with submit_results(brief_id, resul
   "access": "open|restricted|closed|unknown", "how_to_get_there": "...", "parking": "...", "safety_notes": "..." }
 At most 20 per call. The server checks this format (code: lib/agent/domain/review.ts); editing this text doesn't change what it accepts.`;
 
-export const CAFES: Profile = {
-  useCase: "cafes",
-  title: "Cafes and bars",
-  idPrefix: "c",
+// Food is a group: it runs no brief itself, it gives its children the area
+// (the town circles), the shared drop/score rules and the shared text.
+export const FOOD: UseCaseNode = {
+  useCase: "food",
+  title: "Food",
   layers: ["food"],
   area: { kind: "towns" },
-  select: [
-    { kind: "cafe", match: { amenity: "cafe" }, points: 2 },
-    { kind: "bar", match: { amenity: "bar" }, points: 2 },
-    { kind: "pub", match: { amenity: "pub" }, points: 1 },
-    { kind: "ice_cream", match: { amenity: "ice_cream" }, points: 1 },
-    { kind: "biergarten", match: { amenity: "biergarten" }, points: 1 },
-    { kind: "restaurant", match: { amenity: "restaurant" }, points: 0 },
-    { kind: "fast_food", match: { amenity: "fast_food" }, points: 0 },
-  ],
+  select: [],
   drop: [
     { noName: true, reason: "no name on the map" },
-    { kinds: ["fast_food"], reason: "fast food" },
-    { hasAny: ["brand", "brand:wikidata"], reason: "chain ({brand})" },
     { match: { opening_hours: ["closed", "off"] }, reason: "marked closed on the map" },
     { hasAny: ["disused:amenity", "abandoned:amenity", "was:amenity"], reason: "marked closed on the map" },
-    { regex: { keys: ["name", "cuisine", "description"], pattern: "\\b(gourmet|gastron[oó]mico|fine dining|michelin|haute|degustaci[oó]n|degusta[cç][aã]o)\\b" }, reason: "fancy (name/tags say fine dining)" },
-    { hasAny: ["stars"], reason: "fancy (stars)" },
-    { regex: { keys: ["name"], pattern: "\\b(casino|discoteca|disco|night ?club|hotel|resort|catering)\\b" }, reason: "hotel/club/catering, not a local bar" },
+    // Learned in a test pull (run_20261121_205093ed): Lumen in Óbidos was a hotel's restaurant.
+    { regex: { keys: ["website", "contact:website"], pattern: "hotel" }, reason: "hotel restaurant (its website is a hotel's)" },
   ],
   score: [
     { hasAny: ["opening_hours"], points: 1, label: "hours mapped" },
     { hasAny: ["website", "contact:website", "phone", "contact:phone", "contact:facebook", "contact:instagram"], points: 1, label: "contact mapped" },
     { match: { outdoor_seating: "yes" }, points: 0.5, label: "terrace" },
-    { regex: { keys: ["cuisine"], pattern: "\\b(regional|spanish|portuguese|tapas|seafood|fish|asturian|galician|basque|catalan|local|grill|petiscos)\\b" }, points: 1, label: "local cuisine" },
   ],
   distancePenaltyPerKm: 0,
   townEdgePenalty: true,
@@ -68,7 +57,71 @@ export const CAFES: Profile = {
   spreadByTown: true,
   pageSize: 25,
   criteria:
-    "Want: bar-style places, small hipster-style bars, genuinely local and authentic places families go to. Avoid: fancy restaurants; very local workers' pubs where people drink after shifts; chains. Note kitchen hours (Spanish kitchens close between lunch and dinner), busy times and risks (seasonal closure, closed day). Menu and prices (e.g. cheapest non-margherita pizza with size, typical mains) only for places you keep.",
+    "Places to eat and drink in and around the towns near the stop. Note kitchen hours (Spanish kitchens close between lunch and dinner), busy times and risks (seasonal closure, closed day). Menu and prices (e.g. cheapest non-margherita pizza with size, typical mains) only for places you keep.",
+};
+
+const CHAIN = { hasAny: ["brand", "brand:wikidata"], reason: "chain ({brand})" };
+const NOT_LOCAL = { regex: { keys: ["name"], pattern: "\\b(casino|discoteca|disco|night ?club|hotel|resort|catering)\\b" }, reason: "hotel/club/catering, not a local place" };
+const FANCY = [
+  { regex: { keys: ["name", "cuisine", "description"], pattern: "\\b(gourmet|gastron[oó]mico|fine dining|michelin|haute|degustaci[oó]n|degusta[cç][aã]o)\\b" }, reason: "fancy (name/tags say fine dining)" },
+  { hasAny: ["stars"], reason: "fancy (stars)" },
+];
+
+export const CAFES: UseCaseNode = {
+  useCase: "cafes",
+  title: "Cafes",
+  parent: "food",
+  idPrefix: "c",
+  select: [
+    { kind: "cafe", match: { amenity: "cafe" }, points: 2 },
+    { kind: "ice_cream", match: { amenity: "ice_cream" }, points: 1 },
+  ],
+  drop: [CHAIN, NOT_LOCAL, ...FANCY],
+  score: [{ regex: { keys: ["cuisine", "name"], pattern: "\\b(cake|pastry|pastelaria|confeitaria|pasteler[ií]a|bakery|panader[ií]a|padaria|coffee_shop|specialty)\\b" }, points: 1, label: "cakes / good coffee" }],
+  criteria: "Want: genuinely local cafés, pastelarias and cafeterías families go to — good coffee, cakes, a terrace. Avoid: chains, hotel cafés.",
+};
+
+export const BARS: UseCaseNode = {
+  useCase: "bars",
+  title: "Cool bars",
+  parent: "food",
+  idPrefix: "b",
+  select: [
+    { kind: "bar", match: { amenity: "bar" }, points: 2 },
+    { kind: "pub", match: { amenity: "pub" }, points: 1 },
+    { kind: "biergarten", match: { amenity: "biergarten" }, points: 1 },
+  ],
+  drop: [CHAIN, NOT_LOCAL, ...FANCY],
+  score: [
+    { regex: { keys: ["name", "description", "cuisine", "drink:craft_beer", "microbrewery"], pattern: "\\b(craft|cervecer[ií]a artesana|cerveja artesanal|yes|tapas|petiscos|vermut|vermute)\\b" }, points: 1, label: "craft beer / tapas" },
+    { match: { live_music: "yes" }, points: 0.5, label: "live music" },
+  ],
+  criteria: "Want: bar-style places, small hipster-style bars, tapas and petiscos bars with a good vibe where a family with kids and a dog is welcome (terraces). Avoid: very local workers' pubs where people drink after shifts; night clubs; chains.",
+};
+
+export const RESTAURANTS: UseCaseNode = {
+  useCase: "restaurants",
+  title: "Restaurants",
+  parent: "food",
+  idPrefix: "r",
+  select: [{ kind: "restaurant", match: { amenity: "restaurant" }, points: 1 }],
+  drop: [CHAIN, NOT_LOCAL, ...FANCY],
+  score: [{ regex: { keys: ["cuisine"], pattern: "\\b(regional|spanish|portuguese|tapas|seafood|fish|asturian|galician|basque|catalan|local|grill|petiscos)\\b" }, points: 1, label: "local cuisine" }],
+  criteria: "Want: honest local food at normal prices — menú del día, tascas, marisquerías, churrasqueiras. Avoid: fancy / fine dining, tourist traps with photo menus, chains.",
+};
+
+export const FAST_FOOD: UseCaseNode = {
+  useCase: "fast-food",
+  title: "Fast food",
+  parent: "food",
+  idPrefix: "f",
+  select: [{ kind: "fast_food", match: { amenity: "fast_food" }, points: 1 }],
+  drop: [],
+  score: [
+    { match: { drive_through: "yes" }, points: 0.5, label: "drive-through" },
+    { regex: { keys: ["cuisine"], pattern: "\\b(kebab|pizza|burger|chicken|sandwich|bocadillo|frango)\\b" }, points: 0.5, label: "kebab / pizza / burger" },
+  ],
+  criteria: "Quick, cheap, reliable food on travel days — kebab, pizza, burgers, frango no churrasco, bocadillos. Chains are fine here. Note late opening hours and whether a camper can park nearby.",
 };
 
 const kind = (k: string, points: number, c: Omit<Profile["select"][number], "kind" | "points">) => ({ kind: k, points, ...c });
@@ -127,9 +180,23 @@ export const EXPLORATION: Profile = {
     "Want: caves, mines, abandoned buildings, gorges, waterfalls and other spots that make a real adventure or great photos — hidden ones over famous ones. Check it still exists and is reachable (recent photos, posts, reviews), whether access is open or restricted (private, gated, closed to tourists), where to leave a camper, and safety or legal notes. Drop islands without a road and anything that needs a boat.",
 };
 
-export const DEFAULT_RULES: Array<{ slug: string; layer: "charter" | "format" | "usecase"; title: string; body: string; config?: Profile }> = [
+/**
+ * Code defaults. A rule nobody has changed (its current version is by
+ * "default") moves to a newer default automatically, as a new version with
+ * DEFAULTS_NOTE; a rule a person or an agent edited is left alone.
+ * Parents come before their children.
+ */
+export const DEFAULTS_NOTE = "defaults updated in the code: use cases nest — Food → Cafes, Cool bars, Restaurants, Fast food";
+
+const uc = (n: UseCaseNode) => ({ slug: `usecase:${n.useCase}`, layer: "usecase" as const, title: n.title, body: n.criteria ?? "", config: n });
+
+export const DEFAULT_RULES: Array<{ slug: string; layer: "charter" | "format" | "usecase"; title: string; body: string; config?: UseCaseNode }> = [
   { slug: "charter", layer: "charter", title: "Charter (master rules)", body: CHARTER },
   { slug: "output-format", layer: "format", title: "Output format", body: OUTPUT_FORMAT },
-  { slug: "usecase:cafes", layer: "usecase", title: CAFES.title, body: CAFES.criteria, config: CAFES },
-  { slug: "usecase:exploration", layer: "usecase", title: EXPLORATION.title, body: EXPLORATION.criteria, config: EXPLORATION },
+  uc(FOOD),
+  uc(CAFES),
+  uc(BARS),
+  uc(RESTAURANTS),
+  uc(FAST_FOOD),
+  uc(EXPLORATION),
 ];

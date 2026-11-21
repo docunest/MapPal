@@ -7,7 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLocation } from "@/components/nearby/useLocation";
+import { buildUseCaseTree } from "@/lib/agent/domain/tree";
 import { BrowsePanel } from "./BrowsePanel";
+import { KindTitles, kindPaths, type KindNode } from "./KindPicker";
 import { ConfigPanel } from "./ConfigPanel";
 import { PlaceCard } from "./PlaceCard";
 import { DEFAULT_SCOPE, ScopePanel, type ScopeUi } from "./ScopePanel";
@@ -87,7 +89,8 @@ export function ReviewApp() {
     setModeState(m);
     save("review.mode", m);
   };
-  const [useCases, setUseCases] = useState<Array<{ key: string; title: string }>>([]);
+  const [kinds, setKinds] = useState<KindNode[]>([]);
+  const kindTitles = useMemo(() => kindPaths(kinds), [kinds]);
   const [panel, setPanel] = useState(false);
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<ReviewPlace | null>(null);
@@ -113,7 +116,7 @@ export function ReviewApp() {
     fetch("/api/review/voters").then((r) => r.json()).then((d) => setVoters(d.voters ?? [])).catch(() => undefined);
     fetch("/api/agent/rules")
       .then((r) => r.json())
-      .then((d) => setUseCases((d.rules ?? []).filter((r: { layer: string }) => r.layer === "usecase").map((r: { config: { useCase: string }; title: string }) => ({ key: r.config.useCase, title: r.title }))))
+      .then((d) => setKinds(buildUseCaseTree((d.rules ?? []).filter((r: { layer: string }) => r.layer === "usecase")).map(({ key, title, parent, depth, children, runs }) => ({ key, title, parent, depth, children, runs }))))
       .catch(() => undefined);
     flushQueue().then(setPending);
     const online = () => flushQueue().then(setPending);
@@ -177,7 +180,8 @@ export function ReviewApp() {
     return () => {
       stale = true;
     };
-  }, [query, scope.mine, voter]);
+    // layersTick: re-read after indexing or a pasted manual answer.
+  }, [query, scope.mine, voter, layersTick]);
 
   const remember = (key: string, v: VoteValue | null) => {
     const apply = (p: ReviewPlace) => {
@@ -323,7 +327,8 @@ export function ReviewApp() {
   );
 
   return (
-    <div className="flex h-dvh flex-col bg-neutral-50">
+    <KindTitles.Provider value={kindTitles}>
+    <div className="flex h-dvh flex-col bg-neutral-50 text-neutral-900">
       <header className="flex items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
         <Link href="/" className="text-sm text-neutral-500" aria-label="MapPal home">
           ←
@@ -363,7 +368,7 @@ export function ReviewApp() {
             voters={voters}
             voter={voter}
             status={status}
-            useCases={useCases}
+            kinds={kinds}
             onPickPin={() => {
               setPicking(true);
               setMode("browse");
@@ -426,7 +431,17 @@ export function ReviewApp() {
           <section className="h-full lg:border-l lg:border-neutral-200 lg:bg-white">{cards}</section>
         ) : (
           <section className="min-h-0 flex-1 border-t border-neutral-200 bg-white lg:h-full lg:border-l lg:border-t-0">
-            <BrowsePanel places={mapPlaces} voter={voter} center={center} radiusKm={scope.radiusKm} onSelect={setSelected} onIndexed={() => setLayersTick((t) => t + 1)} />
+            <BrowsePanel
+              places={mapPlaces}
+              voter={voter}
+              center={center}
+              radiusKm={scope.radiusKm}
+              onSelect={setSelected}
+              onIndexed={() => setLayersTick((t) => t + 1)}
+              kinds={kinds}
+              kindFilter={scope.categories}
+              onKindFilter={(categories) => setScope({ ...scope, categories })}
+            />
           </section>
         )}
       </main>
@@ -467,5 +482,6 @@ export function ReviewApp() {
         </div>
       )}
     </div>
+    </KindTitles.Provider>
   );
 }

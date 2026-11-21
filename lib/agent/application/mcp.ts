@@ -6,7 +6,8 @@
 import { z } from "zod";
 import { serveMcp, textResult, type McpContent, type McpResult, type McpServerDef, type McpTool } from "@/lib/mcp/server";
 import { reviewsSchema } from "../domain/review";
-import { profileSchema } from "../domain/profile";
+import { nodeSchema } from "../domain/profile";
+import { buildUseCaseTree } from "../domain/tree";
 import { agentFromToken } from "../infrastructure/auth";
 import { newCorrelationId } from "../infrastructure/events";
 import { indexArea } from "../infrastructure/osmIndex";
@@ -30,7 +31,7 @@ const where = {
   lat: { type: "number" },
   lng: { type: "number" },
   label: { type: "string", description: "Name for a given point" },
-  use_cases: { type: "array", items: { type: "string" }, description: "Default: all use cases (get_rules lists them)" },
+  use_cases: { type: "array", items: { type: "string" }, description: "Default: all use cases (get_rules lists the tree). A group (e.g. food) means all its use cases (cafes, bars, restaurants, fast-food)." },
   page_size: { type: "number", description: "Places per use case (default from its rules)" },
 };
 
@@ -64,13 +65,13 @@ const TOOLS: McpTool[] = [
     },
   },
   { name: "get_run", title: "Cost log so far", description: "A pull's counters, kept places and pass test so far.", inputSchema: { type: "object", properties: { run_id: runId }, required: ["run_id"] }, annotations: { readOnlyHint: true } },
-  { name: "get_rules", title: "Read the rules", description: "Without slug: every layer (charter, output-format, usecase:<name>) with its current version and hash. With slug: its full text and, for a use case, its rules as JSON (select / drop / score …).", inputSchema: { type: "object", properties: { slug: { type: "string" } } }, annotations: { readOnlyHint: true } },
+  { name: "get_rules", title: "Read the rules", description: "Without slug: every layer (charter, output-format, usecase:<name>) with its current version and hash. Use cases are a tree (food → cafes, bars…); a child inherits what it leaves out and its drop/score rules come after its parents'. With slug: its full text and, for a use case, its own rules as JSON (select / drop / score …, parent).", inputSchema: { type: "object", properties: { slug: { type: "string" } } }, annotations: { readOnlyHint: true } },
   { name: "rule_history", title: "Rule versions", description: "Every version of one layer: number, hash, who, when, why.", inputSchema: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] }, annotations: { readOnlyHint: true } },
   {
     name: "update_rule",
     title: "Change a rule (new version)",
-    description: "Saves a new version of a layer — body (the text) and, for a use case, config (the JSON rules, the whole object; see get_rules for the current one and its format). A new slug usecase:<name> adds a use case. note (why) is required. Takes effect for the next preview; the owner can restore any version.",
-    inputSchema: { type: "object", properties: { slug: { type: "string" }, body: { type: "string" }, config: z.toJSONSchema(profileSchema) as Record<string, unknown>, title: { type: "string" }, note: { type: "string" } }, required: ["slug", "note"] },
+    description: "Saves a new version of a layer — body (the text) and, for a use case, config (the JSON rules, the whole object; see get_rules for the current one and its format). A new slug usecase:<name> adds a use case; set config.parent to put it under another (it inherits area, layers, page size, text and drop/score rules). No select = a group. note (why) is required. Takes effect for the next preview; the owner can restore any version.",
+    inputSchema: { type: "object", properties: { slug: { type: "string" }, body: { type: "string" }, config: z.toJSONSchema(nodeSchema, { io: "input" }) as Record<string, unknown>, title: { type: "string" }, note: { type: "string" } }, required: ["slug", "note"] },
   },
   { name: "restore_rule", title: "Restore a rule version", description: "Makes an earlier version current again (saved as a new version).", inputSchema: { type: "object", properties: { slug: { type: "string" }, version: { type: "number" } }, required: ["slug", "version"] } },
 ];
@@ -148,7 +149,10 @@ export async function callAgentTool(name: string, args: Record<string, unknown>,
           return textResult(`${r.slug} v${r.version} · ${r.hash} (by ${r.createdBy}, ${r.createdAt.slice(0, 16)}${r.note ? `: ${r.note}` : ""})\n\n${r.body}${r.config ? `\n\nconfig:\n${JSON.stringify(r.config, null, 1)}` : ""}`, r);
         }
         const all = await listRules();
-        return textResult(all.map((r) => `${r.slug} — ${r.title} — v${r.version} · ${r.hash} (by ${r.createdBy})`).join("\n"), { rules: all.map((r) => ({ slug: r.slug, layer: r.layer, title: r.title, version: r.version, hash: r.hash, createdBy: r.createdBy, note: r.note, createdAt: r.createdAt })) });
+        const tree = buildUseCaseTree(all.filter((r) => r.layer === "usecase"));
+        const line = (r: (typeof all)[number], depth = 0) => `${"  ".repeat(depth)}${r.slug} — ${r.title} — v${r.version} · ${r.hash} (by ${r.createdBy})`;
+        const lines = [...all.filter((r) => r.layer !== "usecase").map((r) => line(r)), "use cases (tree):", ...tree.map((e) => `${line(e.item, e.depth + 1)}${e.runs ? "" : " [group]"}`)];
+        return textResult(lines.join("\n"), { rules: all.map((r) => ({ slug: r.slug, layer: r.layer, title: r.title, parent: r.config?.parent ?? null, version: r.version, hash: r.hash, createdBy: r.createdBy, note: r.note, createdAt: r.createdAt })) });
       }
       case "rule_history": {
         const h = await ruleHistory(String(args.slug ?? ""));

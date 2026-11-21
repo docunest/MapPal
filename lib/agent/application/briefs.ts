@@ -13,7 +13,7 @@ import { digestText } from "../domain/digest";
 import { geohash } from "../domain/geohash";
 import { shortHash } from "../domain/hash";
 import { spread } from "../domain/plan";
-import { runProfile, type Profile } from "../domain/profile";
+import { condHolds, runProfile, type Profile } from "../domain/profile";
 import { travelState } from "../domain/travelState";
 import { emptyCounters, type Candidate, type OsmThing, type Plan, type PlanCategory, type Zone } from "../domain/types";
 import { EXPLORE_RADIUS_M, pickZone } from "../domain/zone";
@@ -22,7 +22,8 @@ import { enrich, googleConfigured } from "../infrastructure/enrich";
 import { logEvent } from "../infrastructure/events";
 import { indexArea, placesNear } from "../infrastructure/osmIndex";
 import { createRun, updateRun } from "../infrastructure/repo";
-import { currentRule, rulesForUseCases, type RuleView } from "../infrastructure/rules";
+import { currentRule, loadUseCaseTree, type RuleView } from "../infrastructure/rules";
+import { expand, rootOf, selectsBelow } from "../domain/tree";
 import { loadFixes } from "../infrastructure/travelSources";
 import { RunError } from "./guard";
 import { submitReviews, type AgentReply } from "./runFlow";
@@ -41,7 +42,7 @@ interface Prepared {
   estimateLine: string | null;
   travelWhy: string | null;
   indexNote: string;
-  useCases: Array<{ rule: RuleView; profile: Profile; found: number; dropped: PlanCategory["dropped"]; known: Map<string, { name: string }>; page: Candidate[]; rest: Candidate[]; pageNo: number; areaKey: string }>;
+  useCases: Array<{ rule: RuleView; chain: RuleView[]; profile: Profile; found: number; dropped: PlanCategory["dropped"]; known: Map<string, { name: string }>; page: Candidate[]; rest: Candidate[]; pageNo: number; areaKey: string }>;
   charter: RuleView;
   format: RuleView;
 }
@@ -76,12 +77,22 @@ async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): P
   const zone = pickZone(target, await placesNear({ ...target, radiusM: 14_000 }, ["stay", "town"]));
   await logEvent(runId, { kind: "zone", summary: zone.why, data: { campsite: zone.campsite, towns: zone.towns, cafeCircles: zone.cafeCircles, explore: zone.explore }, lat: zone.campsite.lat, lng: zone.campsite.lng });
 
-  const [charter, format, rules] = await Promise.all([currentRule("charter"), currentRule("output-format"), rulesForUseCases()]);
-  const wanted = args.use_cases?.length ? rules.filter((r) => args.use_cases!.includes(r.config!.useCase)) : rules;
-  if (!wanted.length) throw new RunError(`No such use case. Known: ${rules.map((r) => r.config!.useCase).join(", ")}`);
+  const [charter, format, uc] = await Promise.all([currentRule("charter"), currentRule("output-format"), loadUseCaseTree()]);
+  // A group (Food) means all of its use cases (Cafes, Cool bars…). Only use cases with their own "select" run.
+  const asked = args.use_cases?.length ? expand(uc.tree, args.use_cases) : null;
+  const wanted = uc.tree.filter((e) => e.runs && (!asked || asked.has(e.key)));
+  if (!wanted.length) throw new RunError(`No such use case. Known: ${uc.tree.map((e) => `${"  ".repeat(e.depth)}${e.key}${e.runs ? "" : " (group)"}`).join(", ")}`);
   const useCases: Prepared["useCases"] = [];
-  for (const rule of wanted) {
-    const p = rule.config!;
+  for (const entry of wanted) {
+    const rule = entry.item;
+    let resolved: ReturnType<typeof uc.resolve>;
+    try {
+      resolved = uc.resolve(entry.key);
+    } catch (e) {
+      await logEvent(runId, { kind: "rules", summary: `${entry.key}: skipped — its rules don't resolve (${e instanceof Error ? e.message.slice(0, 200) : String(e)})`, data: { useCase: entry.key } });
+      continue;
+    }
+    const p = resolved.profile;
     let things: OsmThing[];
     if (p.area.kind === "towns") {
       const m = new Map<string, OsmThing>();
@@ -90,7 +101,12 @@ async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): P
     } else things = await placesNear({ ...zone.explore, radiusM: p.area.km * 1000 }, p.layers);
     const parkings = p.parkingWithinM ? await placesNear({ ...zone.explore, radiusM: (p.area.kind === "radius" ? p.area.km * 1000 : 3000) + p.parkingWithinM }, ["parking"]) : [];
     const r = runProfile(p, things, zone, parkings);
-    const known = await knownPlaces(p.useCase, { ...zone.explore, radiusM: Math.max(zone.explore.radiusM, 20_000) });
+    const below = selectsBelow(uc.tree, p.useCase);
+    if (below.length) r.candidates = r.candidates.filter((c) => !below.some((s) => condHolds(s, c.tags)));
+    const family = rootOf(uc.tree, p.useCase);
+    for (const c of r.candidates) c.family = family;
+    // Negative list across the whole tree (a bar judged as "Cafes" before the split isn't sent again as "Cool bars").
+    const known = await knownPlaces([...expand(uc.tree, [family])], { ...zone.explore, radiusM: Math.max(zone.explore.radiusM, 20_000) });
     // Known = same OSM element, or the same name within 300 m (one place mapped twice, e.g. a relation and its way).
     const knownNear = [...known.values()].filter((k) => k.lat !== undefined);
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
@@ -99,11 +115,11 @@ async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): P
     const size = Math.min(50, Math.max(1, args.page_size ?? p.pageSize));
     const page = p.spreadByTown ? spread(fresh, size) : fresh.slice(0, size);
     const areaKey = `${p.useCase}:${geohash(zone.campsite, 6)}`;
-    useCases.push({ rule, profile: p, found: r.found, dropped: r.dropped, known, page, rest: fresh.filter((c) => !page.includes(c)), pageNo: await pageNumber(p.useCase, areaKey), areaKey });
+    useCases.push({ rule, chain: resolved.chain, profile: p, found: r.found, dropped: r.dropped, known, page, rest: fresh.filter((c) => !page.includes(c)), pageNo: await pageNumber(p.useCase, areaKey), areaKey });
     await logEvent(runId, {
       kind: "rules",
-      summary: `${p.useCase} (rules v${rule.version}): ${r.found} in the index → ${r.dropped.length} dropped, ${known.size} known (negative list), ${page.length} on this page, ${fresh.length - page.length} more after it`,
-      data: { useCase: p.useCase, ruleVersion: rule.version, ruleHash: rule.hash, found: r.found, dropped: r.dropped, known: known.size, page: page.map((c) => ({ name: c.name, osmRef: c.osmRef, lat: c.lat, lng: c.lng, score: c.score, why: c.why })) },
+      summary: `${p.useCase} (rules ${resolved.chain.map((c) => `${c.config?.useCase} v${c.version}`).join(" › ")}): ${r.found} in the index → ${r.dropped.length} dropped, ${known.size} known (negative list), ${page.length} on this page, ${fresh.length - page.length} more after it`,
+      data: { useCase: p.useCase, ruleVersion: rule.version, ruleHash: rule.hash, chain: resolved.chain.map((c) => ({ slug: c.slug, version: c.version, hash: c.hash })), found: r.found, dropped: r.dropped, known: known.size, page: page.map((c) => ({ name: c.name, osmRef: c.osmRef, lat: c.lat, lng: c.lng, score: c.score, why: c.why })) },
     });
   }
   return { runId, zone, estimateLine, travelWhy: args.lat === undefined ? state.why : null, indexNote, useCases, charter, format };
@@ -131,7 +147,7 @@ export async function previewBriefs(args: BriefArgs) {
     p.indexNote,
     ...p.useCases.map(
       (u) =>
-        `${u.profile.title} (rules v${u.rule.version} · ${u.rule.hash}), page ${u.pageNo}: ${u.found} in the index → ${u.dropped.length} dropped by rules, ${u.known.size} already known, ${u.page.length} to judge now, ${u.rest.length} left for later pages. First: ${u.page.slice(0, 6).map((c) => c.name).join(" · ") || "—"}`,
+        `${u.chain.map((c) => c.title).join(" › ")} (rules ${u.chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ")}), page ${u.pageNo}: ${u.found} in the index → ${u.dropped.length} dropped by rules, ${u.known.size} already known, ${u.page.length} to judge now, ${u.rest.length} left for later pages. First: ${u.page.slice(0, 6).map((c) => c.name).join(" · ") || "—"}`,
     ),
     `A pull would send ${Math.min(total, caps.places)} places (cap ${caps.places}); server caps: ${caps.tokens} tokens, ${caps.images} images, ${caps.pages} pages, ${caps.googleDetails} Google details.`,
     "Show this to the owner and wait for a yes. Then call get_briefs with the same arguments and owner_approved=true.",
@@ -140,7 +156,13 @@ export async function previewBriefs(args: BriefArgs) {
 }
 
 /** After the owner's yes: every brief at once. */
-export async function pullBriefs(args: BriefArgs & { owner_approved?: unknown }, agent: string, baseUrl: string): Promise<AgentReply & { runId: string }> {
+/**
+ * opts.manual: for pasting into any chat agent by hand (/review → Browse →
+ * Manual run). Text only — photos as links, nothing attached — and the end
+ * says to answer with one JSON object, pasted back into the app.
+ */
+export async function pullBriefs(args: BriefArgs & { owner_approved?: unknown }, agent: string, baseUrl: string, opts: { manual?: boolean } = {}): Promise<AgentReply & { runId: string; briefIds: string[] }> {
+  const manual = opts.manual === true;
   if (args.owner_approved !== true) throw new RunError("owner_approved must be true — only after the owner said yes to preview_briefs.");
   const runId = newId("run");
   const caps = capsFromEnv();
@@ -180,7 +202,7 @@ export async function pullBriefs(args: BriefArgs & { owner_approved?: unknown },
   await updateRun(runId, { status: "running", approvedAt: new Date() });
 
   const shared = `# MapPal briefs — pull ${runId}
-Answer each brief with submit_results(brief_id, results). Pull page: ${baseUrl}/agent/runs/${runId}
+${manual ? "Manual run: you have no tools here — answer at the very end with ONE JSON object (see \"How to answer\" at the bottom)." : "Answer each brief with submit_results(brief_id, results)."} Pull page: ${baseUrl}/agent/runs/${runId}
 
 ## 1. Charter (v${p.charter.version} · ${p.charter.hash})
 ${p.charter.body}
@@ -204,7 +226,7 @@ ${loc.text}`;
     const briefId = newId("brf");
     briefIds.push(briefId);
     const known = knownLayer([...u.known].map(([osmRef, k]) => ({ osmRef, name: k.name })));
-    const ucText = usecaseLayer(u.profile, u.rule.body, { version: u.rule.version, hash: u.rule.hash }, { found: u.found, dropped: reasonsOf(u.dropped) });
+    const ucText = usecaseLayer(u.profile, u.chain.map((c) => ({ title: c.title, body: c.body, version: c.version, hash: c.hash })), { found: u.found, dropped: reasonsOf(u.dropped) });
     let briefText = `\n\n# Brief ${briefId} — ${u.profile.title}, page ${u.pageNo}\n${ucText}\n\n${known.text}\n\n## 6. Places to judge (${pc.candidates.length})`;
     let briefTokens = textTokens(briefText);
     counters.tokens += briefTokens;
@@ -230,9 +252,9 @@ ${loc.text}`;
       counters.googleDetails += e.spent.googleDetails;
       counters.googlePhotos += e.spent.googlePhotos;
       counters.pages += e.spent.pages;
-      const text = digestText(c, e.enrichment);
+      const text = digestText(c, e.enrichment, { photoLinks: manual });
       const tt = textTokens(text);
-      const it = e.image ? imageTokens(e.image.width, e.image.height) : 0;
+      const it = e.image && !manual ? imageTokens(e.image.width, e.image.height) : 0;
       if (counters.tokens + tt + it > caps.tokens) {
         capHit = `content tokens cap reached after ${sent.length} places of ${u.profile.title}`;
         break;
@@ -241,7 +263,7 @@ ${loc.text}`;
       counters.textTokens += tt;
       counters.imageTokens += it;
       briefTokens += tt + it;
-      if (e.image) counters.images += 1;
+      if (e.image && !manual) counters.images += 1;
       counters.served[u.profile.useCase] = (counters.served[u.profile.useCase] ?? 0) + 1;
       c.served = true;
       c.googlePlaceId = e.googlePlaceId;
@@ -249,7 +271,7 @@ ${loc.text}`;
       sent.push({ id: c.id, osmRef: c.osmRef, name: c.name, lat: c.lat, lng: c.lng });
       briefText += `\n\n${text}`;
       pending += `\n\n${text}`;
-      if (e.image) {
+      if (e.image && !manual) {
         images.push({ before: pending, image: e.image });
         pending = "";
       }
@@ -260,7 +282,7 @@ ${loc.text}`;
       charter: { version: p.charter.version, hash: p.charter.hash },
       format: { version: p.format.version, hash: p.format.hash },
       location: { hash: loc.hash },
-      usecase: { slug: u.rule.slug, version: u.rule.version, hash: u.rule.hash },
+      usecase: { slug: u.rule.slug, version: u.rule.version, hash: u.rule.hash, parents: u.chain.slice(0, -1).map((c) => ({ slug: c.slug, version: c.version, hash: c.hash })) },
       known: { hash: known.hash, count: u.known.size },
     };
     await saveBrief({ id: briefId, runId, useCase: u.profile.useCase, page: u.pageNo, layers, area: { key: u.areaKey, target: p.zone.target, campsite: p.zone.campsite }, candidates: sent, excluded: u.known.size, hash: shortHash(shared, briefText), tokens: briefTokens, agent });
@@ -269,8 +291,10 @@ ${loc.text}`;
   }
   await updateRun(runId, { plan, counters, ...(capHit ? { status: "capped", cappedBy: capHit } : {}) });
   if (capHit) await logEvent(runId, { kind: "cap", summary: `CAP HIT: ${capHit}`, data: { counters } });
-  const footer = `\n\n---\nBriefs: ${briefIds.join(", ") || "none (nothing new to judge here — every place is known)"}. Sent ${counters.tokens} tokens (text ${counters.textTokens}, images ${counters.imageTokens}), ${counters.images} photos, Google ${counters.googleDetails} details.${capHit ? `\nCAP HIT: ${capHit}. Judge what you got, submit, finish_run.` : ""}\nNext: submit_results for each brief (≤ 20 per call), then finish_run(run_id="${runId}") with the owner's /usage numbers and usage.mjs.`;
-  return { runId, text: `${pending}${footer}`, images };
+  const footer = manual
+    ? `\n\n---\n## How to answer (manual run ${runId})\nYou can't call submit_results here. Reply with ONE JSON object and nothing else — the family pastes it back into MapPal:\n{"run_id": "${runId}", "briefs": {${briefIds.map((b) => `"${b}": [ … ]`).join(", ") || "\"(none)\": []"}}}\nEach list holds one result per place of that brief, in the output format of layer 2 ("candidate" = the id shown, like ${Object.values(categories).flatMap((c) => c.candidates.map((x) => x.id)).slice(0, 3).join(", ") || "c1"}). Judge every place; skip none. If you can open web pages, you may check a place's website or photos; otherwise judge from the facts given.${capHit ? `\nNote: the server stopped early (${capHit}); judge what is here.` : ""}`
+    : `\n\n---\nBriefs: ${briefIds.join(", ") || "none (nothing new to judge here — every place is known)"}. Sent ${counters.tokens} tokens (text ${counters.textTokens}, images ${counters.imageTokens}), ${counters.images} photos, Google ${counters.googleDetails} details.${capHit ? `\nCAP HIT: ${capHit}. Judge what you got, submit, finish_run.` : ""}\nNext: submit_results for each brief (≤ 20 per call), then finish_run(run_id="${runId}") with the owner's /usage numbers and usage.mjs.`;
+  return { runId, text: `${pending}${footer}`, images, briefIds };
 }
 
 export async function submitResults(briefId: unknown, results: unknown, agent: string): Promise<AgentReply> {

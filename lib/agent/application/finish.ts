@@ -23,6 +23,7 @@ export interface CostLog {
   kept: Record<string, number>;
   real: number;
   reviews: number;
+  keptTotal: number;
   tokensPerKept: number | null;
   weeklyPct: number | null;
   weeklyPctPerKept: number | null;
@@ -69,6 +70,7 @@ export function costLog(run: RunRow, reviews: ReviewRow[]): CostLog {
     found,
     checked,
     kept: keptBy,
+    keptTotal: kept.length,
     real: reviews.filter((r) => r.verdict === "real").length,
     reviews: reviews.length,
     tokensPerKept: kept.length ? Math.round(c.tokens / kept.length) : null,

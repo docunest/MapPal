@@ -3,6 +3,18 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-21 — Readable text, nested use cases, tree filter, manual run
+
+- **Task:** INBOX "Readable fonts, nested use cases, tree filter, manual run".
+- **What changed:**
+  - Text: the app is light-only (a phone in dark mode turned body text light grey on white cards); the grocery module keeps its own dark theme.
+  - Use cases nest (`lib/agent/domain/tree.ts`): Food → Cafes, Cool bars, Restaurants, Fast food; Exploration; sub-types inherit; checks on save; untouched defaults moved to the tree automatically (a new version by "default", the old one stays in history). The agent's hotel-restaurant rule from the last test is now part of Food.
+  - Briefs carry the chain (Food › Cool bars); the negative list covers the whole tree; any use case's ids (b1, r1, f1…) are accepted; pull, runs and budget pages list every use case.
+  - `/review`: Config shows the tree, "+ Sub-type of …", and what a use case ends up with after inheriting; Browse and the filter pick along the tree; places judged under the old "Cafes and bars" re-sorted into Cafes / Cool bars / Restaurants.
+  - Manual run (Browse → Manual run): preview, build, copy/share, paste the answer, saved.
+- **Evidence:** `docs/evidence/nested-manual/` (dark-mode phone and desktop screenshots; a manual Cool bars pull at Caldas da Rainha answered and pasted back, 5 of 5 saved; connector preview of all Food sub-types; an agent adding a Kebab sub-type, refused once for a clashing id prefix). 159 tests, typecheck, lint, build pass.
+- **Not proven:** on the owner's iPhone; a real ChatGPT/Claude.ai answer (tested with an answer written in the same format).
+
 ## 2026-11-21 — Brief pipeline, place index, location from all hints, debug + budget, one app with three modes
 
 - **Task:** INBOX "Agent fixes after the owner's review" and "Brief pipeline + one app".

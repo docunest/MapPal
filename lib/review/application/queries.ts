@@ -1,5 +1,5 @@
 // Use cases for the review app.
-import { cellsAround, listRules, loadFixes, placesNear, runProfile, travelState, type Zone } from "@/lib/agent";
+import { cellsAround, condHolds, expand, loadFixes, placesNear, rootOf, runProfile, selectsBelow, travelState, loadUseCaseTree, type UseCaseTree, type Zone } from "@/lib/agent";
 import { applyScope, markTravel } from "../domain/filter";
 import { VOTES, type MineFilter, type PoolScope, type ReviewPlace, type Scope, type VoteValue } from "../domain/types";
 import { addVoter, listVoters, loadIndex, loadPlaces, loadTravel, loadVotes, setVote } from "../infrastructure/repo";
@@ -41,7 +41,7 @@ const SHOW_TAGS = ["opening_hours", "cuisine", "outdoor_seating", "website", "co
  * rules (same engine as the briefs), so Browse shows what's indexed and not
  * judged yet — not only what an agent pull happened to include.
  */
-async function indexPlaces(scope: Scope): Promise<ReviewPlace[]> {
+async function indexPlaces(scope: Scope, uc: UseCaseTree): Promise<ReviewPlace[]> {
   const radiusM = Math.min(50, scope.radiusKm ?? 50) * 1000;
   const zone: Zone = {
     target: { lat: scope.lat, lng: scope.lng, label: "search area", source: "review" },
@@ -52,27 +52,64 @@ async function indexPlaces(scope: Scope): Promise<ReviewPlace[]> {
     explore: { lat: scope.lat, lng: scope.lng, radiusM },
     tiles: { cafes: [], exploration: [] },
   };
-  const rules = (await listRules()).filter((r) => r.layer === "usecase" && r.config && (!scope.categories.length || scope.categories.includes(r.config.useCase)));
   const out: ReviewPlace[] = [];
-  for (const r of rules) {
-    const p = { ...r.config!, area: { kind: "radius" as const, km: radiusM / 1000 }, townEdgePenalty: false, spreadByTown: false, parkingWithinM: 0 };
+  for (const e of uc.tree) {
+    if (!e.runs || (scope.categories.length && !scope.categories.includes(e.key))) continue;
+    let resolved;
+    try {
+      resolved = uc.resolve(e.key).profile;
+    } catch {
+      continue; // a broken use case shows its error in Config
+    }
+    const p = { ...resolved, area: { kind: "radius" as const, km: radiusM / 1000 }, townEdgePenalty: false, spreadByTown: false, parkingWithinM: 0 };
     const res = runProfile(p, await placesNear({ lat: scope.lat, lng: scope.lng, radiusM }, p.layers), zone);
-    for (const c of res.candidates.slice(0, 1500)) {
+    const below = selectsBelow(uc.tree, e.key); // those belong to a more specific sub-type
+    for (const c of res.candidates.filter((c) => !below.some((s) => condHolds(s, c.tags))).slice(0, 1500)) {
       out.push({ key: c.osmRef, name: c.name, category: p.useCase, kind: c.kind, lat: c.lat, lng: c.lng, checked: false, tags: Object.fromEntries(SHOW_TAGS.filter((k) => c.tags[k]).map((k) => [k, c.tags[k]])) });
     }
   }
   return out;
 }
 
+/**
+ * Judged places keep the use case they were judged under; after a split
+ * (cafes → Food › Cafes, Cool bars…) a bar judged as "cafes" moves to the
+ * use case of the same tree whose current rules select it, so the filter
+ * shows it under Cool bars.
+ */
+export function classify(places: ReviewPlace[], uc: UseCaseTree, raw: Map<string, Record<string, string>>) {
+  // Deepest first: a kebab shop judged as Fast food moves to Kebab when that sub-type exists.
+  const runners = [...uc.tree].filter((e) => e.runs).sort((a, b) => b.depth - a.depth).map((e) => {
+    try {
+      return { key: e.key, root: rootOf(uc.tree, e.key), select: uc.resolve(e.key).profile.select };
+    } catch {
+      return null;
+    }
+  });
+  for (const p of places) {
+    const tags = raw.get(p.key);
+    if (!tags) continue;
+    const root = rootOf(uc.tree, p.category);
+    const hit = runners.find((r) => r && r.root === root && r.select.some((s) => condHolds(s, tags)));
+    if (hit && hit.key !== p.category) p.category = hit.key;
+  }
+}
+
 export async function placesFor(scope: Scope) {
-  const [loaded, votes, travel, fromIndex] = await Promise.all([loadPlaces(), loadVotes(), loadTravel(), scope.pool === "everything" ? indexPlaces(scope) : Promise.resolve([] as ReviewPlace[])]);
+  const uc = await loadUseCaseTree();
+  // Food = Food and everything under it.
+  const wanted = scope.categories.length ? [...expand(uc.tree, scope.categories)] : [];
+  const s2: Scope = { ...scope, categories: wanted };
+  const [loaded, votes, travel, fromIndex] = await Promise.all([loadPlaces(), loadVotes(), loadTravel(), scope.pool === "everything" ? indexPlaces(s2, uc) : Promise.resolve([] as ReviewPlace[])]);
+  classify(loaded, uc, new Map(loaded.map((p) => [p.key, p.rawTags ?? {}])));
+  for (const p of loaded) delete p.rawTags;
   const known = new Set(loaded.map((p) => p.key));
   const places = [...loaded, ...fromIndex.filter((p) => !known.has(p.key))];
   for (const p of places) p.votes = votes.get(p.key) ?? {};
-  const picked = applyScope(places, scope);
+  const picked = applyScope(places, s2);
   markTravel(picked, travel.positions, travel.sent);
   // How big the whole area is, whatever the vote filter, so the UI can say "12 left of 40".
-  const inArea = applyScope(places, { ...scope, mine: "any", other: undefined });
+  const inArea = applyScope(places, { ...s2, mine: "any", other: undefined });
   const mine = { unvoted: 0, like: 0, maybe: 0, nope: 0, never: 0 };
   for (const p of inArea) mine[(p.votes?.[scope.voter] as VoteValue | undefined) ?? "unvoted"]++;
   return { places: picked, inArea: inArea.length, mine };

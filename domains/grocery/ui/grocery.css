@@ -2,6 +2,7 @@
    leaks into MapPal pages (app/grocery/layout.tsx wraps the page in it). */
 .grocery-root {
   & {
+    color-scheme: light dark; /* the rest of MapPal is light-only; this module has its own dark theme */
     --bg: #f6f5f1;
     --card: #ffffff;
     --text: #1d211e;

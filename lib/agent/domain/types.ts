@@ -17,6 +17,7 @@ export interface OsmThing extends LatLng {
 export interface Candidate extends LatLng {
   id: string; // "c12" (cafes) / "e3" (exploration): short, the agent writes it back
   category: AgentCategory;
+  family?: string; // the top of its use-case tree (food, exploration…): decides Wikipedia lookups and the parking line
   osmRef: string;
   name: string;
   kind: string; // cafe, bar, restaurant… / cave, mine, ruins…

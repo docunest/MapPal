@@ -95,7 +95,7 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
     return { enrichment: e, image, googlePlaceId, spent };
   }
 
-  if (c.category === "exploration" || c.tags.wikidata || c.tags.wikipedia) {
+  if ((c.family ?? c.category) === "exploration" || c.tags.wikidata || c.tags.wikipedia) {
     const w = await wikiFor(c);
     if (w.wiki) e.wiki = w.wiki;
     if (w.note) e.notes.push(w.note);
@@ -133,7 +133,7 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
 
   // No Google: the cafe's own website (its og:image) — counts as a page.
   const site = c.tags.website ?? c.tags["contact:website"];
-  if (allow.images && allow.pages && !image && !e.google && c.category === "cafes" && site) {
+  if (allow.images && allow.pages && !image && !e.google && ((c.family ?? c.category) === "food" || c.category === "cafes") && site) {
     try {
       spent.pages = 1;
       const page = await fetchPage(site, 600);

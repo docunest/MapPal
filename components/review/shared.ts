@@ -18,7 +18,6 @@ const ICONS: Array<[RegExp, string]> = [
 ];
 export const iconFor = (kind: string) => ICONS.find(([r]) => r.test(kind))?.[1] ?? "📍";
 
-export const CATEGORY_LABEL: Record<string, string> = { cafes: "Cafes & bars", exploration: "Exploration" };
 
 export function km(m?: number) {
   if (m === undefined) return "";

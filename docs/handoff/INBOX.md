@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Readable fonts, nested use cases, tree filter, manual run — done
+
+Owner (with a phone screenshot of Config): "Fonts are unreadable. Make location prompts nestable. Like I want to have Food and then fast food, cool bars and other subtypes. In browse I want to be able to filter by this structure so i can see only food places when i need food, not random museums." Then: "Also add 'manual run' option where you give full payload I have to paste to any agent based on use case and I would be able to paste results to save." Report: STATUS.md, same date.
+
 ## 2026-11-21 — Brief pipeline + one app with Config / Browse / Swipe — done
 
 Owner: indexing as a pipeline — master prompt (charter), output format, location data, use-case rules, known locations as a negative prompt (so "more" in a big city never repeats), each step deterministic; the local agent gets full tasks at once from the API/MCP; an API for the agent to pull and change rules, versioned and stored; "Build pipeline"; a control to say when to reindex; a web app for iPhone and desktop with three modes: config (all prompts), browse (what's indexed, voting), the Tinder thing. Report: STATUS.md, same date.

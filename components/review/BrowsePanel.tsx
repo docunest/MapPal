@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { KindPicker, useKindTitle, type KindNode } from "./KindPicker";
+import { ManualRun } from "./ManualRun";
 import { ago, iconFor, km, VOTE_UI, type ReviewPlace } from "./shared";
 
 interface Cell {
@@ -27,8 +29,29 @@ interface BriefRow {
 const fate = (p: ReviewPlace) => (!p.checked ? { t: "not judged", c: "bg-neutral-100 text-neutral-600" } : p.agent?.keep ? { t: `AI pick ${Math.round((p.agent.confidence ?? 0) * 100)}%`, c: "bg-green-100 text-green-800" } : { t: "AI: not picked", c: "bg-red-50 text-red-700" });
 
 /** Browse mode's side panel: the places in the area as a list, and the index / agent controls (reindex when you say so). */
-export function BrowsePanel({ places, voter, center, radiusKm, onSelect, onIndexed }: { places: ReviewPlace[]; voter: string; center: { lat: number; lng: number; label: string }; radiusKm: number | null; onSelect: (p: ReviewPlace) => void; onIndexed: () => void }) {
-  const [tab, setTab] = useState<"list" | "index">("list");
+export function BrowsePanel({
+  places,
+  voter,
+  center,
+  radiusKm,
+  onSelect,
+  onIndexed,
+  kinds,
+  kindFilter,
+  onKindFilter,
+}: {
+  places: ReviewPlace[];
+  voter: string;
+  center: { lat: number; lng: number; label: string };
+  radiusKm: number | null;
+  onSelect: (p: ReviewPlace) => void;
+  onIndexed: () => void;
+  kinds: KindNode[];
+  kindFilter: string[];
+  onKindFilter: (v: string[]) => void;
+}) {
+  const kindTitle = useKindTitle();
+  const [tab, setTab] = useState<"list" | "index" | "manual">("list");
   const [cells, setCells] = useState<Cell[] | null>(null);
   const [briefs, setBriefs] = useState<BriefRow[]>([]);
   const [log, setLog] = useState<string[]>([]);
@@ -73,16 +96,28 @@ export function BrowsePanel({ places, voter, center, radiusKm, onSelect, onIndex
   const by = (s: string) => cells?.filter((c) => c.status === s).length ?? 0;
   return (
     <div className="flex h-full flex-col">
-      <div className="flex gap-1 border-b border-neutral-200 p-2 text-sm">
+      <div className="flex gap-1 overflow-x-auto border-b border-neutral-200 p-2 text-sm text-neutral-900">
         <button type="button" onClick={() => setTab("list")} className={`rounded-full px-3 py-1 ${tab === "list" ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
           Places ({places.length})
         </button>
         <button type="button" onClick={() => setTab("index")} className={`rounded-full px-3 py-1 ${tab === "index" ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
           Index &amp; agent
         </button>
+        <button type="button" onClick={() => setTab("manual")} className={`rounded-full px-3 py-1 ${tab === "manual" ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
+          Manual run
+        </button>
       </div>
-      {tab === "list" ? (
+      {tab === "manual" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <ManualRun kinds={kinds} kindFilter={kindFilter} center={center} voter={voter} onSaved={onIndexed} />
+        </div>
+      ) : tab === "list" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {kinds.length > 0 && (
+            <div className="border-b border-neutral-100 px-3 py-2">
+              <KindPicker tree={kinds} value={kindFilter} onChange={onKindFilter} compact />
+            </div>
+          )}
           <p className="px-3 py-2 text-xs text-neutral-500">
             {counts.picks} AI picks · {counts.judged} judged · {counts.unjudged} not judged yet · you voted on {counts.mine}. Nearest first.
           </p>
@@ -98,6 +133,7 @@ export function BrowsePanel({ places, voter, center, radiusKm, onSelect, onIndex
                       <span className="block truncate text-sm font-medium">{p.name}</span>
                       <span className="flex flex-wrap gap-1 text-[11px]">
                         <span className="text-neutral-500">{km(p.distanceM)}</span>
+                        <span className="text-neutral-500">{kindTitle(p.category)}</span>
                         <span className={`rounded px-1 ${f.c}`}>{f.t}</span>
                         {p.visitedAt && <span className="rounded bg-blue-100 px-1 text-blue-800">been</span>}
                         {p.sentAt && <span className="rounded bg-indigo-100 px-1 text-indigo-800">🚐</span>}

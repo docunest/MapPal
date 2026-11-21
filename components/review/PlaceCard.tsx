@@ -1,7 +1,8 @@
 "use client";
 
 import { MiniMap } from "./MiniMap";
-import { ago, CATEGORY_LABEL, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace } from "./shared";
+import { useKindTitle } from "./KindPicker";
+import { ago, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace } from "./shared";
 
 export interface CardActions {
   onSendToCar?: (p: ReviewPlace) => void;
@@ -14,6 +15,7 @@ function Chip({ children, className = "" }: { children: React.ReactNode; classNa
 
 /** Everything about one place, laid out for a phone: photo, where, what the agent said, the facts, the way there. */
 export function PlaceCard({ place: p, me, voter, actions, compact = false }: { place: ReviewPlace; me?: { lat: number; lng: number } | null; voter: string; actions?: CardActions; compact?: boolean }) {
+  const kindTitle = useKindTitle();
   const a = p.agent;
   const others = Object.entries(p.votes ?? {}).filter(([v]) => v !== voter);
   const mine = p.votes?.[voter];
@@ -31,7 +33,7 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
           {iconFor(p.kind)} {p.name}
         </h2>
         <div className="text-sm text-neutral-600">
-          {p.kind.replace(/_/g, " ")} · {CATEGORY_LABEL[p.category] ?? p.category}
+          {p.kind.replace(/_/g, " ")} · {kindTitle(p.category)}
           {p.distanceM !== undefined && ` · ${km(p.distanceM)} ${compass(p.bearing)}`}
         </div>
       </div>

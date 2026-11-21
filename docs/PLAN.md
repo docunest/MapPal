@@ -126,6 +126,17 @@ brief at once and can read and change the rules (new version each time, owner ca
 `/review` with three modes: Config (all layers, versions, tokens), Browse (map + list of what's indexed and
 judged, votes, reindex when the owner says so), Swipe. Details: `lib/agent/README.md`.
 
+## Nested use cases + manual run (owner 2026-11-21: "make location prompts nestable… filter by this structure"; "add a manual run")
+
+Use cases form a tree: Food (a group) → Cafes, Cool bars, Restaurants, Fast food; Exploration on its own; anyone
+(people in Config, agents with `update_rule`) can add a sub-type under any use case. A sub-type inherits every
+setting it leaves out, its parents' text and drop/score rules come first, and a place goes to its most specific
+use case. Briefs carry the whole chain (Food › Cool bars, each with version and hash); the negative list covers
+the whole tree, so places judged before a split aren't sent again. Browse and the filter pick along the tree
+(Food = all food; then narrow). Manual run (Browse → Manual run): the same briefs as one text to paste into any
+chat agent, photos as links, and its JSON answer pasted back and saved. The app is light-only (a phone in dark
+mode made the text unreadable). Details: `lib/agent/README.md`.
+
 ## Review app `/review` (owner 2026-11-21: "build this, start with the phone version")
 
 Swipe through the agent's places per person (name handles, own votes), or see them on a map; phone first,
