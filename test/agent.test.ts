@@ -465,3 +465,42 @@ test("a place goes to its most specific use case", () => {
   assert.ok(!below.some((s) => condHolds(s, { amenity: "fast_food", cuisine: "burger" })));
   assert.deepEqual(selectsBelow(tree, "food").length, 1 + ["cafes", "bars", "restaurants", "fast-food"].reduce((n, k) => n + rules(k).select.length, 0));
 });
+
+// --- Contract v2: score, complications, like/dislike hints ---
+import { CONTRACT_LINE, COMPLICATIONS } from "../lib/agent/domain/review";
+import { hintsLayer, type Hint } from "../lib/agent/domain/brief";
+import { osmComplications } from "../lib/agent/domain/digest";
+
+test("contract v2: score 0–100 and complication flags are accepted and checked", () => {
+  const base = { candidate: "r2", verdict: "real", confidence: 0.7, relevant: true, keep: true, summary: "ok", evidence: [] };
+  const ok = reviewsSchema.safeParse([{ ...base, score: 72.6, complications: [{ flag: "inside_shop_or_mall", note: "in the Continente" }, { flag: "no_dogs", severity: "blocker" }] }]);
+  assert.ok(ok.success);
+  assert.equal(ok.data![0].score, 72.6); // rounded when saved
+  assert.equal(ok.data![0].complications![0].severity, "major"); // default
+  assert.ok(reviewsSchema.safeParse([base]).success, "older answers without score still save");
+  assert.ok(!reviewsSchema.safeParse([{ ...base, score: 140 }]).success);
+  assert.ok(!reviewsSchema.safeParse([{ ...base, complications: [{ flag: "too_far" }] }]).success);
+  assert.match(CONTRACT_LINE, /score 0–100 \(0 = no-go, 50 = undecided, 100 = a must/);
+  for (const f of Object.keys(COMPLICATIONS)) assert.ok(CONTRACT_LINE.includes(f), f);
+});
+
+test("complications the map hints at: no dogs, upper floor, car-free street, limits", () => {
+  assert.deepEqual(osmComplications({ amenity: "restaurant" }), []);
+  const f = osmComplications({ dog: "no", level: "1", motor_vehicle: "no", maxheight: "2.5", reservation: "required" });
+  assert.equal(f.length, 5);
+  assert.match(f.join(), /no_dogs[\s\S]*inside_shop_or_mall\?[\s\S]*car_free_zone\?[\s\S]*height_or_weight_limit[\s\S]*reservation_needed/);
+});
+
+test("like/dislike hints: votes only (no names), same use case first, deterministic", () => {
+  const h = (ref: string, useCase: string, likes: number, dislikes: number, never: number, at: string): Hint => ({ osmRef: ref, name: ref, useCase, kind: "bar", facts: [], likes, dislikes, never, at });
+  const hints = [h("n/1", "Food › Cafes", 1, 0, 0, "2026-11-20"), h("n/2", "Food › Cool bars", 2, 0, 0, "2026-11-19"), h("n/3", "Food › Cool bars", 0, 0, 1, "2026-11-21"), h("n/4", "Food › Cool bars", 1, 1, 0, "2026-11-21")];
+  const a = hintsLayer(hints, "Food › Cool bars", "Food");
+  assert.equal(hintsLayer([...hints].reverse(), "Food › Cool bars", "Food").hash, a.hash);
+  assert.equal(a.likes, 2);
+  assert.equal(a.dislikes, 2); // a tie counts as disliked
+  assert.match(a.text, /Liked:\n- n\/2 .*liked ×2\)\n- n\/1/);
+  assert.match(a.text, /never again/);
+  assert.match(a.text, /0 = no-go, 50 = undecided, 100 = a must/);
+  assert.doesNotMatch(a.text, /Tester|voter/i);
+  assert.match(hintsLayer([], "Food › Cafes", "Food").text, /No votes yet here/);
+});

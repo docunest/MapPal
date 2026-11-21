@@ -29,7 +29,7 @@ Places also land in `mappal_poi` (position, ids, the agent's labels).
 
 ## The brief pipeline
 
-The agent's work is a **brief**: six layers, each built only from stored data
+The agent’s work is a **brief**: seven layers, each built only from stored data
 (same inputs → same text and hash), every brief recording the versions and
 hashes it used (`mappal_brief`).
 
@@ -38,13 +38,16 @@ hashes it used (`mappal_brief`).
 3. **Location** — the best guess and the zone (from the hints and the place index).
 4. **Use case** — what the family wants (text) + the rules as data (`domain/profile.ts`: select / drop / score / page size …). Use cases nest (`domain/tree.ts`): Food (a group, no "select") → Cafes, Cool bars, Restaurants, Fast food; Exploration on its own. A sub-type names its `parent`, inherits every setting it leaves out, gets its parents' drop/score rules first and their text before its own (the brief shows "Food › Cool bars" with each node's version and hash). A place belongs to its most specific use case (what a sub-type selects is left out of its parent). Saving checks the tree: parent exists, no loop, everything resolves, id prefixes unique. Untouched defaults follow newer code defaults (a new version by "default"); edited rules are never overwritten.
 5. **Known places** — the negative list: everything of this use case's whole tree (e.g. all of Food) in the area already judged (any time) or in an open brief (24 h); same name within the rule's dedupe distance counts as the same place. "More" = pull again → the next page.
-6. **Places to judge** — the next page after the rules and the negative list, with facts (OSM, Wikipedia/Commons cached 30 days; Google live, never stored) and one photo each.
+6. **Like and dislike hints** — the family's votes (/review) on places of the same use-case tree: up to 12 liked and 12 disliked, same use case first, newest first, with what each place is and the agent's earlier note. Counts only, never who voted. The agent scores every place against them.
+7. **Places to judge** — the next page after the rules and the negative list, with facts (OSM, Wikipedia/Commons cached 30 days; Google live, never stored) and one photo each.
 
 Connector tools: `get_travel_state`, `set_location`, `index_area`, `preview_briefs` (free) →
 owner's yes → `get_briefs` (every brief at once) → `submit_results` → `finish_run`; plus
 `fetch_page`, `fetch_image`, `get_run`, and the rules: `get_rules`, `rule_history`,
 `update_rule` (a new version, with a note; takes effect at once), `restore_rule`.
 The same tools over REST: `POST /api/agent/v1/<tool>` with `Authorization: Bearer <token>`.
+
+**Answer contract v2** (`domain/review.ts`, checked on every submit; stated in every brief as a line generated from that code, so an edited output-format text can't drift): per place `verdict`, `confidence`, `relevant`, `keep`, **`score` 0–100** (0 = no-go, 50 = undecided, 100 = a must, against layer 6; stored in `mappal_agent_review.score`), **`complications`** — fixed flags with severity and a note: `inside_shop_or_mall` (e.g. a restaurant inside a supermarket), `car_free_zone` (old town closed to cars), `no_camper_parking`, `narrow_or_steep_access`, `height_or_weight_limit`, `no_dogs`, `not_child_friendly`, `seasonal`, `limited_hours`, `reservation_needed`, `private_or_members`, `fee`, `safety`, `other`. The place facts add "Map hints for complications" from OSM tags (dog=no, level=1, motor_vehicle=no, maxheight…). Score and flags show on cards, in Browse and on the pull page. Older answers without them still save.
 
 **Manual run** (`/review` → Browse → Manual run, or `POST /api/agent/manual` then
 `/api/agent/manual/import`): pick use cases (a group = all its sub-types), preview

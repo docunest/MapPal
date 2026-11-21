@@ -44,7 +44,23 @@ const SHOW_TAGS = [
   "opening_hours", "cuisine", "outdoor_seating", "website", "contact:website", "contact:facebook", "contact:instagram", "phone",
   "description", "access", "fee", "operator", "wikipedia", "wikidata", "ele", "length", "depth", "start_date", "historic:civilization",
   "ruins", "tunnel", "surface", "smoking", "diet:vegetarian", "kids_area", "check_date",
+  // what can make it a complication:
+  "dog", "level", "maxheight", "maxweight", "motor_vehicle", "reservation", "seasonal",
 ];
+
+/** Complications the map itself hints at (the agent confirms or drops them). Pure. */
+export function osmComplications(t: Record<string, string>): string[] {
+  const out: string[] = [];
+  if (/^(no|outside)$/.test(t.dog ?? "")) out.push(`no_dogs (dog=${t.dog})`);
+  if (t.level && t.level !== "0") out.push(`inside_shop_or_mall? (level=${t.level} — on a floor of a building)`);
+  if (/^(no|private|destination)$/.test(t.motor_vehicle ?? "")) out.push(`car_free_zone? (motor_vehicle=${t.motor_vehicle})`);
+  if (t.maxheight || t.maxweight) out.push(`height_or_weight_limit (${[t.maxheight && `maxheight=${t.maxheight}`, t.maxweight && `maxweight=${t.maxweight}`].filter(Boolean).join(", ")})`);
+  if (/^(required|only|members_only)$/.test(t.reservation ?? "")) out.push(`reservation_needed (reservation=${t.reservation})`);
+  if (t.seasonal && t.seasonal !== "no") out.push(`seasonal (seasonal=${t.seasonal})`);
+  if (/^(private|no|customers|permit)$/.test(t.access ?? "")) out.push(`private_or_members (access=${t.access})`);
+  if (t.fee === "yes") out.push("fee (fee=yes)");
+  return out;
+}
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -54,6 +70,8 @@ export function digestText(c: Candidate, e: Enrichment, opts: { photoLinks?: boo
   lines.push(`### ${c.id} · ${c.name} — ${c.kind} · ${c.near} · OSM ${c.osmRef} · ${c.lat.toFixed(5)},${c.lng.toFixed(5)}`);
   const tags = SHOW_TAGS.filter((k) => c.tags[k]).map((k) => `${k}=${clip(c.tags[k], 90)}`);
   if (tags.length) lines.push(`OSM: ${tags.join("; ")}`);
+  const flags = osmComplications(c.tags);
+  if (flags.length) lines.push(`Map hints for complications: ${flags.join("; ")}`);
   if (c.parking) {
     const p = c.parking;
     const extra = ["fee", "maxheight", "surface", "access", "capacity"].filter((k) => p.tags[k]).map((k) => `${k}=${p.tags[k]}`);

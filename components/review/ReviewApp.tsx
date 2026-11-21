@@ -290,7 +290,7 @@ export function ReviewApp() {
           ["nope", `${VOTE_UI.nope.icon} Disliked`],
           ["never", `${VOTE_UI.never.icon} Never`],
           ["sent", "🚐 Sent to car"],
-          ["tiles", "▦ Index cells"],
+          ["tiles", "▦ Index areas"],
         ] as Array<[keyof MapShow, string]>
       ).map(([k, label]) => (
         <button
@@ -439,6 +439,12 @@ export function ReviewApp() {
               onSelect={setSelected}
               onIndexed={() => setLayersTick((t) => t + 1)}
               kinds={kinds}
+              cellsShown={show.tiles}
+              onCellsShown={(tiles) => {
+                const next = { ...show, tiles };
+                setShow(next);
+                save("review.show", next);
+              }}
               kindFilter={scope.categories}
               onKindFilter={(categories) => setScope({ ...scope, categories })}
             />

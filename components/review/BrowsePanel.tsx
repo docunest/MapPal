@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { KindPicker, useKindTitle, type KindNode } from "./KindPicker";
 import { ManualRun } from "./ManualRun";
-import { ago, iconFor, km, VOTE_UI, type ReviewPlace } from "./shared";
+import { COMPLICATION_UI, ago, iconFor, km, scoreClass, VOTE_UI, type ReviewPlace } from "./shared";
 
 interface Cell {
   geohash: string;
@@ -39,6 +39,8 @@ export function BrowsePanel({
   kinds,
   kindFilter,
   onKindFilter,
+  cellsShown,
+  onCellsShown,
 }: {
   places: ReviewPlace[];
   voter: string;
@@ -49,6 +51,8 @@ export function BrowsePanel({
   kinds: KindNode[];
   kindFilter: string[];
   onKindFilter: (v: string[]) => void;
+  cellsShown: boolean;
+  onCellsShown: (v: boolean) => void;
 }) {
   const kindTitle = useKindTitle();
   const [tab, setTab] = useState<"list" | "index" | "manual">("list");
@@ -135,6 +139,12 @@ export function BrowsePanel({
                         <span className="text-neutral-500">{km(p.distanceM)}</span>
                         <span className="text-neutral-500">{kindTitle(p.category)}</span>
                         <span className={`rounded px-1 ${f.c}`}>{f.t}</span>
+                        {typeof p.agent?.score === "number" && <span className={`rounded px-1 ${scoreClass(p.agent.score)}`}>{p.agent.score}/100</span>}
+                        {p.agent?.complications?.map((c, i) => (
+                          <span key={`${c.flag}${i}`} className="rounded bg-amber-100 px-1 text-amber-900" title={c.note}>
+                            {(COMPLICATION_UI[c.flag] ?? c.flag).split(" ")[0]}
+                          </span>
+                        ))}
                         {p.visitedAt && <span className="rounded bg-blue-100 px-1 text-blue-800">been</span>}
                         {p.sentAt && <span className="rounded bg-indigo-100 px-1 text-indigo-800">🚐</span>}
                         {Object.entries(p.votes ?? {})
@@ -161,7 +171,16 @@ export function BrowsePanel({
       ) : (
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 text-sm">
           <section>
-            <h3 className="font-semibold">Place index around {center.label}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold">Place index around {center.label}</h3>
+              <button type="button" onClick={() => onCellsShown(!cellsShown)} className={`shrink-0 rounded-full px-3 py-0.5 text-xs ${cellsShown ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
+                ▦ {cellsShown ? "Hide on map" : "Show on map"}
+              </button>
+            </div>
+            <p className="mb-1 text-xs text-neutral-600">
+              The map is split into cells — boxes of about 30 × 20 km. MapPal reads every place in a cell from OpenStreetMap once (free, ~20–60 s a cell), stores it, and refreshes it after 30 days. Agents and Browse use only stored cells, so a
+              cell that isn&apos;t indexed shows no places yet. On the map: <span className="font-medium text-green-700">green = stored</span>, <span className="font-medium text-amber-700">amber = older than 30 days</span>, <span className="font-medium text-red-700">red = failed</span>, <span className="font-medium text-neutral-600">grey dashed = not indexed</span>.
+            </p>
             {cells ? (
               <p className="text-xs text-neutral-600">
                 {cells.length} cells within {r} km: {by("ok")} fresh, {by("stale")} stale (&gt; 30 days), {by("failed")} failed, {by("missing")} not indexed · {cells.reduce((s, c) => s + c.count, 0).toLocaleString()} places stored
@@ -193,7 +212,7 @@ export function BrowsePanel({
                 ))}
               </ul>
             )}
-            <p className="mt-1 text-[11px] text-neutral-500">The map shades the cells: green fresh · amber stale · red failed · grey not indexed. Change the area with the filter (⚙︎) or “Search here” on the map.</p>
+            <p className="mt-1 text-[11px] text-neutral-500">Change the area with the filter (⚲) or “Search here” on the map.</p>
           </section>
           <section>
             <h3 className="font-semibold">Agent pulls</h3>

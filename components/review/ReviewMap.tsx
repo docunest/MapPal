@@ -16,7 +16,7 @@ const STYLE: StyleSpecification = {
 
 export interface MapLayers {
   sent: Array<{ id: string; title: string; lat: number; lng: number; at: string }>;
-  tiles: Array<{ geohash: string; category: string; status: string; box: { s: number; w: number; n: number; e: number } }>;
+  tiles: Array<{ geohash: string; category: string; status: string; count?: number; ageDays?: number | null; box: { s: number; w: number; n: number; e: number } }>;
 }
 
 export interface MapShow {
@@ -25,6 +25,11 @@ export interface MapShow {
   sent: boolean;
   tiles: boolean;
 }
+
+/** Place-index cells (≈ 30 × 20 km boxes of stored OpenStreetMap places): colour and label by status. */
+const CELL = { ok: "#16a34a", indexed: "#16a34a", stale: "#d97706", failed: "#dc2626", missing: "#6b7280" } as Record<string, string>;
+const cellLabel = (t: MapLayers["tiles"][number]) =>
+  t.status === "missing" ? "not indexed" : t.status === "failed" ? "✗ failed" : `${t.status === "stale" ? "⟳ old · " : "✓ "}${(t.count ?? 0).toLocaleString()} places${t.ageDays != null ? ` · ${t.ageDays} d` : ""}`;
 
 const UNVOTED = "#2563eb";
 const UNCHECKED = "#94a3b8";
@@ -67,6 +72,7 @@ export function ReviewMap({
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const meMarker = useRef<Marker | null>(null);
+  const cellMarkers = useRef<Marker[]>([]);
   const placesRef = useRef(places);
   const centerCb = useRef(onCenter);
   const selectCb = useRef(onSelect);
@@ -88,7 +94,10 @@ export function ReviewMap({
       m.addSource("tiles", { type: "geojson", data: empty });
       m.addSource("sent", { type: "geojson", data: empty });
       m.addSource("places", { type: "geojson", data: empty });
-      m.addLayer({ id: "tiles", type: "fill", source: "tiles", paint: { "fill-color": ["match", ["get", "status"], "ok", "#16a34a", "indexed", "#16a34a", "stale", "#f59e0b", "failed", "#dc2626", "#9ca3af"], "fill-opacity": 0.12, "fill-outline-color": "#374151" } });
+      const cellColor = ["match", ["get", "status"], "ok", CELL.ok, "indexed", CELL.ok, "stale", CELL.stale, "failed", CELL.failed, CELL.missing] as unknown as string;
+      m.addLayer({ id: "tiles", type: "fill", source: "tiles", paint: { "fill-color": cellColor, "fill-opacity": ["match", ["get", "status"], "missing", 0.06, 0.14] } });
+      m.addLayer({ id: "tiles-line", type: "line", source: "tiles", filter: ["!=", ["get", "status"], "missing"], paint: { "line-color": cellColor, "line-width": 2 } });
+      m.addLayer({ id: "tiles-missing", type: "line", source: "tiles", filter: ["==", ["get", "status"], "missing"], paint: { "line-color": CELL.missing, "line-width": 1.5, "line-dasharray": [3, 2] } });
       m.addLayer({ id: "scope", type: "line", source: "scope", paint: { "line-color": "#2563eb", "line-width": 2, "line-dasharray": [2, 2] } });
       m.addLayer({ id: "sent", type: "circle", source: "sent", paint: { "circle-radius": 7, "circle-color": "#7c3aed", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
       m.addLayer({ id: "sent-label", type: "symbol", source: "sent", layout: { "text-field": "🚐", "text-size": 10, "text-allow-overlap": true } });
@@ -146,6 +155,16 @@ export function ReviewMap({
               }))
           : [],
       });
+      // Cell labels as small HTML tags (the map style has no font for text layers).
+      for (const mk of cellMarkers.current) mk.remove();
+      cellMarkers.current = show.tiles
+        ? (layers?.tiles ?? []).map((t) => {
+            const el = document.createElement("div");
+            el.textContent = cellLabel(t);
+            el.style.cssText = `pointer-events:none;font:600 11px system-ui,sans-serif;color:${CELL[t.status] ?? CELL.missing};background:rgba(255,255,255,.85);padding:1px 6px;border-radius:9px;white-space:nowrap`;
+            return new Marker({ element: el }).setLngLat([(t.box.w + t.box.e) / 2, (t.box.s + t.box.n) / 2]).addTo(m);
+          })
+        : [];
       (m.getSource("scope") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: scope.radiusKm ? [circle(scope.lat, scope.lng, scope.radiusKm)] : [] });
       if (!fitted.current && visible.length) {
         fitted.current = true;

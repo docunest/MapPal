@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { distanceMeters } from "@/lib/geo";
 import { localLangsAt } from "@/lib/nearby/region";
 import { capsFromEnv, imageTokens, textTokens } from "../domain/caps";
-import { knownLayer, locationLayer, usecaseLayer } from "../domain/brief";
+import { hintsLayer, knownLayer, locationLayer, usecaseLayer } from "../domain/brief";
 import { digestText } from "../domain/digest";
 import { geohash } from "../domain/geohash";
 import { shortHash } from "../domain/hash";
@@ -17,13 +17,14 @@ import { condHolds, runProfile, type Profile } from "../domain/profile";
 import { travelState } from "../domain/travelState";
 import { emptyCounters, type Candidate, type OsmThing, type Plan, type PlanCategory, type Zone } from "../domain/types";
 import { EXPLORE_RADIUS_M, pickZone } from "../domain/zone";
-import { knownPlaces, markSubmittedIfDone, pageNumber, saveBrief, getBrief } from "../infrastructure/briefs";
+import { knownPlaces, markSubmittedIfDone, pageNumber, saveBrief, getBrief, voteHints } from "../infrastructure/briefs";
 import { enrich, googleConfigured } from "../infrastructure/enrich";
 import { logEvent } from "../infrastructure/events";
 import { indexArea, placesNear } from "../infrastructure/osmIndex";
 import { createRun, updateRun } from "../infrastructure/repo";
 import { currentRule, loadUseCaseTree, type RuleView } from "../infrastructure/rules";
-import { expand, rootOf, selectsBelow } from "../domain/tree";
+import { chainOf, expand, rootOf, selectsBelow } from "../domain/tree";
+import { CONTRACT_LINE, CONTRACT_VERSION } from "../domain/review";
 import { loadFixes } from "../infrastructure/travelSources";
 import { RunError } from "./guard";
 import { submitReviews, type AgentReply } from "./runFlow";
@@ -42,9 +43,10 @@ interface Prepared {
   estimateLine: string | null;
   travelWhy: string | null;
   indexNote: string;
-  useCases: Array<{ rule: RuleView; chain: RuleView[]; profile: Profile; found: number; dropped: PlanCategory["dropped"]; known: Map<string, { name: string }>; page: Candidate[]; rest: Candidate[]; pageNo: number; areaKey: string }>;
+  useCases: Array<{ rule: RuleView; chain: RuleView[]; family: string[]; profile: Profile; found: number; dropped: PlanCategory["dropped"]; known: Map<string, { name: string }>; page: Candidate[]; rest: Candidate[]; pageNo: number; areaKey: string }>;
   charter: RuleView;
   format: RuleView;
+  titles: Record<string, string>; // use case → "Food › Cool bars"
 }
 
 const newId = (p: string) => `${p}_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}_${randomBytes(4).toString("hex")}`;
@@ -115,14 +117,15 @@ async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): P
     const size = Math.min(50, Math.max(1, args.page_size ?? p.pageSize));
     const page = p.spreadByTown ? spread(fresh, size) : fresh.slice(0, size);
     const areaKey = `${p.useCase}:${geohash(zone.campsite, 6)}`;
-    useCases.push({ rule, chain: resolved.chain, profile: p, found: r.found, dropped: r.dropped, known, page, rest: fresh.filter((c) => !page.includes(c)), pageNo: await pageNumber(p.useCase, areaKey), areaKey });
+    useCases.push({ rule, chain: resolved.chain, family: [...expand(uc.tree, [family])], profile: p, found: r.found, dropped: r.dropped, known, page, rest: fresh.filter((c) => !page.includes(c)), pageNo: await pageNumber(p.useCase, areaKey), areaKey });
     await logEvent(runId, {
       kind: "rules",
       summary: `${p.useCase} (rules ${resolved.chain.map((c) => `${c.config?.useCase} v${c.version}`).join(" › ")}): ${r.found} in the index → ${r.dropped.length} dropped, ${known.size} known (negative list), ${page.length} on this page, ${fresh.length - page.length} more after it`,
       data: { useCase: p.useCase, ruleVersion: rule.version, ruleHash: rule.hash, chain: resolved.chain.map((c) => ({ slug: c.slug, version: c.version, hash: c.hash })), found: r.found, dropped: r.dropped, known: known.size, page: page.map((c) => ({ name: c.name, osmRef: c.osmRef, lat: c.lat, lng: c.lng, score: c.score, why: c.why })) },
     });
   }
-  return { runId, zone, estimateLine, travelWhy: args.lat === undefined ? state.why : null, indexNote, useCases, charter, format };
+  const titles = Object.fromEntries(uc.tree.map((e) => [e.key, chainOf(uc.tree, e.key).map((x) => x.title).join(" › ")]));
+  return { runId, zone, estimateLine, travelWhy: args.lat === undefined ? state.why : null, indexNote, useCases, charter, format, titles };
 }
 
 const reasonsOf = (dropped: PlanCategory["dropped"]) => {
@@ -209,6 +212,7 @@ ${p.charter.body}
 
 ## 2. Output format (v${p.format.version} · ${p.format.hash})
 ${p.format.body}
+${CONTRACT_LINE}
 
 ## 3. Location (· ${loc.hash})
 ${loc.text}`;
@@ -226,8 +230,9 @@ ${loc.text}`;
     const briefId = newId("brf");
     briefIds.push(briefId);
     const known = knownLayer([...u.known].map(([osmRef, k]) => ({ osmRef, name: k.name })));
+    const hints = hintsLayer(await voteHints(u.family, p.titles), p.titles[u.profile.useCase] ?? u.profile.useCase, p.titles[u.family[0]] ?? u.family[0]);
     const ucText = usecaseLayer(u.profile, u.chain.map((c) => ({ title: c.title, body: c.body, version: c.version, hash: c.hash })), { found: u.found, dropped: reasonsOf(u.dropped) });
-    let briefText = `\n\n# Brief ${briefId} — ${u.profile.title}, page ${u.pageNo}\n${ucText}\n\n${known.text}\n\n## 6. Places to judge (${pc.candidates.length})`;
+    let briefText = `\n\n# Brief ${briefId} — ${u.profile.title}, page ${u.pageNo}\n${ucText}\n\n${known.text}\n\n${hints.text}\n\n## 7. Places to judge (${pc.candidates.length})`;
     let briefTokens = textTokens(briefText);
     counters.tokens += briefTokens;
     counters.textTokens += briefTokens;
@@ -284,6 +289,8 @@ ${loc.text}`;
       location: { hash: loc.hash },
       usecase: { slug: u.rule.slug, version: u.rule.version, hash: u.rule.hash, parents: u.chain.slice(0, -1).map((c) => ({ slug: c.slug, version: c.version, hash: c.hash })) },
       known: { hash: known.hash, count: u.known.size },
+      hints: { hash: hints.hash, likes: hints.likes, dislikes: hints.dislikes },
+      contract: CONTRACT_VERSION,
     };
     await saveBrief({ id: briefId, runId, useCase: u.profile.useCase, page: u.pageNo, layers, area: { key: u.areaKey, target: p.zone.target, campsite: p.zone.campsite }, candidates: sent, excluded: u.known.size, hash: shortHash(shared, briefText), tokens: briefTokens, agent });
     await logEvent(runId, { kind: "brief", summary: `${briefId}: ${u.profile.title} page ${u.pageNo}, ${sent.length} places, ${u.known.size} known excluded, ${briefTokens} tokens (rules v${u.rule.version})`, data: { briefId, layers, sent: sent.length }, tokens: briefTokens });

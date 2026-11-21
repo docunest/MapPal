@@ -20,7 +20,11 @@ export const OUTPUT_FORMAT = `Return results with submit_results(brief_id, resul
   "confidence": 0.0–1.0,
   "relevant": true|false,
   "keep": true|false,
+  "score": 0–100,                         // 0 = no-go, 50 = undecided, 100 = a must — against the like/dislike hints (layer 6)
   "summary": "≤ 400 characters, own words",
+  "complications": [ { "flag": "inside_shop_or_mall|car_free_zone|no_camper_parking|narrow_or_steep_access|height_or_weight_limit|no_dogs|not_child_friendly|seasonal|limited_hours|reservation_needed|private_or_members|fee|safety|other",
+                       "severity": "minor|major|blocker", "note": "what and where you saw it" } ],   // [] when none; only with evidence
+    // e.g. a restaurant inside a supermarket (harder to reach), in an old town closed to cars, a place that doesn't allow dogs
   "evidence": [ { "kind": "osm|google|web|photo|wikipedia|reviews|other", "url": "optional", "note": "what it showed" } ],   // ≤ 8
   // food places (cafes, bars, restaurants, fast food), when known:
   "vibe": "bar-style|hipster|local-family|fancy|workers-pub|touristy|other", "vibe_confidence": 0–1,
@@ -186,7 +190,7 @@ export const EXPLORATION: Profile = {
  * DEFAULTS_NOTE; a rule a person or an agent edited is left alone.
  * Parents come before their children.
  */
-export const DEFAULTS_NOTE = "defaults updated in the code: use cases nest — Food → Cafes, Cool bars, Restaurants, Fast food";
+export const DEFAULTS_NOTE = "defaults updated in the code: use cases nest (Food → Cafes, Cool bars, Restaurants, Fast food); answers carry a 0–100 score against the like/dislike hints and complication flags (in a supermarket, car-free old town, no dogs…)";
 
 const uc = (n: UseCaseNode) => ({ slug: `usecase:${n.useCase}`, layer: "usecase" as const, title: n.title, body: n.criteria ?? "", config: n });
 

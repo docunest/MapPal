@@ -21,6 +21,11 @@ wide screen (desktop) the map and the cards sit side by side.
   mini map with the place (red) and you (blue), Waze / Google Maps / Send to
   car (the dock inbox) / OSM links, everyone's votes, "been here" (a GPS fix
   from the car within 75 m — approximate, one fix is enough) and "sent to car".
+- **Index areas (cells):** the place index is stored per cell — a box of
+  about 30 × 20 km read once from OpenStreetMap and refreshed after 30 days.
+  "▦ Index areas" on the map (or Show/Hide in Browse → Index & agent) draws
+  them: green = stored (with place count and age), amber = older than 30 days,
+  red = failed, grey dashed = not indexed (no places there until indexed).
 - **Map:** places coloured by your vote (blue = not voted, grey = not checked
   by the agent, green/amber/red/dark = like/undecided/don't like/never;
   disliked and never hidden by default), links sent to the car (purple dots with 🚐),

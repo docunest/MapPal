@@ -2,7 +2,7 @@
 
 import { MiniMap } from "./MiniMap";
 import { useKindTitle } from "./KindPicker";
-import { ago, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace } from "./shared";
+import { COMPLICATION_UI, scoreClass, ago, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace } from "./shared";
 
 export interface CardActions {
   onSendToCar?: (p: ReviewPlace) => void;
@@ -43,9 +43,19 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
             <Chip className={a.verdict === "real" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}>
               {a.verdict} {Math.round(a.confidence * 100)}%
             </Chip>
+            {typeof a.score === "number" && (
+              <Chip className={scoreClass(a.score)}>
+                <span title="AI score: 0 = no-go, 50 = undecided, 100 = a must">AI {a.score}/100</span>
+              </Chip>
+            )}
             <Chip className="bg-purple-100 text-purple-800">AI {a.keep ? "pick" : "not picked"}</Chip>
             {a.vibe && <Chip className="bg-neutral-100">{a.vibe}</Chip>}
             {a.access && <Chip className="bg-neutral-100">access: {a.access}</Chip>}
+            {a.complications?.map((c, i) => (
+              <Chip key={`${c.flag}${i}`} className={c.severity === "blocker" ? "bg-red-600 text-white" : c.severity === "minor" ? "bg-amber-50 text-amber-800" : "bg-amber-200 text-amber-900"}>
+                <span title={c.note}>{COMPLICATION_UI[c.flag] ?? c.flag}</span>
+              </Chip>
+            ))}
           </>
         ) : (
           <Chip className="bg-neutral-100 text-neutral-600">not checked by the agent yet</Chip>
@@ -71,6 +81,11 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
         {a?.peakTimes && <li>👥 Busy: {a.peakTimes}</li>}
         {a?.foodTags?.length ? <li>🍴 {a.foodTags.join(", ")}</li> : null}
         {a?.prices?.length ? <li>💶 {a.prices.map((x) => `${x.item}${x.size ? ` (${x.size})` : ""} ${x.price} ${x.currency ?? "€"}`).join(" · ")}</li> : null}
+        {a?.complications?.filter((c) => c.note).map((c, i) => (
+          <li key={`cn${i}`}>
+            {COMPLICATION_UI[c.flag] ?? c.flag} ({c.severity}): {c.note}
+          </li>
+        ))}
         {a?.risks?.map((r, i) => <li key={i}>⚠️ {r.flag}: {r.note}</li>)}
         {a?.howToGetThere && <li>🧭 {a.howToGetThere}</li>}
         {(a?.parking || p.parking) && <li>🅿️ {a?.parking ?? `${p.parking!.name ?? "Parking"} ${km(p.parking!.distanceM)} away (OSM)`}</li>}

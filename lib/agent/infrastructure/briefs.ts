@@ -1,6 +1,7 @@
 // mappal_brief rows and the negative list (places already judged or sent).
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import type { Hint } from "../domain/brief";
 
 /** The negative list: places of these use cases (the whole tree, e.g. Food and all its children) within the search area already judged (any time) or sent in an open brief (24 h). */
 export interface Known {
@@ -42,4 +43,38 @@ export async function markSubmittedIfDone(id: string) {
   const ids = (b.candidates as Array<{ id: string }>).map((c) => c.id);
   const n = await prisma.agentReview.count({ where: { runId: b.runId, candidate: { in: ids } } });
   if (n >= ids.length && b.status !== "submitted") await prisma.brief.update({ where: { id }, data: { status: "submitted", submittedAt: new Date() } });
+}
+
+const HINT_TAGS = ["cuisine", "outdoor_seating", "dog", "diet:vegetarian", "live_music", "brewery", "microbrewery", "historic", "natural", "access", "fee"];
+
+/**
+ * The family's votes (/review) on places of these use cases, as like/dislike
+ * hints for the 0–100 score: counts per place, what the place is (OSM tags
+ * from the index), the agent's earlier note. Voter names never leave here.
+ */
+export async function voteHints(useCases: string[], titles: Record<string, string>): Promise<Hint[]> {
+  const votes = await prisma.vote.findMany({ where: { category: { in: useCases }, vote: { in: ["like", "nope", "never"] } }, orderBy: { updatedAt: "desc" }, take: 400 });
+  if (!votes.length) return [];
+  const refs = [...new Set(votes.map((v) => v.placeKey))];
+  const [osm, reviews] = await Promise.all([
+    prisma.osmPlace.findMany({ where: { osmRef: { in: refs } }, select: { osmRef: true, tags: true } }),
+    prisma.agentReview.findMany({ where: { osmRef: { in: refs } }, orderBy: { createdAt: "desc" }, select: { osmRef: true, summary: true, category: true } }),
+  ]);
+  const tagsOf = new Map(osm.map((o) => [o.osmRef, o.tags as Record<string, string>]));
+  const noteOf = new Map<string, { summary: string; category: string }>();
+  for (const r of reviews) if (!noteOf.has(r.osmRef)) noteOf.set(r.osmRef, r);
+  const by = new Map<string, Hint>();
+  for (const v of votes) {
+    let h = by.get(v.placeKey);
+    if (!h) {
+      const t = tagsOf.get(v.placeKey) ?? {};
+      const cat = v.category || noteOf.get(v.placeKey)?.category || "";
+      h = { osmRef: v.placeKey, name: v.name, useCase: titles[cat] ?? cat, kind: t.amenity ?? t.tourism ?? t.historic ?? t.natural ?? t.leisure ?? undefined, facts: HINT_TAGS.filter((k) => t[k]).slice(0, 4).map((k) => `${k}=${String(t[k]).slice(0, 40)}`), agentSaid: noteOf.get(v.placeKey)?.summary, likes: 0, dislikes: 0, never: 0, at: v.updatedAt.toISOString() };
+      by.set(v.placeKey, h);
+    }
+    if (v.vote === "like") h.likes++;
+    else if (v.vote === "nope") h.dislikes++;
+    else h.never++;
+  }
+  return [...by.values()];
 }

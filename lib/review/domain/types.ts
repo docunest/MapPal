@@ -16,6 +16,8 @@ export interface AgentView {
   confidence: number;
   keep: boolean;
   relevant: boolean;
+  score?: number | null; // 0 = no-go, 50 = undecided, 100 = a must
+  complications?: Array<{ flag: string; severity: "minor" | "major" | "blocker"; note: string }>;
   summary: string;
   vibe?: string;
   foodTags?: string[];

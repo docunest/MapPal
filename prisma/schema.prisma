@@ -634,6 +634,7 @@ model AgentReview {
   confidence    Float
   relevant      Boolean
   keep          Boolean
+  score         Int? // 0 = no-go, 50 = undecided, 100 = a must (against the like/dislike hints)
   summary       String
   // vibe, availability (kitchen hours, peaks, risks), food tags, price
   // samples, access, how to get there, parking, safety, photo (non-Google)

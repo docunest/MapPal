@@ -4,12 +4,14 @@ import { Suspense } from "react";
 import { AgentNav } from "@/components/agent/AgentNav";
 import { RateButtons } from "@/components/agent/RateButtons";
 import { RunDebug } from "@/components/agent/RunDebug";
+import { COMPLICATION_UI, scoreClass } from "@/components/review/shared";
 import { costLog, getRun, PASS_THUMBS, PASS_WEEKLY_PCT, reviewsOf, titlesOfUseCases } from "@/lib/agent";
 
 // One cost-test run: what it spent, what it kept (with 👍/👎 for the pass
 // test), what the rules dropped. Verdicts are AI; facts link to their source.
 type Review = Awaited<ReturnType<typeof reviewsOf>>[number];
 interface ReviewData {
+  complications?: Array<{ flag: string; severity: string; note: string }>;
   vibe?: string;
   vibe_confidence?: number;
   availability?: { kitchen_hours?: string; peak_times?: string; risks?: Array<{ flag: string; note: string }> };
@@ -37,6 +39,13 @@ function Place({ r }: { r: Review }) {
               {r.verdict} {Math.round(r.confidence * 100)} %
             </span>
             <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-800">AI</span>
+            {typeof r.score === "number" && <span className={`rounded px-1.5 py-0.5 ${scoreClass(r.score)}`} title="0 = no-go, 50 = undecided, 100 = a must">score {r.score}/100</span>}
+            {d.complications?.map((c, i) => (
+              <span key={i} className={`rounded px-1.5 py-0.5 ${c.severity === "blocker" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-900"}`} title={c.note}>
+                {COMPLICATION_UI[c.flag] ?? c.flag}
+                {c.note ? `: ${c.note}` : ""}
+              </span>
+            ))}
             {d.vibe && <span className="rounded bg-neutral-100 px-1.5 py-0.5">{d.vibe}</span>}
             {d.access && <span className="rounded bg-neutral-100 px-1.5 py-0.5">access: {d.access}</span>}
             {!r.keep && <span className="rounded bg-neutral-100 px-1.5 py-0.5">not kept</span>}

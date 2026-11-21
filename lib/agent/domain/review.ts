@@ -8,13 +8,47 @@ const evidence = z.object({
   note: z.string().max(300),
 });
 
+/**
+ * Things that make a place harder for this family than it looks on the map
+ * (owner 2026-11-21: "a restaurant in a supermarket… in an old town with banned
+ * car traffic, places that don't allow dogs"). Fixed codes so the app can show
+ * and filter them; "other" + note for the rest.
+ */
+export const COMPLICATIONS = {
+  inside_shop_or_mall: "inside a supermarket, mall or station — harder to reach",
+  car_free_zone: "old town / pedestrian zone, cars banned or restricted",
+  no_camper_parking: "nowhere nearby a camper van can park",
+  narrow_or_steep_access: "narrow, steep or rough road for a camper",
+  height_or_weight_limit: "height, weight or width limit on the way",
+  no_dogs: "dogs not allowed (inside or at all)",
+  not_child_friendly: "not suitable for a 6-year-old",
+  seasonal: "closed part of the year",
+  limited_hours: "open only a few hours or days",
+  reservation_needed: "booking needed",
+  private_or_members: "private, members only or permission needed",
+  fee: "entry fee or paid parking",
+  safety: "risky (cliffs, mines, unstable ruins…)",
+  other: "something else — say what in the note",
+} as const;
+export type ComplicationFlag = keyof typeof COMPLICATIONS;
+
+const complication = z.object({
+  flag: z.enum(Object.keys(COMPLICATIONS) as [ComplicationFlag, ...ComplicationFlag[]]),
+  severity: z.enum(["minor", "major", "blocker"]).default("major"),
+  note: z.string().max(200).default(""),
+});
+
 export const reviewSchema = z.object({
   candidate: z.string().regex(/^[a-z]{1,3}\d+$/, "candidate id like c3, b2 or e5 (the id shown in the brief)"),
   verdict: z.enum(["real", "fake", "stale"]),
   confidence: z.number().min(0).max(1),
   relevant: z.boolean().describe("matches what the family wants"),
   keep: z.boolean().describe("show it in the results"),
+  // Contract v2 (owner 2026-11-21): judged against the brief's like/dislike hints. Optional so older answers still save.
+  score: z.number().min(0).max(100).optional().describe("0 = no-go, 50 = undecided, 100 = a must"),
   summary: z.string().max(400).describe("one or two sentences, own words, no copied review text"),
+  // Contract v2: [] when none found; each flag only with evidence (a tag, a page, a photo, a review).
+  complications: z.array(complication).max(8).optional(),
   vibe: z.enum(["bar-style", "hipster", "local-family", "fancy", "workers-pub", "touristy", "other"]).optional(),
   vibe_confidence: z.number().min(0).max(1).optional(),
   availability: z
@@ -37,4 +71,10 @@ export const reviewSchema = z.object({
 });
 
 export type ReviewInput = z.infer<typeof reviewSchema>;
+
+/** Bump when the accepted fields change; every brief states it (layer 2), so an edited output-format text can't drift from what the server accepts. */
+export const CONTRACT_VERSION = 2;
+export const CONTRACT_LINE = `Server contract v${CONTRACT_VERSION} (generated from the code that checks answers): per place candidate, verdict real|stale|fake, confidence 0–1, relevant, keep, score 0–100 (0 = no-go, 50 = undecided, 100 = a must — judged against layer 6, the like/dislike hints), summary ≤ 400 chars, complications (list, [] when none: {flag, severity minor|major|blocker, note}; flags: ${Object.keys(COMPLICATIONS).join(", ")}), evidence ≤ 8; optional ${Object.keys(reviewSchema.shape)
+  .filter((k) => !["candidate", "verdict", "confidence", "relevant", "keep", "score", "summary", "complications", "evidence"].includes(k))
+  .join(", ")}. Unknown fields are ignored.`;
 export const reviewsSchema = z.array(reviewSchema).min(1).max(20);

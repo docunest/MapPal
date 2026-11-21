@@ -3,6 +3,27 @@ import type { ReviewPlace, VoteValue } from "@/lib/review";
 
 export type { ReviewPlace, VoteValue };
 
+/** Complication flags from the agent (lib/agent/domain/review.ts COMPLICATIONS), short for chips. */
+export const COMPLICATION_UI: Record<string, string> = {
+  inside_shop_or_mall: "🛒 inside a shop/mall",
+  car_free_zone: "🚷 car-free zone",
+  no_camper_parking: "🅿️ no camper parking",
+  narrow_or_steep_access: "🛣️ narrow/steep road",
+  height_or_weight_limit: "📏 height/weight limit",
+  no_dogs: "🐕 no dogs",
+  not_child_friendly: "🧒 not for kids",
+  seasonal: "📅 seasonal",
+  limited_hours: "🕒 short hours",
+  reservation_needed: "📞 booking needed",
+  private_or_members: "🔒 private",
+  fee: "💶 fee",
+  safety: "⚠️ risky",
+  other: "⚠️ other",
+};
+
+/** 0–100 → colour: red no-go … green must. */
+export const scoreClass = (s: number) => (s >= 75 ? "bg-green-600 text-white" : s >= 55 ? "bg-green-100 text-green-800" : s >= 45 ? "bg-neutral-200 text-neutral-800" : s >= 25 ? "bg-amber-100 text-amber-800" : "bg-red-600 text-white");
+
 export const VOTE_UI: Record<VoteValue, { label: string; icon: string; color: string }> = {
   like: { label: "Like", icon: "♥", color: "#16a34a" },
   maybe: { label: "Undecided", icon: "?", color: "#d97706" },

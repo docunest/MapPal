@@ -3,6 +3,13 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-21 — Contract v2 (score, like/dislike hints, complications), index cells on the map
+
+- **Task:** INBOX "Contract v2… index cells on the map".
+- **What changed:** answers carry `score` 0–100 (new column `mappal_agent_review.score`, migration `20261121230000_review_score`) and `complications` (fixed flags); briefs get layer 6 "Like and dislike hints" from the family's votes (anonymous) and a generated contract line under layer 2; places to judge is now layer 7; place facts list complication hints from OSM tags; cards, Browse list and pull page show score and flags. Map: index cells drawn with coloured outlines and a label (places, age / not indexed), "▦ Index areas" toggle and Show/Hide in Browse → Index & agent with an explanation of what a cell is. The default output format gains both fields (moves automatically where nobody edited it).
+- **Evidence:** `docs/evidence/contract-v2/` — a manual Restaurants pull at Caldas da Rainha with votes from two testers as hints, answered with scores and complications (Tasca Torta 66/100, car-free zone + no camper parking), pasted back, shown on card, list and pull page; cells shown and hidden. 162 tests, typecheck, lint, build pass.
+- **Not proven:** on the owner's iPhone; indexing from Vercel (production had 0 cells stored).
+
 ## 2026-11-21 — Readable text, nested use cases, tree filter, manual run
 
 - **Task:** INBOX "Readable fonts, nested use cases, tree filter, manual run".

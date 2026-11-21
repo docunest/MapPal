@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Contract v2: score + like/dislike hints, complication flags; index cells on the map — done
+
+Owner: "I added this rule. Extend contracts — 5. Evaluate location based on provided like and dislike hints. Use 0–100 score where 0 is go-go, 50 undecided and 100 is a must." Then: "Also add meta data requirement for flag complications. For example restaurant in super market is complication as its harder to reach. Restaurant in old town with banned car traffic or places that do not allow dogs." Then: "What is cell? Can you show them on map? Make them hidable." Report: STATUS.md, same date.
+
 ## 2026-11-21 — Readable fonts, nested use cases, tree filter, manual run — done
 
 Owner (with a phone screenshot of Config): "Fonts are unreadable. Make location prompts nestable. Like I want to have Food and then fast food, cool bars and other subtypes. In browse I want to be able to filter by this structure so i can see only food places when i need food, not random museums." Then: "Also add 'manual run' option where you give full payload I have to paste to any agent based on use case and I would be able to paste results to save." Report: STATUS.md, same date.

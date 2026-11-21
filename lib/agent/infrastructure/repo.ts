@@ -76,9 +76,9 @@ export interface ReviewToSave {
 
 export async function saveReviews(runId: string, agent: string, rows: ReviewToSave[]) {
   for (const r of rows) {
-    const { candidate, verdict, confidence, relevant, keep, summary, evidence, ...rest } = r.review;
+    const { candidate, verdict, confidence, relevant, keep, score, summary, evidence, ...rest } = r.review;
     const data = json({ ...rest, ...(r.photo ? { photo: r.photo } : {}) });
-    const base = { briefId: r.briefId ?? null, category: r.category, osmRef: r.osmRef, googlePlaceId: r.googlePlaceId ?? null, name: r.name, lat: r.lat, lng: r.lng, verdict, confidence, relevant, keep, summary, data, evidence: json(evidence), agent };
+    const base = { briefId: r.briefId ?? null, category: r.category, osmRef: r.osmRef, googlePlaceId: r.googlePlaceId ?? null, name: r.name, lat: r.lat, lng: r.lng, verdict, confidence, relevant, keep, score: score === undefined ? null : Math.round(score), summary, data, evidence: json(evidence), agent };
     await prisma.agentReview.upsert({
       where: { runId_candidate: { runId, candidate } },
       create: { runId, candidate, ...base },
@@ -86,7 +86,7 @@ export async function saveReviews(runId: string, agent: string, rows: ReviewToSa
     });
     // Provider-neutral place store (mappal_poi): position, ids and the agent's
     // own labels — no Google content.
-    const poiData = { agent: { category: r.category, verdict, keep, vibe: r.review.vibe, foodTags: r.review.food_tags, access: r.review.access, summary, reviewedAt: new Date().toISOString(), runId } };
+    const poiData = { agent: { category: r.category, verdict, keep, score, vibe: r.review.vibe, foodTags: r.review.food_tags, access: r.review.access, summary, reviewedAt: new Date().toISOString(), runId } };
     const poi = await prisma.poi.findUnique({ where: { osmRef: r.osmRef }, select: { id: true, data: true, googlePlaceId: true } });
     const merged = json({ ...((poi?.data as object | null) ?? {}), ...poiData });
     if (poi) await prisma.poi.update({ where: { id: poi.id }, data: { name: r.name, lat: r.lat, lng: r.lng, data: merged } });

@@ -64,6 +64,7 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       vibe?: string; food_tags?: string[]; availability?: { kitchen_hours?: string; peak_times?: string; risks?: Array<{ flag: string; note: string }> };
       price_samples?: AgentView["prices"]; access?: string; how_to_get_there?: string; parking?: string; safety_notes?: string;
       photo?: { source: string; page?: string; credit?: string; url?: string };
+      complications?: AgentView["complications"];
     };
     const place: ReviewPlace = c
       ? base(c, true)
@@ -75,6 +76,8 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       confidence: r.confidence,
       keep: r.keep,
       relevant: r.relevant,
+      score: r.score,
+      complications: d.complications,
       summary: r.summary,
       vibe: d.vibe,
       foodTags: d.food_tags,
