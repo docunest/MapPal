@@ -25,9 +25,10 @@ export interface McpServerDef<C> {
   call(name: string, args: Record<string, unknown>, ctx: C): Promise<McpResult>;
 }
 
+// Some clients (Claude Code) show only structuredContent when it's there, so it carries the text too.
 export const textResult = (t: string, structured?: unknown, isError = false): McpResult => ({
   content: [{ type: "text", text: t }],
-  ...(structured !== undefined ? { structuredContent: structured } : {}),
+  ...(structured !== undefined ? { structuredContent: structured && typeof structured === "object" && !Array.isArray(structured) ? { text: t, ...(structured as Record<string, unknown>) } : { text: t, data: structured } } : {}),
   isError,
 });
 

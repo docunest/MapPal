@@ -48,6 +48,16 @@ export async function updateRun(
   await prisma.agentRun.update({ where: { id }, data: { ...rest, ...(plan ? { plan: json(plan) } : {}), ...(counters ? { counters: json(counters) } : {}) } });
 }
 
+/** The text get_briefs returned, for get_pull. */
+export async function savePayload(id: string, payload: string) {
+  await prisma.agentRun.update({ where: { id }, data: { payload } });
+}
+/** One pull's text, or without an id this agent's newest. */
+export async function loadPayload(id: string | null, agent: string) {
+  const r = await prisma.agentRun.findFirst({ where: id ? { id } : { agent, payload: { not: null } }, orderBy: { createdAt: "desc" }, select: { id: true, payload: true } });
+  return r?.payload ? { id: r.id, text: r.payload } : null;
+}
+
 export async function listRuns(take = 30) {
   return (await prisma.agentRun.findMany({ orderBy: { createdAt: "desc" }, take })).map((r) => asRun(r)!);
 }

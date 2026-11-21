@@ -588,6 +588,8 @@ model DockLog {
 // has spent so far (counters), and the owner's /usage numbers at the end.
 model AgentRun {
   id             String    @id @default(cuid())
+  // The text get_briefs returned (photos as links), so an agent whose call timed out can read it again with get_pull.
+  payload        String?
   // planned → running → capped | done (or cancelled)
   status         String
   agent          String

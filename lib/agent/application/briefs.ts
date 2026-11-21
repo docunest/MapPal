@@ -21,7 +21,7 @@ import { knownPlaces, markSubmittedIfDone, pageNumber, saveBrief, getBrief, vote
 import { enrich, googleConfigured } from "../infrastructure/enrich";
 import { logEvent } from "../infrastructure/events";
 import { indexArea, placesNear } from "../infrastructure/osmIndex";
-import { createRun, updateRun } from "../infrastructure/repo";
+import { createRun, savePayload, updateRun } from "../infrastructure/repo";
 import { currentRule, loadUseCaseTree, type RuleView } from "../infrastructure/rules";
 import { chainOf, expand, rootOf, selectsBelow } from "../domain/tree";
 import { CONTRACT_LINE, CONTRACT_VERSION } from "../domain/review";
@@ -140,7 +140,7 @@ const reasonsOf = (dropped: PlanCategory["dropped"]) => {
 /** Free: what a pull would contain. Show it to the owner; get_briefs needs their yes. */
 export async function previewBriefs(args: BriefArgs) {
   const runId = newId("prev");
-  const p = await prepare(args, runId, 80_000);
+  const p = await prepare(args, runId, 30_000);
   const caps = capsFromEnv();
   const total = p.useCases.reduce((s, u) => s + u.page.length, 0);
   const lines = [
@@ -169,7 +169,7 @@ export async function pullBriefs(args: BriefArgs & { owner_approved?: unknown },
   if (args.owner_approved !== true) throw new RunError("owner_approved must be true — only after the owner said yes to preview_briefs.");
   const runId = newId("run");
   const caps = capsFromEnv();
-  const p = await prepare(args, runId, 60_000);
+  const p = await prepare(args, runId, 15_000);
   const place = await localLangsAt(p.zone.target);
   const lang = place.country?.toUpperCase() === "PT" ? "pt" : "es";
   const google = googleConfigured();
@@ -221,6 +221,7 @@ ${loc.text}`;
   counters.textTokens += sharedTokens;
   const images: NonNullable<AgentReply["images"]> = [];
   let pending = shared;
+  let saved = shared; // the same text with photos as links, stored for get_pull
   let capHit: string | null = null;
   const briefIds: string[] = [];
 
@@ -237,6 +238,7 @@ ${loc.text}`;
     counters.tokens += briefTokens;
     counters.textTokens += briefTokens;
     pending += briefText;
+    saved += briefText;
     // Facts and photos in parallel (5 at a time), then counted in order.
     const enriched: Awaited<ReturnType<typeof enrich>>[] = [];
     for (let i = 0; i < pc.candidates.length; i += 5) {
@@ -276,6 +278,7 @@ ${loc.text}`;
       sent.push({ id: c.id, osmRef: c.osmRef, name: c.name, lat: c.lat, lng: c.lng });
       briefText += `\n\n${text}`;
       pending += `\n\n${text}`;
+      saved += `\n\n${text}${c.photo?.url && !manual ? `\nPhoto: ${c.photo.url}` : ""}`;
       if (e.image && !manual) {
         images.push({ before: pending, image: e.image });
         pending = "";
@@ -301,6 +304,7 @@ ${loc.text}`;
   const footer = manual
     ? `\n\n---\n## How to answer (manual run ${runId})\nYou can't call submit_results here. Reply with ONE JSON object and nothing else — the family pastes it back into MapPal:\n{"run_id": "${runId}", "briefs": {${briefIds.map((b) => `"${b}": [ … ]`).join(", ") || "\"(none)\": []"}}}\nEach list holds one result per place of that brief, in the output format of layer 2 ("candidate" = the id shown, like ${Object.values(categories).flatMap((c) => c.candidates.map((x) => x.id)).slice(0, 3).join(", ") || "c1"}). Judge every place; skip none. If you can open web pages, you may check a place's website or photos; otherwise judge from the facts given.${capHit ? `\nNote: the server stopped early (${capHit}); judge what is here.` : ""}`
     : `\n\n---\nBriefs: ${briefIds.join(", ") || "none (nothing new to judge here — every place is known)"}. Sent ${counters.tokens} tokens (text ${counters.textTokens}, images ${counters.imageTokens}), ${counters.images} photos, Google ${counters.googleDetails} details.${capHit ? `\nCAP HIT: ${capHit}. Judge what you got, submit, finish_run.` : ""}\nNext: submit_results for each brief (≤ 20 per call), then finish_run(run_id="${runId}") with the owner's /usage numbers and usage.mjs.`;
+  await savePayload(runId, `${saved}${footer}`);
   return { runId, text: `${pending}${footer}`, images, briefIds };
 }
 

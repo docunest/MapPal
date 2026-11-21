@@ -87,5 +87,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261121230000_review_score",
     "sql": "-- The agent's 0–100 score per place (0 = no-go, 50 = undecided, 100 = a must),\n-- judged against the family's like/dislike hints. Null for older reviews.\nALTER TABLE \"mappal_agent_review\" ADD COLUMN \"score\" INTEGER;\n"
+  },
+  {
+    "name": "20261121240000_run_payload",
+    "sql": "ALTER TABLE \"mappal_agent_run\" ADD COLUMN \"payload\" TEXT;\n"
   }
 ];

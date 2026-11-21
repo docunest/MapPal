@@ -11,6 +11,7 @@ import { buildUseCaseTree } from "../domain/tree";
 import { agentFromToken } from "../infrastructure/auth";
 import { newCorrelationId } from "../infrastructure/events";
 import { indexArea } from "../infrastructure/osmIndex";
+import { loadPayload } from "../infrastructure/repo";
 import { currentRule, listRules, restoreRule, ruleHistory, RuleError, saveRule } from "../infrastructure/rules";
 import { previewBriefs, pullBriefs, submitResults, type BriefArgs } from "./briefs";
 import { finishRun, runStatus } from "./finish";
@@ -21,7 +22,7 @@ import { getTravelState, setLocation, travelText } from "./travel";
 const INFO = { name: "mappal-agent", title: "MapPal place agent", version: "0.3.0" };
 
 const INSTRUCTIONS = `MapPal checks places for a family living in a camper van in Spain and Portugal. You judge; the server does the free work (place index, rules, location) and counts what you cost.
-Flow: 1) ask the owner for their Claude weekly usage % (/usage); note the time. 2) get_travel_state — check the location hints; set_location if the owner says otherwise. 3) preview_briefs (free) — show it to the owner, WAIT for a yes. 4) get_briefs(owner_approved=true) — every brief at once: charter, output format, location, then per use case its rules, the known places (never return those) and the places to judge. 5) submit_results per brief. 6) ask for /usage again; run the skill's usage.mjs --since <time>; finish_run with both. Tell the owner the cost line and the pull page.
+Flow: 1) ask the owner for their Claude weekly usage % (/usage); note the time. 2) get_travel_state — check the location hints; set_location if the owner says otherwise. 3) preview_briefs (free) — show it to the owner, WAIT for a yes. 4) get_briefs(owner_approved=true) — every brief at once: charter, output format, location, then per use case its rules, the known places (never return those) and the places to judge. If your call times out, the pull was still built: get_pull (no arguments) returns it. 5) submit_results per brief. 6) ask for /usage again; run the skill's usage.mjs --since <time>; finish_run with both. Tell the owner the cost line and the pull page.
 "More" in the same area = just call preview_briefs/get_briefs again: places already judged are excluded automatically.
 Rules: get_rules, rule_history, update_rule (stored as a new version with your note; the owner can restore any version), restore_rule.
 The server stops you at caps ("CAP HIT"): stop, submit what you have, finish_run. Your verdicts are AI output and are shown as such.`;
@@ -38,9 +39,10 @@ const where = {
 const TOOLS: McpTool[] = [
   { name: "get_travel_state", title: "Where is the family?", description: "Best guess of the family's position from every hint (car GPS log, car route requests, car bookmarks, links shared from a phone, the owner's pin, stops), each hint with its weight and whether it was used; destinations; the target briefs will use.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
   { name: "set_location", title: "Pin where the family is", description: "Record the position the owner told you (outranks every other hint). Returns the new travel state.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, label: { type: "string" } }, required: ["lat", "lng"] } },
-  { name: "index_area", title: "Fill the place index", description: "Reads OpenStreetMap for missing or stale (> 30 days) cells (≈ 30 × 20 km) within radius_km, nearest first, ~90 s per call. Free. Call again until 0 missing. refresh=true re-reads fresh cells too.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number" }, refresh: { type: "boolean" } } } },
+  { name: "index_area", title: "Fill the place index", description: "Reads OpenStreetMap for missing or stale (> 30 days) cells (≈ 30 × 20 km) within radius_km, nearest first, ~45 s per call (one or two cells). Free. Call again until 0 missing. refresh=true re-reads fresh cells too.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number" }, refresh: { type: "boolean" } } } },
   { name: "preview_briefs", title: "Preview (free)", description: "What a pull would contain: zone, per use case how many places are in the index, dropped by the rules, already known, on this page, left for later; layer versions and hashes. Nothing is spent. Show to the owner and wait for a yes.", inputSchema: { type: "object", properties: where } },
   { name: "get_briefs", title: "Get every brief at once", description: "After the owner's yes: the full tasks — shared layers once (charter, output format, location), then per use case: its rules, the known places (negative list), the places to judge with facts and one photo each. Counted against the caps. Same arguments as preview_briefs.", inputSchema: { type: "object", properties: { ...where, owner_approved: { type: "boolean" } }, required: ["owner_approved"] } },
+  { name: "get_pull", title: "Read a pull again", description: "The full text get_briefs returned for run_id (photos as links). Use it when get_briefs timed out on your side: the pull was still built. Without run_id: your newest pull. Free; nothing is counted again.", inputSchema: { type: "object", properties: { run_id: runId } }, annotations: { readOnlyHint: true } },
   { name: "submit_results", title: "Submit verdicts for a brief", description: "Results for places of one brief (ids like c3, e2), in the output-format layer's shape, ≤ 20 per call. Re-submitting an id replaces it.", inputSchema: { type: "object", properties: { brief_id: { type: "string" }, results: z.toJSONSchema(reviewsSchema) as Record<string, unknown> }, required: ["brief_id", "results"] } },
   { name: "fetch_page", title: "Read a web page (counted)", description: "A page as plain text (≤ 8,000 characters) plus menu links and images. Counts as one page and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
   { name: "fetch_image", title: "Look at one image (counted)", description: "One image by URL (e.g. a menu photo). Counts as one image and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
@@ -117,7 +119,7 @@ export async function callAgentTool(name: string, args: Record<string, unknown>,
         }
         const radius = Math.min(150, Math.max(1, num(args.radius_km) ?? 30));
         const id = newCorrelationId();
-        const p = await indexArea({ lat, lng }, radius, id, 90_000, args.refresh === true);
+        const p = await indexArea({ lat, lng }, radius, id, 45_000, args.refresh === true);
         return textResult(
           `Index ${radius} km around ${lat.toFixed(4)},${lng.toFixed(4)} (job ${id}): ${p.cells} cells — ${p.fresh.length} already fresh, ${p.fetched.length} fetched now (${p.fetched.reduce((s, r) => s + r.count, 0)} places), ${p.failed.length} failed${p.failed.length ? ` (${p.failed.map((f) => `${f.cell}: ${f.error}`).join("; ")})` : ""}, ${p.missing.length} still missing${p.missing.length ? " — call index_area again" : ""}.`,
           { job: id, cells: p.cells, fresh: p.fresh.length, fetched: p.fetched.length, failed: p.failed.length, missing: p.missing.length },
@@ -138,6 +140,10 @@ export async function callAgentTool(name: string, args: Record<string, unknown>,
       case "finish_run": {
         const r = await finishRun(args, ctx.baseUrl);
         return textResult(r.text, r.log);
+      }
+      case "get_pull": {
+        const r = await loadPayload(typeof args.run_id === "string" && args.run_id ? args.run_id : null, ctx.agent);
+        return r ? textResult(`(${r.id})\n${r.text}`) : textResult("No stored pull text (only pulls built by get_briefs have one).", undefined, true);
       }
       case "get_run": {
         const r = await runStatus(args.run_id, ctx.baseUrl);
