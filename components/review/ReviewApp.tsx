@@ -447,6 +447,9 @@ export function ReviewApp() {
               }}
               kindFilter={scope.categories}
               onKindFilter={(categories) => setScope({ ...scope, categories })}
+              pool={scope.pool}
+              mine={scope.mine}
+              onShowEverything={() => setScope({ ...scope, pool: "everything", mine: "any" })}
             />
           </section>
         )}

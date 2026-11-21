@@ -16,7 +16,7 @@ const STYLE: StyleSpecification = {
 
 export interface MapLayers {
   sent: Array<{ id: string; title: string; lat: number; lng: number; at: string }>;
-  tiles: Array<{ geohash: string; category: string; status: string; count?: number; ageDays?: number | null; box: { s: number; w: number; n: number; e: number } }>;
+  tiles: Array<{ geohash: string; category: string; status: string; count?: number; byLayer?: Record<string, number>; ageDays?: number | null; box: { s: number; w: number; n: number; e: number } }>;
 }
 
 export interface MapShow {
@@ -26,10 +26,10 @@ export interface MapShow {
   tiles: boolean;
 }
 
-/** Place-index cells (≈ 30 × 20 km boxes of stored OpenStreetMap places): colour and label by status. */
+/** Place-index cells (≈ 30 × 20 km boxes of stored OpenStreetMap places): colour and label by status. "Map points" = every stored thing (cafés, car parks, villages…), not only places to judge. */
 const CELL = { ok: "#16a34a", indexed: "#16a34a", stale: "#d97706", failed: "#dc2626", missing: "#6b7280" } as Record<string, string>;
 const cellLabel = (t: MapLayers["tiles"][number]) =>
-  t.status === "missing" ? "not indexed" : t.status === "failed" ? "✗ failed" : `${t.status === "stale" ? "⟳ old · " : "✓ "}${(t.count ?? 0).toLocaleString()} places${t.ageDays != null ? ` · ${t.ageDays} d` : ""}`;
+  t.status === "missing" ? "not indexed" : t.status === "failed" ? "✗ failed" : `${t.status === "stale" ? "⟳ old · " : "✓ "}${(t.count ?? 0).toLocaleString()} map points${t.ageDays != null ? ` · ${t.ageDays} d` : ""}`;
 
 const UNVOTED = "#2563eb";
 const UNCHECKED = "#94a3b8";

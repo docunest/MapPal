@@ -41,3 +41,7 @@ UI `components/review/`. MapLibre's worker is served from
 
 Alive? `/review` loads behind the family login; `GET /api/review/voters`
 answers; tests: `node --import tsx --test test/review.test.ts`.
+
+
+## Map points
+A cell's number is every stored OpenStreetMap thing in it (food & drink, car parks, campsites, towns, things to explore), not people and not only places to judge. `cellsAround` returns `byLayer` per cell; Index & agent shows the totals. Browse shows a banner when its filter hides unjudged places, with *Show everything*.

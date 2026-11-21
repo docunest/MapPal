@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { MAX_CARDS } from "@/lib/review/domain/filter";
 import { KindPicker, useKindTitle, type KindNode } from "./KindPicker";
 import { ManualRun } from "./ManualRun";
 import { COMPLICATION_UI, ago, iconFor, km, scoreClass, VOTE_UI, type ReviewPlace } from "./shared";
@@ -10,9 +11,13 @@ interface Cell {
   geohash: string;
   status: string;
   count: number;
+  byLayer?: Record<string, number>;
   ageDays: number | null;
   error: string | null;
 }
+
+const LAYER_WORDS: Array<[string, string]> = [["food", "food & drink"], ["explore", "things to explore (caves, ruins, viewpoints, waterfalls…)"], ["parking", "car parks"], ["stay", "campsites"], ["town", "towns & villages"]];
+const POOL_WORDS: Record<string, string> = { checked: "only places an agent judged and picked", "checked-all": "only places an agent judged", everything: "everything stored" };
 interface BriefRow {
   id: string;
   runId: string;
@@ -41,6 +46,9 @@ export function BrowsePanel({
   onKindFilter,
   cellsShown,
   onCellsShown,
+  pool,
+  mine,
+  onShowEverything,
 }: {
   places: ReviewPlace[];
   voter: string;
@@ -53,6 +61,9 @@ export function BrowsePanel({
   onKindFilter: (v: string[]) => void;
   cellsShown: boolean;
   onCellsShown: (v: boolean) => void;
+  pool: string;
+  mine: string;
+  onShowEverything: () => void;
 }) {
   const kindTitle = useKindTitle();
   const [tab, setTab] = useState<"list" | "index" | "manual">("list");
@@ -102,7 +113,7 @@ export function BrowsePanel({
     <div className="flex h-full flex-col">
       <div className="flex gap-1 overflow-x-auto border-b border-neutral-200 p-2 text-sm text-neutral-900">
         <button type="button" onClick={() => setTab("list")} className={`rounded-full px-3 py-1 ${tab === "list" ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
-          Places ({places.length})
+          Places ({places.length >= MAX_CARDS ? `${MAX_CARDS} nearest` : places.length})
         </button>
         <button type="button" onClick={() => setTab("index")} className={`rounded-full px-3 py-1 ${tab === "index" ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
           Index &amp; agent
@@ -125,6 +136,17 @@ export function BrowsePanel({
           <p className="px-3 py-2 text-xs text-neutral-500">
             {counts.picks} AI picks · {counts.judged} judged · {counts.unjudged} not judged yet · you voted on {counts.mine}. Nearest first.
           </p>
+          {(pool !== "everything" || mine !== "any") && (
+            <div className="mx-3 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <span className="min-w-0 flex-1">
+                Showing {POOL_WORDS[pool] ?? pool}
+                {mine === "unvoted" ? " that you haven't voted on" : mine !== "any" ? ` with your vote “${mine}”` : ""}. Places nobody has judged yet are hidden.
+              </span>
+              <button type="button" onClick={onShowEverything} className="shrink-0 rounded-full bg-amber-700 px-3 py-0.5 text-white">
+                Show everything
+              </button>
+            </div>
+          )}
           <ul className="divide-y divide-neutral-100">
             {places.slice(0, 300).map((p) => {
               const f = fate(p);
@@ -183,10 +205,20 @@ export function BrowsePanel({
             </p>
             {cells ? (
               <p className="text-xs text-neutral-600">
-                {cells.length} cells within {r} km: {by("ok")} fresh, {by("stale")} stale (&gt; 30 days), {by("failed")} failed, {by("missing")} not indexed · {cells.reduce((s, c) => s + c.count, 0).toLocaleString()} places stored
+                {cells.length} cells within {r} km: {by("ok")} fresh, {by("stale")} stale (&gt; 30 days), {by("failed")} failed, {by("missing")} not indexed · {cells.reduce((s, c) => s + c.count, 0).toLocaleString()} map points stored
                 {cells.some((c) => c.ageDays !== null) ? ` · oldest ${Math.max(...cells.map((c) => c.ageDays ?? 0))} days` : ""}
               </p>
-            ) : (
+            ) : null}
+            {cells && cells.some((c) => c.count) ? (
+              <p className="mt-1 text-xs text-neutral-600">
+                A map point is anything stored from the map, not only places worth a visit:{" "}
+                {LAYER_WORDS.map(([k, w]) => [w, cells.reduce((s, c) => s + (c.byLayer?.[k] ?? 0), 0)] as const)
+                  .filter(([, n]) => n)
+                  .map(([w, n]) => `${n.toLocaleString()} ${w}`)
+                  .join(" · ")}
+                . Browse and agents only get the ones a use case&apos;s rules pick, inside your distance circle.
+              </p>
+            ) : cells ? null : (
               <p className="text-xs text-neutral-500">Loading…</p>
             )}
             <div className="mt-2 flex flex-wrap gap-2">

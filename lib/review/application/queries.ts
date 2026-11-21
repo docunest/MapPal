@@ -122,7 +122,7 @@ export async function layers(around?: { lat: number; lng: number; radiusKm: numb
   return {
     sent: sent.map((x) => ({ ...x, at: x.at.toISOString(), openedAt: x.openedAt?.toISOString() ?? null })),
     // The place index around the area: ok (fresh) / stale (> 30 days) / failed / missing.
-    tiles: cells.map((c) => ({ geohash: c.geohash, category: "", status: c.status, count: c.count, ageDays: c.ageDays, box: c.box })),
+    tiles: cells.map((c) => ({ geohash: c.geohash, category: "", status: c.status, count: c.count, byLayer: c.byLayer, ageDays: c.ageDays, box: c.box })),
     runs: index.runs,
     travel: {
       position: s.position ? { lat: s.position.lat, lng: s.position.lng, label: s.position.label, source: s.position.source, at: s.position.at.toISOString() } : null,

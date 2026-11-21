@@ -144,11 +144,14 @@ export async function indexSummary() {
 /** The index cells around a circle: state, age, count, box — for the Browse map and the reindex buttons. */
 export async function cellsAround(c: LatLng, radiusKm: number) {
   const cells = cellsForCircle({ ...c, radiusM: radiusKm * 1000 });
-  const states = await cellStates(cells);
+  const [states, groups] = await Promise.all([cellStates(cells), prisma.osmPlace.groupBy({ by: ["cell", "layer"], where: { cell: { in: cells } }, _count: true })]);
+  // What a cell's number is made of: food & drink, car parks, campsites, towns, things to explore.
+  const layersOf = new Map<string, Record<string, number>>();
+  for (const g of groups) layersOf.set(g.cell, { ...layersOf.get(g.cell), [g.layer]: g._count });
   return cells.map((g) => {
     const r = states.get(g);
     const ageDays = r ? Math.round((Date.now() - r.fetchedAt.getTime()) / 86_400_000) : null;
     const status = !r ? "missing" : r.status !== "ok" ? "failed" : ageDays! >= CELL_FRESH_DAYS ? "stale" : "ok";
-    return { geohash: g, status, count: r?.count ?? 0, fetchedAt: r?.fetchedAt.toISOString() ?? null, ageDays, error: r?.error ?? null, box: cellBox(g) };
+    return { geohash: g, status, count: r?.count ?? 0, fetchedAt: r?.fetchedAt.toISOString() ?? null, ageDays, error: r?.error ?? null, byLayer: layersOf.get(g) ?? {}, box: cellBox(g) };
   });
 }
