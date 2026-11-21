@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-21 — Review app: four votes (like / undecided / don't like / never), per name handle; default pool = agent picks, wider on request; desktop = the same page, wide layout (no separate desktop app — one web app per hard rules); "been here" = a car GPS fix within 75 m — owner's request + agent defaults.
 - 2026-11-21 — Hybrid agent Phase 0 built as planned (owner: "Build"): server does the free lookups and enforces caps, Claude Code with the MCP connector judges; weekly % measured with the owner's `/usage` before/after; Google content passed to the agent live, never stored.
 - 2026-11-20 — Grocery list app (G6) built as a module of MapPal in the same Vercel project (owner: "It must be the same vercel project"): `/grocery`, own family-token link, `grocery_*` tables, DeepSeek via MapPal's key. Earlier the same day it was built as `docunest/monorepo/apps/grocery` with its own Vercel project; that copy was removed.
 - 2026-11-16 — Fuel = diesel stations only, everywhere (web Nearby, car, Road ahead): no EV chargers, no gas-only stations, no LPG/AdBlue badges, Google prices diesel only — owner: "I only care about diesel … wtf I'm going to do with DC charger? No adblue for me".

@@ -82,7 +82,7 @@ export async function nextBatch(runId: unknown, category: unknown): Promise<Agen
     const stored: Candidate = plan.categories[cat].candidates.find((x) => x.id === c.id)!;
     stored.served = true;
     stored.googlePlaceId = e.googlePlaceId;
-    if (e.enrichment.photo && e.enrichment.photo.source !== "google") stored.photo = { source: e.enrichment.photo.source, page: e.enrichment.photo.page, credit: e.enrichment.photo.credit };
+    if (e.enrichment.photo && e.enrichment.photo.source !== "google") stored.photo = { source: e.enrichment.photo.source, page: e.enrichment.photo.page, credit: e.enrichment.photo.credit, url: e.enrichment.photo.url };
     parts.push({ before: text, image: e.image });
   }
   counters.batches += 1;

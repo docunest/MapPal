@@ -4,3 +4,6 @@ export { agentMcpHandler, AGENT_TOOLS } from "./application/mcp";
 export { costLog, costText, PASS_THUMBS, PASS_WEEKLY_PCT, type CostLog } from "./application/finish";
 export { getRun, listRuns, rateReview, reviewsOf } from "./infrastructure/repo";
 export { recordFix } from "./infrastructure/travelSources";
+export { coordsInLogLine } from "./domain/travelState";
+export { travelState } from "./domain/travelState";
+export { loadFixes } from "./infrastructure/travelSources";

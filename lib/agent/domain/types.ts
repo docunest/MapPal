@@ -30,7 +30,7 @@ export interface Candidate extends LatLng {
   served?: boolean;
   // Filled when served, kept for saving the review (no Google content).
   googlePlaceId?: string;
-  photo?: { source: string; page?: string; credit?: string };
+  photo?: { source: string; page?: string; credit?: string; url?: string }; // url: the image itself (Commons/website only)
 }
 
 export interface Dropped {
@@ -104,6 +104,8 @@ export interface PlanCategory {
   cached: string[]; // names reviewed within the freshness window: not checked again
   candidates: Candidate[]; // ranked, cheapest first; only the first `caps[category]` are served
   overCap: number; // survivors not checked because of the place cap
+  // Those survivors themselves (ids b1…, ≤ 400): unchecked places the review app can show on request.
+  backlog?: Candidate[];
 }
 
 export interface Plan {

@@ -46,5 +46,5 @@ export default auth((req) => {
 
 export const config = {
   // Home Screen app files (and each app's icons in /app-icons/) must load without a session (Safari fetches the manifest/icons on its own).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|icon-\\d+\\.png|apple-touch-icon\\.png|app-icons/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|icon-\\d+\\.png|apple-touch-icon\\.png|app-icons/|maplibre-gl-worker\\.mjs).*)"],
 };

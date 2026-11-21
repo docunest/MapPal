@@ -676,6 +676,38 @@ model TravelFix {
   @@map("mappal_travel_fix")
 }
 
+// --- Review app (/review): swipe through places the agent found, per
+// person. Users are name handles (docunest hard rules §5): the name is the
+// account, anyone can pick any name. Code in lib/review/.
+model Voter {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("mappal_voter")
+}
+
+// One person's verdict on one place: like | maybe | nope | never
+// ("super don't like"). Name and position are copied in so the map can draw
+// votes without the place store. Last write wins (updatedAt).
+model Vote {
+  id        String   @id @default(cuid())
+  voter     String
+  placeKey  String // OSM ref, e.g. "node/123"
+  vote      String
+  name      String
+  category  String
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([voter, placeKey])
+  @@index([placeKey])
+  @@index([updatedAt])
+  @@map("mappal_vote")
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // Grocery list module (owner 2026-11-20, AGENTS.md G6) — everything below
 // belongs to /grocery only (lib/grocery, components/grocery, app/grocery,

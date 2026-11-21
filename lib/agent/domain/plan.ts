@@ -41,8 +41,10 @@ export function buildPlan(
     const fresh = r.candidates.filter((c) => !cachedRefs.has(c.osmRef));
     const limit = caps[category];
     const prefix = category === "cafes" ? "c" : "e";
-    const candidates = spread(fresh, limit).map((c, i) => ({ ...c, id: `${prefix}${i + 1}` }));
-    return { found, dropped: r.dropped, cached, candidates, overCap: Math.max(0, fresh.length - limit) };
+    const picked = spread(fresh, limit);
+    const candidates = picked.map((c, i) => ({ ...c, id: `${prefix}${i + 1}` }));
+    const backlog = fresh.filter((c) => !picked.includes(c)).slice(0, 400).map((c, i) => ({ ...c, id: `b${prefix}${i + 1}` }));
+    return { found, dropped: r.dropped, cached, candidates, overCap: Math.max(0, fresh.length - limit), backlog };
   };
   const categories = { cafes: cat("cafes"), exploration: cat("exploration") };
   if (!google) notes.push("No Google key: cafes are judged from OSM tags, their website and its photo only (no reviews, no Google hours).");

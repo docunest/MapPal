@@ -84,7 +84,7 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
     if (allow.images && w.imageFile) {
       try {
         image = await fetchImage(commonsThumb(w.imageFile, 480));
-        e.photo = { source: "commons", credit: "Wikimedia Commons", page: commonsFilePage(w.imageFile), width: image.width, height: image.height };
+        e.photo = { source: "commons", credit: "Wikimedia Commons", page: commonsFilePage(w.imageFile), url: commonsThumb(w.imageFile, 640), width: image.width, height: image.height };
       } catch (err) {
         e.notes.push(`Commons photo failed: ${msg(err)}`);
       }
@@ -94,7 +94,7 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
       if (near[0]) {
         try {
           image = await fetchImage(commonsThumb(near[0].file, 480));
-          e.photo = { source: "commons", credit: "Wikimedia Commons, geotagged within 150 m", page: near[0].page, width: image.width, height: image.height };
+          e.photo = { source: "commons", credit: "Wikimedia Commons, geotagged within 150 m", page: near[0].page, url: commonsThumb(near[0].file, 640), width: image.width, height: image.height };
         } catch (err) {
           e.notes.push(`Commons photo failed: ${msg(err)}`);
         }
@@ -125,7 +125,7 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
         const cost = imageTokens(img.width, img.height);
         if (cost <= MAX_WEBSITE_IMAGE_TOKENS) {
           image = img;
-          e.photo = { source: "website", credit: page.title ?? new URL(page.url).hostname, page: page.url, width: img.width, height: img.height };
+          e.photo = { source: "website", credit: page.title ?? new URL(page.url).hostname, page: page.url, url: page.ogImage, width: img.width, height: img.height };
         } else e.notes.push(`website photo skipped (too big, ~${cost} tokens)`);
       } else e.notes.push(`website ${new URL(page.url).hostname} has no preview photo`);
       if (page.menuLinks.length) e.notes.push(`menu links on its website: ${page.menuLinks.slice(0, 3).join(" ")}`);

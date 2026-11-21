@@ -118,6 +118,14 @@ context each turn).
 **Pass:** < 5 % weekly measured, ≥ 70 % of kept places 👍. Proven first on fixtures at Peniche (cafes) and
 Arenas de Cabrales / Poncebos (exploration), then one live run at the owner's real location.
 
+## Review app `/review` (owner 2026-11-21: "build this, start with the phone version")
+
+Swipe through the agent's places per person (name handles, own votes), or see them on a map; phone first,
+desktop = the same page with map and cards side by side. Filter first (area: me / car / a pin, 5–100 km;
+kind; agent picks → everything found; my votes; someone else's votes). Votes: like / undecided / don't like
+/ never. Map: votes, sent-to-car links, "been here" from the car's GPS, the agent's indexed tiles. Details:
+`lib/review/README.md`. Next (owner, later): browse the backlog and edit per-category settings.
+
 ## Acceptance points and criteria
 
 Points: Puerto de Sagunto, Avilés, Matosinhos, Pinhão, Garganta del Cares / Poncebos, Arenas de Cabrales, Mértola, Peniche, one Lisbon point, one Madrid point.

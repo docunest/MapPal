@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Review app (swipe per person + map) — done
+
+Owner: Tinder-style review of the agent's places, like / undecided / don't like / never, per name (e.g. owner and partner vote separately), a filter first (area around me or a pin, 20/50 km, kind, whose votes, "see way more"), a map mode with votes, sent-to-car links and places actually visited (GPS), desktop for planning; "start with phone version"; later: browse the backlog and per-category settings, and see whether the agent has indexed an area. Report: STATUS.md, same date.
+
 ## 2026-11-21 — Hybrid agent Phase 0: cost test (cafes + exploration at the latest known location) — done
 
 Owner: "build Phase 0 … keeping one location under 5% of my weekly allowance. Show me your plan and cost estimate before you write any code." Plan: docs/PLAN.md → "Hybrid agent backend — Phase 0". Owner: "Build". Report: STATUS.md, same date. Next for the owner: the first real run from Claude Code with `/usage` before and after.

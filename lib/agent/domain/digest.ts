@@ -20,6 +20,7 @@ export interface PhotoInfo {
   source: "google" | "commons" | "website";
   credit?: string;
   page?: string; // where the photo lives (Commons page / website), stored; Google photos aren't
+  url?: string; // the image file (Commons thumbnail / website image) — never a Google URL
   width?: number;
   height?: number;
 }

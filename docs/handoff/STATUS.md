@@ -3,6 +3,15 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-21 — Review app `/review` + Caldas da Rainha run
+
+- **Task:** INBOX "Review app"; and the owner's "Run for Caldas da Rainha" (run in this session's local copy — the live address isn't in the repo).
+- **What changed:** `/review` (components/review, lib/review, routes `app/api/review/*`), tables `mappal_voter` + `mappal_vote` (migration `20261121180000_review_votes`, RLS on). Agent runs now keep the unchecked survivors (`backlog`, ≤ 400 per category) and a photo URL (Commons/website only). MapLibre worker served from `public/` (copied on install). Details: `lib/review/README.md`.
+- **Caldas da Rainha run (local):** 154 cafes + 232 exploration spots on the map → 25 + 15 checked → 18 + 11 kept (Óbidos aqueduct, Columbeira prehistoric caves, Cesaredas waterfall, Alfeizerão castle, Malaica craft-beer taproom, Local Café tapas…); 5.7 k tokens served; weekly % not measurable from a cloud session.
+- **Evidence:** `docs/evidence/review-app/README.md` (phone + desktop screenshots). 147 tests, typecheck, lint, build pass.
+- **Not proven:** the owner's iPhone; production has no agent places until a run from Claude Code (local runs don't reach the live database).
+- **Next (owner, later):** backlog browser and per-category settings.
+
 ## 2026-11-21 — Hybrid agent Phase 0: cost-test backend
 
 - **Task:** INBOX "Hybrid agent Phase 0", owner's design doc + "Build".
