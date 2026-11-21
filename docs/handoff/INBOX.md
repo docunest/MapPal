@@ -4,9 +4,9 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
-## 2026-11-21 — Hybrid agent Phase 0: cost test (cafes + exploration at the latest known location) — open
+## 2026-11-21 — Hybrid agent Phase 0: cost test (cafes + exploration at the latest known location) — done
 
-Owner: "build Phase 0 … keeping one location under 5% of my weekly allowance. Show me your plan and cost estimate before you write any code." Plan: docs/PLAN.md → "Hybrid agent backend — Phase 0". Waiting for the owner's go.
+Owner: "build Phase 0 … keeping one location under 5% of my weekly allowance. Show me your plan and cost estimate before you write any code." Plan: docs/PLAN.md → "Hybrid agent backend — Phase 0". Owner: "Build". Report: STATUS.md, same date. Next for the owner: the first real run from Claude Code with `/usage` before and after.
 
 ## 2026-11-20 — Family grocery list (G6) — done
 

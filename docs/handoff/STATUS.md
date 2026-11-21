@@ -3,6 +3,14 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-21 — Hybrid agent Phase 0: cost-test backend
+
+- **Task:** INBOX "Hybrid agent Phase 0", owner's design doc + "Build".
+- **What changed:** `lib/agent/` (domain / application / infrastructure, README), MCP connector `/api/agent/mcp/<token>` (9 tools: get_travel_state, plan_run, start_run, next_batch, fetch_page, fetch_image, submit_reviews, finish_run, get_run), run pages `/agent/runs`, 👍/👎 API, skill `.claude/skills/recheck-location`, migration `20261121160000_agent_phase0` (`mappal_agent_run`, `mappal_agent_review`, `mappal_agent_tile`, `mappal_travel_fix`, RLS on). Road ahead requests now record the car's position/destination. Shared MCP protocol moved to `lib/mcp/server.ts` (grocery uses it too). Google daily caps 30 → 50 (monthly unchanged, free tier). `OVERPASS_ENDPOINTS` / `MAPPAL_USER_AGENT` env overrides.
+- **Evidence:** `docs/evidence/agent-phase0/README.md` — live end-to-end run at Peniche: 128 + 171 places on the map → 25 + 15 checked → 16 + 8 kept, 10.4 k tokens served, caps stop the run ("CAP HIT"), guards refuse unapproved/unsent work. 140 tests, typecheck, lint, build pass.
+- **Not proven:** the weekly % (needs the owner's `/usage`), Google enrichment (no key here), the connector from the owner's Claude Code, Overpass from Vercel for the 15 km exploration query.
+- **Questions for the owner:** none blocking. Run "recheck location" in Claude Code with the connector and give `/usage` before and after.
+
 ## 2026-11-20 — Grocery list module (G6) + security updates
 
 - **Task:** owner: a grocery list app for the family (planning, dictation, store view, live sync, long-term items, DeepSeek, MCP/skill, one token link) — then "It must be the same vercel project" and "Do security updates". Logged in DECISIONS.md.

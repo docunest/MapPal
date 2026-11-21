@@ -7,11 +7,14 @@ import { envPresent } from "@/lib/env";
 import { sourceContext } from "@/lib/sources/runtime";
 import { SourceCappedError } from "@/lib/sources/types";
 import { claimValues, commonsFilePage, commonsPhotosNear, commonsThumb, wikidataEntities, wikipediaArticle, type WikidataEntity } from "@/lib/wikimedia";
+import { imageTokens } from "../domain/caps";
 import type { Candidate } from "../domain/types";
 import type { Enrichment } from "../domain/digest";
 import { fetchImage, fetchPage, fromBytes, type FetchedImage } from "./web";
 
 export const googleConfigured = () => envPresent("GOOGLE_MAPS_API_KEY");
+
+export const MAX_WEBSITE_IMAGE_TOKENS = 900;
 
 export interface Allowance {
   googleDetails: boolean;
@@ -117,8 +120,13 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
       spent.pages = 1;
       const page = await fetchPage(site, 600);
       if (page.ogImage) {
-        image = await fetchImage(page.ogImage);
-        e.photo = { source: "website", credit: page.title ?? new URL(page.url).hostname, page: page.url, width: image.width, height: image.height };
+        const img = await fetchImage(page.ogImage);
+        // Website previews can be huge (a blank 2286×1330 PNG cost 1.5 k tokens in the first test run): skip those.
+        const cost = imageTokens(img.width, img.height);
+        if (cost <= MAX_WEBSITE_IMAGE_TOKENS) {
+          image = img;
+          e.photo = { source: "website", credit: page.title ?? new URL(page.url).hostname, page: page.url, width: img.width, height: img.height };
+        } else e.notes.push(`website photo skipped (too big, ~${cost} tokens)`);
       } else e.notes.push(`website ${new URL(page.url).hostname} has no preview photo`);
       if (page.menuLinks.length) e.notes.push(`menu links on its website: ${page.menuLinks.slice(0, 3).join(" ")}`);
     } catch (err) {

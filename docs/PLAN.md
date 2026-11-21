@@ -72,7 +72,7 @@ A very simple map UI answering repeat questions about nearby places, better than
 7. Offline packs and device sync.
 8. Extra sources.
 
-## Hybrid agent backend — Phase 0: cost test (proposed 2026-11-21, waiting for the owner's go)
+## Hybrid agent backend — Phase 0: cost test (owner: "Build", 2026-11-21 — built, code in `lib/agent/`)
 
 Design: owner's doc "MapPal Hybrid Agent Backend — Design" (claude.ai artifact). Phase 0 proves that one
 stop zone, two categories (cafes, exploration), costs **under 5 % of the owner's weekly Claude allowance**
@@ -97,19 +97,23 @@ and that most kept places are real and relevant. Nothing else from the design is
 6. `finish_run(run, usage_before_pct, usage_after_pct)`: the owner's `/usage` numbers before and after.
 7. `/agent/runs/<id>`: cost log + kept places with photos, 👍/👎 per place for the "real and relevant" score.
 
-**Hard caps (defaults, per run):** 150 k tokens of content served, 1 zone (≤ 6 tiles), 25 cafes + 15
-exploration spots deep-checked, 15 pages, 40 Google details + 40 photos (inside the free month). The server
-enforces them; the agent stops and reports.
+**Hard caps (defaults, per run):** 150 k tokens of content served, 1 zone, 25 cafes + 15 exploration spots
+deep-checked, 15 pages, 60 images, 40 Google details + 40 photos (inside the free month). The server
+enforces them; the agent stops and reports. Tiles (geohash-5) are reported and marked indexed/partial per
+category, not capped (a 15 km exploration circle is ~57 tiles).
 
 **Data (additive, `mappal_` prefix, RLS on):** `mappal_agent_run` (plan, caps, counters, usage %, report),
 `mappal_agent_review` (place, verdict, confidence, evidence, agent, run); places reuse `mappal_poi` (new
-fields in `data` with per-field `fetchedAt`, 30-day freshness). Code in `domains/mappal/agent/` (DDD),
-thin routes `app/api/agent/…`, MCP at `/api/agent/mcp/<token>` (token per agent, SHA-256 in env).
+fields in `data` with per-field `fetchedAt`, 30-day freshness). Code in `lib/agent/` (domain / application /
+infrastructure, MapPal's own code moves to `domains/mappal` in hosting step 1), thin routes `app/api/agent/…`, MCP at `/api/agent/mcp/<token>` (token per agent, SHA-256 in env).
 Skill `recheck-location` in `.claude/skills/`.
 
 **Estimate per location (Claude side):** ~105 k fresh input (dry run 5 k, cafes 25 × 1.6 k, menus 8 × 2.5 k,
 exploration 15 × 1.8 k, 6 recency checks × 2 k) + ~25 k output + ~0.5 M cached re-reads. Google ≈ 4 % of the
 free month per location, $0. DeepSeek not used. The weekly % is measured (Anthropic shows it only as a %).
+As built, the dry run computes it per run: 480 px photos are ~230–410 tokens, so the material is ~50–65 k
+tokens; the cached re-reads are the bigger unknown (~1–2 M over ~30–37 turns, as Claude Code re-reads its
+context each turn).
 
 **Pass:** < 5 % weekly measured, ≥ 70 % of kept places 👍. Proven first on fixtures at Peniche (cafes) and
 Arenas de Cabrales / Poncebos (exploration), then one live run at the owner's real location.

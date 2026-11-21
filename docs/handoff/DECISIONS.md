@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-21 — Hybrid agent Phase 0 built as planned (owner: "Build"): server does the free lookups and enforces caps, Claude Code with the MCP connector judges; weekly % measured with the owner's `/usage` before/after; Google content passed to the agent live, never stored.
 - 2026-11-20 — Grocery list app (G6) built as a module of MapPal in the same Vercel project (owner: "It must be the same vercel project"): `/grocery`, own family-token link, `grocery_*` tables, DeepSeek via MapPal's key. Earlier the same day it was built as `docunest/monorepo/apps/grocery` with its own Vercel project; that copy was removed.
 - 2026-11-16 — Fuel = diesel stations only, everywhere (web Nearby, car, Road ahead): no EV chargers, no gas-only stations, no LPG/AdBlue badges, Google prices diesel only — owner: "I only care about diesel … wtf I'm going to do with DC charger? No adblue for me".
 - 2026-11-16 — Offline places in the web app, same data as the car (monthly OSM packs for ES/PT/FR/IT/DE from docunest/ANDROID-APPS release dock-poi), MapPal as a Home Screen app that opens with no signal; download is a manual tap (the iPhone can't tell Starlink from the hotspot) — owner: "Yes, build it". Supersedes "no offline map tiles at first" only for places; offline map tiles are still later ("POI now, packs later").
