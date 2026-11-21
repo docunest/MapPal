@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Brief pipeline + one app with Config / Browse / Swipe — done
+
+Owner: indexing as a pipeline — master prompt (charter), output format, location data, use-case rules, known locations as a negative prompt (so "more" in a big city never repeats), each step deterministic; the local agent gets full tasks at once from the API/MCP; an API for the agent to pull and change rules, versioned and stored; "Build pipeline"; a control to say when to reindex; a web app for iPhone and desktop with three modes: config (all prompts), browse (what's indexed, voting), the Tinder thing. Report: STATUS.md, same date.
+
 ## 2026-11-21 — Agent fixes after the owner's review — done
 
 Owner: location must combine many hints (car GPS is one of them; shared links, history, a pin) into a good-enough guess; a stored place index instead of live Overpass per run (15 or 100 km should be nothing); replace the token ("no questions asked"); merging without asking is fine; a measured budget log (tokens vs the weekly %), no guessing; a debug view with a correlation id that shows on a map what was guessed, indexed, checked and what it cost. Report: STATUS.md, same date.

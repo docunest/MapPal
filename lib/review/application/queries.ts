@@ -1,8 +1,7 @@
 // Use cases for the review app.
-import { loadFixes, travelState } from "@/lib/agent";
+import { cellsAround, listRules, loadFixes, placesNear, runProfile, travelState, type Zone } from "@/lib/agent";
 import { applyScope, markTravel } from "../domain/filter";
-import { geohashBox } from "../domain/geohashBox";
-import { VOTES, type MineFilter, type PoolScope, type Scope, type VoteValue } from "../domain/types";
+import { VOTES, type MineFilter, type PoolScope, type ReviewPlace, type Scope, type VoteValue } from "../domain/types";
 import { addVoter, listVoters, loadIndex, loadPlaces, loadTravel, loadVotes, setVote } from "../infrastructure/repo";
 
 export class BadInput extends Error {}
@@ -35,8 +34,40 @@ export function scopeFrom(q: URLSearchParams): Scope {
   };
 }
 
+const SHOW_TAGS = ["opening_hours", "cuisine", "outdoor_seating", "website", "contact:website", "phone", "description", "access", "fee", "wikipedia", "ele", "check_date"];
+
+/**
+ * "Everything found": the place index itself, through the current use-case
+ * rules (same engine as the briefs), so Browse shows what's indexed and not
+ * judged yet — not only what an agent pull happened to include.
+ */
+async function indexPlaces(scope: Scope): Promise<ReviewPlace[]> {
+  const radiusM = Math.min(50, scope.radiusKm ?? 50) * 1000;
+  const zone: Zone = {
+    target: { lat: scope.lat, lng: scope.lng, label: "search area", source: "review" },
+    why: "",
+    campsite: { lat: scope.lat, lng: scope.lng, name: "the search centre", kind: "pin", distanceM: 0 },
+    towns: [],
+    cafeCircles: [{ lat: scope.lat, lng: scope.lng, radiusM, label: "search area" }],
+    explore: { lat: scope.lat, lng: scope.lng, radiusM },
+    tiles: { cafes: [], exploration: [] },
+  };
+  const rules = (await listRules()).filter((r) => r.layer === "usecase" && r.config && (!scope.categories.length || scope.categories.includes(r.config.useCase)));
+  const out: ReviewPlace[] = [];
+  for (const r of rules) {
+    const p = { ...r.config!, area: { kind: "radius" as const, km: radiusM / 1000 }, townEdgePenalty: false, spreadByTown: false, parkingWithinM: 0 };
+    const res = runProfile(p, await placesNear({ lat: scope.lat, lng: scope.lng, radiusM }, p.layers), zone);
+    for (const c of res.candidates.slice(0, 1500)) {
+      out.push({ key: c.osmRef, name: c.name, category: p.useCase, kind: c.kind, lat: c.lat, lng: c.lng, checked: false, tags: Object.fromEntries(SHOW_TAGS.filter((k) => c.tags[k]).map((k) => [k, c.tags[k]])) });
+    }
+  }
+  return out;
+}
+
 export async function placesFor(scope: Scope) {
-  const [places, votes, travel] = await Promise.all([loadPlaces(), loadVotes(), loadTravel()]);
+  const [loaded, votes, travel, fromIndex] = await Promise.all([loadPlaces(), loadVotes(), loadTravel(), scope.pool === "everything" ? indexPlaces(scope) : Promise.resolve([] as ReviewPlace[])]);
+  const known = new Set(loaded.map((p) => p.key));
+  const places = [...loaded, ...fromIndex.filter((p) => !known.has(p.key))];
   for (const p of places) p.votes = votes.get(p.key) ?? {};
   const picked = applyScope(places, scope);
   markTravel(picked, travel.positions, travel.sent);
@@ -47,12 +78,14 @@ export async function placesFor(scope: Scope) {
   return { places: picked, inArea: inArea.length, mine };
 }
 
-export async function layers() {
+export async function layers(around?: { lat: number; lng: number; radiusKm: number }) {
   const [{ sent }, index, fixes] = await Promise.all([loadTravel(), loadIndex(), loadFixes()]);
   const s = travelState(fixes);
+  const cells = around ? await cellsAround(around, Math.min(150, around.radiusKm + 10)) : [];
   return {
     sent: sent.map((x) => ({ ...x, at: x.at.toISOString(), openedAt: x.openedAt?.toISOString() ?? null })),
-    tiles: index.tiles.map((t) => ({ ...t, box: geohashBox(t.geohash) })),
+    // The place index around the area: ok (fresh) / stale (> 30 days) / failed / missing.
+    tiles: cells.map((c) => ({ geohash: c.geohash, category: "", status: c.status, count: c.count, ageDays: c.ageDays, box: c.box })),
     runs: index.runs,
     travel: {
       position: s.position ? { lat: s.position.lat, lng: s.position.lng, label: s.position.label, source: s.position.source, at: s.position.at.toISOString() } : null,

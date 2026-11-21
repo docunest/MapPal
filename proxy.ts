@@ -27,7 +27,7 @@ export default auth((req) => {
   const isGrocery = req.nextUrl.pathname === "/grocery" || req.nextUrl.pathname.startsWith("/grocery/") || req.nextUrl.pathname.startsWith("/api/grocery/");
 
   // Agent MCP connector (lib/agent/infrastructure/auth.ts): per-agent token in the URL.
-  const isAgentMcp = req.nextUrl.pathname.startsWith("/api/agent/mcp/");
+  const isAgentMcp = req.nextUrl.pathname.startsWith("/api/agent/mcp/") || req.nextUrl.pathname.startsWith("/api/agent/v1/");
 
   if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isGrocery || isAgentMcp || isLoginPage) return NextResponse.next();
 

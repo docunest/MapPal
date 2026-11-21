@@ -2,8 +2,8 @@
 // shapes the server and the agent exchange. Pure types, no IO.
 import type { LatLng } from "@/lib/geo";
 
-export type AgentCategory = "cafes" | "exploration";
-export const AGENT_CATEGORIES: readonly AgentCategory[] = ["cafes", "exploration"];
+// A use case (its rules live in mappal_rule "usecase:<name>"): "cafes", "exploration", or any added later.
+export type AgentCategory = string;
 
 export type OsmTags = Record<string, string>;
 
@@ -61,8 +61,7 @@ export interface Zone {
 
 export interface Caps {
   tokens: number; // content the server hands the agent (text + images), estimated tokens
-  cafes: number; // places looked at closely
-  exploration: number;
+  places: number; // places sent to the agent in one pull (all use cases)
   pages: number; // fetch_page calls
   images: number; // images sent (photos + menus)
   googleDetails: number;
@@ -78,7 +77,7 @@ export interface Counters {
   images: number;
   googleDetails: number;
   googlePhotos: number;
-  served: Record<AgentCategory, number>;
+  served: Record<string, number>; // per use case
   batches: number;
   reviews: number;
   kept: number;
@@ -92,7 +91,7 @@ export const emptyCounters = (): Counters => ({
   images: 0,
   googleDetails: 0,
   googlePhotos: 0,
-  served: { cafes: 0, exploration: 0 },
+  served: {},
   batches: 0,
   reviews: 0,
   kept: 0,
@@ -112,7 +111,7 @@ export interface PlanCategory {
 
 export interface Plan {
   zone: Zone;
-  categories: Record<AgentCategory, PlanCategory>;
+  categories: Record<string, PlanCategory>;
   estimate: Estimate;
   google: boolean; // Google key configured when planned
   country?: string; // ISO code from Nominatim

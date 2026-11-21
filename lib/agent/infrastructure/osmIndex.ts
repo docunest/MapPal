@@ -140,3 +140,15 @@ export async function indexSummary() {
   ]);
   return { cells, places: Object.fromEntries(places.map((p) => [p.layer, p._count])) };
 }
+
+/** The index cells around a circle: state, age, count, box — for the Browse map and the reindex buttons. */
+export async function cellsAround(c: LatLng, radiusKm: number) {
+  const cells = cellsForCircle({ ...c, radiusM: radiusKm * 1000 });
+  const states = await cellStates(cells);
+  return cells.map((g) => {
+    const r = states.get(g);
+    const ageDays = r ? Math.round((Date.now() - r.fetchedAt.getTime()) / 86_400_000) : null;
+    const status = !r ? "missing" : r.status !== "ok" ? "failed" : ageDays! >= CELL_FRESH_DAYS ? "stale" : "ok";
+    return { geohash: g, status, count: r?.count ?? 0, fetchedAt: r?.fetchedAt.toISOString() ?? null, ageDays, error: r?.error ?? null, box: cellBox(g) };
+  });
+}

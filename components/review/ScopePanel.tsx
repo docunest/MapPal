@@ -42,6 +42,7 @@ export function ScopePanel({
   voter,
   status,
   onPickPin,
+  useCases,
 }: {
   scope: ScopeUi;
   onChange: (s: ScopeUi) => void;
@@ -49,6 +50,7 @@ export function ScopePanel({
   voter: string;
   status: { inArea: number; left: number; mine: Record<string, number>; index: string; centerLabel: string };
   onPickPin: () => void;
+  useCases: Array<{ key: string; title: string }>;
 }) {
   const set = (patch: Partial<ScopeUi>) => onChange({ ...scope, ...patch });
   const others = voters.filter((v) => v !== voter);
@@ -64,7 +66,7 @@ export function ScopePanel({
       <div>
         <div className="mb-1 text-xs font-medium text-neutral-500">Kind</div>
         <div className="flex flex-wrap gap-1">
-          {Object.entries(CATEGORY_LABEL).map(([k, label]) => {
+          {(useCases.length ? useCases.map((u) => [u.key, u.title] as const) : Object.entries(CATEGORY_LABEL)).map(([k, label]) => {
             const on = scope.categories.includes(k);
             return (
               <button key={k} type="button" onClick={() => set({ categories: on ? scope.categories.filter((c) => c !== k) : [...scope.categories, k] })} className={`rounded-full border px-3 py-1 text-sm ${on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>

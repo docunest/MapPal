@@ -3,6 +3,20 @@
 Newest on top. Each entry: date, task, what changed (commits), evidence
 (screenshots/data), blockers, questions for the owner.
 
+## 2026-11-21 — Brief pipeline, place index, location from all hints, debug + budget, one app with three modes
+
+- **Task:** INBOX "Agent fixes after the owner's review" and "Brief pipeline + one app".
+- **What changed:**
+  - Location: every hint weighted by source and age (halved every 12 h), outliers set aside (impossible driving), owner pin on top, history kept; `get_travel_state` shows each hint and why it was used or not; `set_location`.
+  - Place index: OpenStreetMap stored per geohash-4 cell (≈ 30 × 20 km), refreshed after 30 days; previews read the database (0.15 s for Caldas); `index_area` and the Browse buttons ("Index missing & stale", "Reindex everything here").
+  - Brief pipeline: versioned layers (`mappal_rule*`), use-case rules as data (`domain/profile.ts`), negative list, pages, briefs stored with layer versions and hashes (`mappal_brief`), free facts cached (`mappal_place_facts`); tools `preview_briefs` → `get_briefs` → `submit_results`; rules tools `get_rules` / `rule_history` / `update_rule` / `restore_rule`; REST twin `/api/agent/v1/<tool>`. The old plan_run / next_batch flow is gone.
+  - Tokens issued in the app (`mappal_agent_token`, hash only); the token posted in chat no longer works.
+  - Every step logged under one id (`mappal_agent_event`); pull page "Under the hood" map + timeline; `/agent/debug` (index cells + location hints); `/agent/budget` (measured only: tokens served, Claude transcript tokens via the skill's `usage.mjs`, /usage %).
+  - `/review` = one web app: Config (layers, versions, restore, new use case, tokens), Browse (map + list + index/agent panel), Swipe.
+  - Upkeep: npm audit 0.
+- **Evidence:** `docs/evidence/pipeline/README.md` (phone + desktop screenshots, a real pull at Caldas da Rainha, a rule change by the agent and its effect). 154 tests, typecheck, lint, build pass.
+- **Not proven:** on Vercel and the owner's iPhone (local build here); the weekly % (needs /usage from the owner's Claude Code); Google enrichment (no key here); Overpass speed from Vercel (the index makes it one-off per cell).
+
 ## 2026-11-21 — Review app `/review` + Caldas da Rainha run
 
 - **Task:** INBOX "Review app"; and the owner's "Run for Caldas da Rainha" (run in this session's local copy — the live address isn't in the repo).

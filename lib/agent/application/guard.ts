@@ -15,13 +15,13 @@ export async function loadRun(id: unknown): Promise<RunRow> {
 
 /** Spending calls need a started, uncapped run. */
 export function assertSpending(run: RunRow) {
-  if (run.status === "planned") throw new RunError("This run is still a dry run: show the plan to the owner, wait for a yes, then call start_run with owner_approved=true.");
+  if (run.status === "planned") throw new RunError("This run never started.");
   if (run.status === "capped") throw new RunError(`CAP HIT earlier (${run.cappedBy}). Stop: submit reviews for what you have seen, then call finish_run.`);
   if (run.status !== "running") throw new RunError(`Run is ${run.status}; nothing more can be spent on it.`);
 }
 
 export const spentLine = (c: Counters, caps: RunRow["caps"]) =>
-  `Spent so far: ${c.tokens}/${caps.tokens} tokens (text ${c.textTokens}, images ${c.imageTokens}) · pages ${c.pages}/${caps.pages} · images ${c.images}/${caps.images} · Google details ${c.googleDetails}/${caps.googleDetails}, photos ${c.googlePhotos}/${caps.googlePhotos} · checked ${c.served.cafes}/${caps.cafes} cafes, ${c.served.exploration}/${caps.exploration} exploration.`;
+  `Spent so far: ${c.tokens}/${caps.tokens} tokens (text ${c.textTokens}, images ${c.imageTokens}) · pages ${c.pages}/${caps.pages} · images ${c.images}/${caps.images} · Google details ${c.googleDetails}/${caps.googleDetails}, photos ${c.googlePhotos}/${caps.googlePhotos} · places ${Object.values(c.served).reduce((s, n) => s + n, 0)}/${caps.places} (${Object.entries(c.served).map(([k, n]) => `${k} ${n}`).join(", ")}).`;
 
 /** Stop the run at a cap — it never quietly carries on (design doc Phase 0 step 2). */
 export async function capRun(run: RunRow, cap: CapName, counters: Counters): Promise<string> {

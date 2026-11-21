@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-21 — Brief pipeline: layers charter / output format / location / use-case rules / known places / places to judge; use-case filters are data (versioned rules), not code; the agent's rule changes take effect at once and any version can be restored (agent's recommendation, owner said "Build pipeline" without choosing); one app /review with Config, Browse, Swipe — owner.
 - 2026-11-21 — Agent: location = weighted, decaying hints with an outlier check and the owner's pin on top; place index stored per geohash-4 cell (30-day refresh) instead of live Overpass per run; tokens issued in the app (the one posted in chat is dead); budget log shows measured numbers only (served tokens, Claude transcript tokens, /usage %); every step logged under the run id and drawn on a debug map; merging without asking is fine — owner.
 - 2026-11-21 — Review app: four votes (like / undecided / don't like / never), per name handle; default pool = agent picks, wider on request; desktop = the same page, wide layout (no separate desktop app — one web app per hard rules); "been here" = a car GPS fix within 75 m — owner's request + agent defaults.
 - 2026-11-21 — Hybrid agent Phase 0 built as planned (owner: "Build"): server does the free lookups and enforces caps, Claude Code with the MCP connector judges; weekly % measured with the owner's `/usage` before/after; Google content passed to the agent live, never stored.

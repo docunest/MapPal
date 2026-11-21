@@ -27,6 +27,29 @@ Routes: `app/api/agent/mcp/[token]` (connector), `app/api/agent/reviews/[id]`
 `mappal_agent_review`, `mappal_agent_tile`, `mappal_travel_fix` (RLS on).
 Places also land in `mappal_poi` (position, ids, the agent's labels).
 
+## The brief pipeline
+
+The agent's work is a **brief**: six layers, each built only from stored data
+(same inputs → same text and hash), every brief recording the versions and
+hashes it used (`mappal_brief`).
+
+1. **Charter** — the master rules (versioned, `mappal_rule` "charter").
+2. **Output format** — the JSON the agent returns ("output-format"; the server checks it with `domain/review.ts`).
+3. **Location** — the best guess and the zone (from the hints and the place index).
+4. **Use case** — what the family wants (text) + the rules as data (`domain/profile.ts`: select / drop / score / page size …), one per use case ("usecase:cafes", "usecase:exploration", more can be added).
+5. **Known places** — the negative list: everything of this use case in the area already judged (any time) or in an open brief (24 h); same name within the rule's dedupe distance counts as the same place. "More" = pull again → the next page.
+6. **Places to judge** — the next page after the rules and the negative list, with facts (OSM, Wikipedia/Commons cached 30 days; Google live, never stored) and one photo each.
+
+Connector tools: `get_travel_state`, `set_location`, `index_area`, `preview_briefs` (free) →
+owner's yes → `get_briefs` (every brief at once) → `submit_results` → `finish_run`; plus
+`fetch_page`, `fetch_image`, `get_run`, and the rules: `get_rules`, `rule_history`,
+`update_rule` (a new version, with a note; takes effect at once), `restore_rule`.
+The same tools over REST: `POST /api/agent/v1/<tool>` with `Authorization: Bearer <token>`.
+
+People manage the same rules on `/review` → **Config** (edit, history, restore,
+new use case, tokens). **Browse** shows what's indexed and judged on a map and
+list (votes per person) and has the reindex buttons; **Swipe** is the cards.
+
 ## Location: every hint, one best guess
 
 `get_travel_state` (and the review app's "Best guess") combine every hint:
@@ -91,6 +114,6 @@ Google content goes to the agent live and is never stored here.
 ## Is it alive?
 
 - `POST /api/agent/mcp/<token>` with `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
-  → 11 tools; a wrong token → 401.
+  → 14 tools; a wrong token → 401.
 - `/agent/debug` shows the index cells and the location hints.
 - Tests: `node --import tsx --test test/agent.test.ts`.

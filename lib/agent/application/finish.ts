@@ -1,7 +1,6 @@
 // finish_run and the cost log (design doc Phase 0 steps 5 and 7): what the
 // run spent, what it kept, and the pass test (< 5 % of the weekly
 // allowance, most kept places real and relevant).
-import { AGENT_CATEGORIES } from "../domain/types";
 import { logEvent } from "../infrastructure/events";
 import { markTiles, reviewsOf, updateRun, type RunRow } from "../infrastructure/repo";
 import { loadRun, RunError } from "./guard";
@@ -49,9 +48,9 @@ export function costLog(run: RunRow, reviews: ReviewRow[]): CostLog {
   const found: Record<string, number> = {};
   const checked: Record<string, number> = {};
   const keptBy: Record<string, number> = {};
-  for (const cat of AGENT_CATEGORIES) {
+  for (const cat of Object.keys(run.plan.categories)) {
     found[cat] = run.plan.categories[cat].found;
-    checked[cat] = c.served[cat];
+    checked[cat] = c.served[cat] ?? 0;
     keptBy[cat] = kept.filter((r) => r.category === cat).length;
   }
   const weeklyPct = run.usageBeforePct !== null && run.usageAfterPct !== null ? Math.round((run.usageAfterPct - run.usageBeforePct) * 10) / 10 : null;
@@ -88,7 +87,7 @@ export function costLog(run: RunRow, reviews: ReviewRow[]): CostLog {
 }
 
 export function costText(log: CostLog): string {
-  const cats = AGENT_CATEGORIES.map((cat) => `${cat}: ${log.found[cat]} on the map → ${log.checked[cat]} checked → ${log.kept[cat]} kept`).join("; ");
+  const cats = Object.keys(log.found).map((cat) => `${cat}: ${log.found[cat]} on the map → ${log.checked[cat]} checked → ${log.kept[cat]} kept`).join("; ");
   const lines = [
     `Status: ${log.status}${log.cappedBy ? ` (${log.cappedBy})` : ""}.`,
     `${cats}. ${log.real}/${log.reviews} reviewed places rated real by the agent.`,
@@ -123,7 +122,7 @@ export async function finishRun(
   const reviews = await reviewsOf(run.id);
   // Tile status: indexed when every candidate of the category in that tile was checked and nothing was over the cap.
   const tiles: Parameters<typeof markTiles>[1] = [];
-  for (const cat of AGENT_CATEGORIES) {
+  for (const cat of Object.keys(run.plan.categories)) {
     const pc = run.plan.categories[cat];
     const byTile = new Map<string, { all: number; checked: number; kept: number }>();
     for (const cand of pc.candidates) {

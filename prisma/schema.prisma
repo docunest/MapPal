@@ -623,6 +623,7 @@ model AgentReview {
   runId         String
   run           AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
   candidate     String // "c3" / "e2" in the run's plan
+  briefId       String? // the brief it answered (pipeline runs)
   category      String // "cafes" | "exploration"
   osmRef        String
   googlePlaceId String?
@@ -728,6 +729,72 @@ model AgentToken {
   revokedAt  DateTime?
 
   @@map("mappal_agent_token")
+}
+
+// --- Brief pipeline: versioned layers and the briefs built from them ------
+// A brief = charter + output format + location + use-case rules + known
+// places (negative list) + places to judge. Charter, format and use-case
+// rules are versioned here (people on /review → Config, agents with
+// update_rule); every brief records which versions and hashes it used.
+model Rule {
+  id             String        @id @default(cuid())
+  slug           String        @unique // "charter", "output-format", "usecase:cafes"
+  layer          String // charter | format | usecase
+  title          String
+  currentVersion Int
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  versions       RuleVersion[]
+
+  @@map("mappal_rule")
+}
+
+model RuleVersion {
+  id        String   @id @default(cuid())
+  ruleId    String
+  rule      Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  version   Int
+  body      String // the text the agent reads
+  config    Json? // use-case rules as data (lib/agent/domain/profile.ts)
+  hash      String // sha256 of body + config, first 12 hex
+  createdBy String // a person's name or "agent:<token name>"
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([ruleId, version])
+  @@map("mappal_rule_version")
+}
+
+model Brief {
+  id          String    @id // "brf_…"
+  runId       String // the pull it was part of (correlation id)
+  useCase     String
+  page        Int
+  status      String // open | submitted
+  layers      Json // { charter: {version, hash}, format: …, location: {hash}, usecase: …, known: {hash, count} }
+  area        Json // target, zone circles
+  candidates  Json // [{id, osmRef, name}]
+  excluded    Int
+  hash        String // of the whole brief text
+  tokens      Int
+  agent       String
+  createdAt   DateTime  @default(now())
+  submittedAt DateTime?
+
+  @@index([runId])
+  @@index([useCase, createdAt])
+  @@map("mappal_brief")
+}
+
+// Free facts about a place (Wikipedia lead, the Commons/website photo link),
+// kept 30 days so the same brief reads the same. Google content is never
+// stored here (Google's terms).
+model PlaceFacts {
+  osmRef    String   @id
+  facts     Json
+  fetchedAt DateTime
+
+  @@map("mappal_place_facts")
 }
 
 // Where the family is / is heading, from sources that aren't stored

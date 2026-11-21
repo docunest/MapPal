@@ -2,6 +2,7 @@
 // Google Places when the key is set (capped, free tier), Wikipedia and
 // Commons for exploration, the place's own website photo as a fallback.
 // Every lookup is a source fact; none of it is AI.
+import { prisma } from "@/lib/db";
 import { googleAgentDetails, googlePhotoMedia } from "@/lib/sources/google";
 import { envPresent } from "@/lib/env";
 import { sourceContext } from "@/lib/sources/runtime";
@@ -77,7 +78,24 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
     }
   }
 
-  if (c.category === "exploration") {
+  // Free facts (Wikipedia, the Commons/website photo link) are kept 30 days so the same brief reads the same.
+  const cached = await prisma.placeFacts.findUnique({ where: { osmRef: c.osmRef } }).catch(() => null);
+  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < 30 * 86_400_000 ? (cached.facts as CachedFacts) : null;
+  if (fresh) {
+    if (fresh.wiki) e.wiki = fresh.wiki;
+    if (fresh.photo && allow.images) {
+      try {
+        image = await fetchImage(fresh.photo.url);
+        e.photo = { ...fresh.photo, width: image.width, height: image.height };
+      } catch (err) {
+        e.notes.push(`photo failed: ${msg(err)}`);
+      }
+    }
+    for (const n of fresh.notes ?? []) e.notes.push(n);
+    return { enrichment: e, image, googlePlaceId, spent };
+  }
+
+  if (c.category === "exploration" || c.tags.wikidata || c.tags.wikipedia) {
     const w = await wikiFor(c);
     if (w.wiki) e.wiki = w.wiki;
     if (w.note) e.notes.push(w.note);
@@ -133,5 +151,16 @@ export async function enrich(c: Candidate, allow: Allowance, lang: string): Prom
       e.notes.push(`website failed: ${msg(err)}`);
     }
   }
+  // Remember the free facts (never Google's).
+  const keep: CachedFacts = { wiki: e.wiki, photo: e.photo && e.photo.source !== "google" && e.photo.url ? { source: e.photo.source, url: e.photo.url, page: e.photo.page, credit: e.photo.credit } : undefined, notes: e.notes.filter((n) => /menu links|no preview photo|website photo skipped/.test(n)) };
+  await prisma.placeFacts
+    .upsert({ where: { osmRef: c.osmRef }, create: { osmRef: c.osmRef, facts: keep as object, fetchedAt: new Date() }, update: { facts: keep as object, fetchedAt: new Date() } })
+    .catch(() => undefined);
   return { enrichment: e, image, googlePlaceId, spent };
+}
+
+interface CachedFacts {
+  wiki?: Enrichment["wiki"];
+  photo?: { source: "commons" | "website"; url: string; page?: string; credit?: string };
+  notes?: string[];
 }

@@ -1,86 +1,81 @@
-// MapPal agent MCP server, Phase 0 (docs/PLAN.md → "Hybrid agent backend —
-// Phase 0"). Connector URL: /api/agent/mcp/<agent token> (Claude connectors
-// can't add headers). One token per agent (infrastructure/auth.ts).
+// MapPal agent connector (MCP, and the same tools over REST at
+// /api/agent/v1/<tool>). Token per agent (infrastructure/auth.ts).
+// Pipeline: preview_briefs → owner's yes → get_briefs (every task at once) →
+// submit_results → finish_run. Rules (charter, output format, use cases) are
+// read and changed here too; every change is a stored version.
 import { z } from "zod";
 import { serveMcp, textResult, type McpContent, type McpResult, type McpServerDef, type McpTool } from "@/lib/mcp/server";
 import { reviewsSchema } from "../domain/review";
+import { profileSchema } from "../domain/profile";
 import { agentFromToken } from "../infrastructure/auth";
+import { newCorrelationId } from "../infrastructure/events";
+import { indexArea } from "../infrastructure/osmIndex";
+import { currentRule, listRules, restoreRule, ruleHistory, RuleError, saveRule } from "../infrastructure/rules";
+import { previewBriefs, pullBriefs, submitResults, type BriefArgs } from "./briefs";
 import { finishRun, runStatus } from "./finish";
 import { RunError } from "./guard";
-import { planRun } from "./planRun";
-import { fetchImageForAgent, fetchPageForAgent, nextBatch, startRun, submitReviews, type AgentReply } from "./runFlow";
+import { fetchImageForAgent, fetchPageForAgent, type AgentReply } from "./runFlow";
 import { getTravelState, setLocation, travelText } from "./travel";
-import { indexArea } from "../infrastructure/osmIndex";
-import { newCorrelationId } from "../infrastructure/events";
 
-const INFO = { name: "mappal-agent", title: "MapPal place agent (Phase 0 cost test)", version: "0.1.0" };
+const INFO = { name: "mappal-agent", title: "MapPal place agent", version: "0.3.0" };
 
-const INSTRUCTIONS = `MapPal: a family (two adults, teenagers, a 6-year-old, a dog) living in a camper van in Spain and Portugal. Phase 0 is a COST TEST: check cafes and exploration spots around their latest known location, and log what it costs.
-Flow: 1) ask the owner for their Claude weekly usage % (/usage) BEFORE you start; 2) get_travel_state — check the hints; if the owner says otherwise, set_location; 3) plan_run = dry run, free (it fills the place index around the target if needed; for a bigger area use index_area first); 4) show the plan to the owner and WAIT for a yes; 5) start_run(owner_approved=true); 6) next_batch("cafes") → submit_reviews, repeat; then the same for "exploration"; 7) ask the owner for /usage AFTER and run the skill's usage.mjs --since <start time> for your own token use; 8) finish_run with both; tell the owner the cost line and the run page link.
-Hard rules: the server counts everything it sends you and stops you at the caps ("CAP HIT"): then stop, submit reviews for what you saw, finish_run, report. Never work around a cap. fetch_page/fetch_image only when it changes a verdict or adds a menu/price for a place you keep. Summaries in your own words (don't copy Google review text). Your verdicts are AI output and are shown as such.`;
+const INSTRUCTIONS = `MapPal checks places for a family living in a camper van in Spain and Portugal. You judge; the server does the free work (place index, rules, location) and counts what you cost.
+Flow: 1) ask the owner for their Claude weekly usage % (/usage); note the time. 2) get_travel_state — check the location hints; set_location if the owner says otherwise. 3) preview_briefs (free) — show it to the owner, WAIT for a yes. 4) get_briefs(owner_approved=true) — every brief at once: charter, output format, location, then per use case its rules, the known places (never return those) and the places to judge. 5) submit_results per brief. 6) ask for /usage again; run the skill's usage.mjs --since <time>; finish_run with both. Tell the owner the cost line and the pull page.
+"More" in the same area = just call preview_briefs/get_briefs again: places already judged are excluded automatically.
+Rules: get_rules, rule_history, update_rule (stored as a new version with your note; the owner can restore any version), restore_rule.
+The server stops you at caps ("CAP HIT"): stop, submit what you have, finish_run. Your verdicts are AI output and are shown as such.`;
 
-const runId = { type: "string", description: "Run id from plan_run" };
-const reviewsJson = z.toJSONSchema(reviewsSchema) as Record<string, unknown>;
+const runId = { type: "string", description: "Pull id (run_…) from get_briefs" };
+const where = {
+  lat: { type: "number" },
+  lng: { type: "number" },
+  label: { type: "string", description: "Name for a given point" },
+  use_cases: { type: "array", items: { type: "string" }, description: "Default: all use cases (get_rules lists them)" },
+  page_size: { type: "number", description: "Places per use case (default from its rules)" },
+};
 
 const TOOLS: McpTool[] = [
-  { name: "get_travel_state", title: "Where is the family?", description: "Best guess of the family's position from every hint (car GPS log, car route requests, car bookmarks, links shared from a phone, the owner's pin, stops), with each hint, its weight and whether it was used or set aside (too old, outlier); the destinations; and the point plan_run will use.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
-  {
-    name: "set_location",
-    title: "Pin where the family is",
-    description: "Record the family's position as the owner told you (outranks every other hint, fades over a day like the others). Returns the new travel state.",
-    inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, label: { type: "string" } }, required: ["lat", "lng"] },
-  },
-  {
-    name: "index_area",
-    title: "Fill the place index for an area",
-    description: "Reads OpenStreetMap for every missing or stale (> 30 days) cell (≈ 30 × 20 km) within radius_km of a point and stores it, nearest first, for up to ~90 s per call. Free. Call again until 'missing' is 0. Without lat/lng it uses the travel-state target.",
-    inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number", description: "default 30, max 150" }, refresh: { type: "boolean", description: "fetch again even if fresh" } } },
-  },
-  {
-    name: "plan_run",
-    title: "Dry run: plan a cost test",
-    description: "Free (OpenStreetMap + cache only). Picks the stop zone (campsite + 2–3 towns) from the travel state — or from lat/lng if given — finds cafes and exploration spots, drops obvious misses by rule, skips places reviewed in the last 30 days, and estimates the cost. Creates a run in 'planned' state. Show the result to the owner and wait for a yes.",
-    inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, label: { type: "string", description: "Name for a given point" } } },
-  },
-  { name: "start_run", title: "Start the run (after the owner's yes)", description: "Moves a planned run to running. Only after the owner approved the dry run.", inputSchema: { type: "object", properties: { run_id: runId, owner_approved: { type: "boolean" } }, required: ["run_id", "owner_approved"] } },
-  {
-    name: "next_batch",
-    title: "Next places to judge",
-    description: "The next few candidates of a category, best first: a compact fact sheet each (OSM, Google if configured, Wikipedia) and one photo each. Counted against the caps.",
-    inputSchema: { type: "object", properties: { run_id: runId, category: { type: "string", enum: ["cafes", "exploration"] } }, required: ["run_id", "category"] },
-  },
-  { name: "fetch_page", title: "Read a web page (counted)", description: "A page as plain text (≤ 8,000 characters) plus menu links and images found on it. Counts as one page and its tokens. Use for a kept place's menu/prices or a recency check.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
-  { name: "fetch_image", title: "Look at one image (counted)", description: "One image by URL (e.g. a menu photo from fetch_page). Counts as one image and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
-  {
-    name: "submit_reviews",
-    title: "Save verdicts",
-    description: "Your verdicts for places from next_batch (ids like c3, e2): real/fake/stale, confidence, relevant, keep, a short summary in your own words, evidence; plus vibe/availability/food tags/prices for cafes and access/parking/safety for exploration. Re-submitting an id replaces it.",
-    inputSchema: { type: "object", properties: { run_id: runId, reviews: reviewsJson }, required: ["run_id", "reviews"] },
-  },
+  { name: "get_travel_state", title: "Where is the family?", description: "Best guess of the family's position from every hint (car GPS log, car route requests, car bookmarks, links shared from a phone, the owner's pin, stops), each hint with its weight and whether it was used; destinations; the target briefs will use.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
+  { name: "set_location", title: "Pin where the family is", description: "Record the position the owner told you (outranks every other hint). Returns the new travel state.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, label: { type: "string" } }, required: ["lat", "lng"] } },
+  { name: "index_area", title: "Fill the place index", description: "Reads OpenStreetMap for missing or stale (> 30 days) cells (≈ 30 × 20 km) within radius_km, nearest first, ~90 s per call. Free. Call again until 0 missing. refresh=true re-reads fresh cells too.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number" }, refresh: { type: "boolean" } } } },
+  { name: "preview_briefs", title: "Preview (free)", description: "What a pull would contain: zone, per use case how many places are in the index, dropped by the rules, already known, on this page, left for later; layer versions and hashes. Nothing is spent. Show to the owner and wait for a yes.", inputSchema: { type: "object", properties: where } },
+  { name: "get_briefs", title: "Get every brief at once", description: "After the owner's yes: the full tasks — shared layers once (charter, output format, location), then per use case: its rules, the known places (negative list), the places to judge with facts and one photo each. Counted against the caps. Same arguments as preview_briefs.", inputSchema: { type: "object", properties: { ...where, owner_approved: { type: "boolean" } }, required: ["owner_approved"] } },
+  { name: "submit_results", title: "Submit verdicts for a brief", description: "Results for places of one brief (ids like c3, e2), in the output-format layer's shape, ≤ 20 per call. Re-submitting an id replaces it.", inputSchema: { type: "object", properties: { brief_id: { type: "string" }, results: z.toJSONSchema(reviewsSchema) as Record<string, unknown> }, required: ["brief_id", "results"] } },
+  { name: "fetch_page", title: "Read a web page (counted)", description: "A page as plain text (≤ 8,000 characters) plus menu links and images. Counts as one page and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
+  { name: "fetch_image", title: "Look at one image (counted)", description: "One image by URL (e.g. a menu photo). Counts as one image and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
   {
     name: "finish_run",
-    title: "Finish and log the cost",
-    description: "Closes the run, marks the tiles, and returns the cost log with the pass test. Pass the owner's Claude weekly usage % from /usage before and after the run.",
+    title: "Finish the pull and log the cost",
+    description: "Closes the pull and returns the measured cost log: tokens served, Claude's own tokens (from usage.mjs), the owner's /usage % before and after.",
     inputSchema: {
       type: "object",
       properties: {
         run_id: runId,
         usage_before_pct: { type: "number" },
         usage_after_pct: { type: "number" },
-        claude_input_tokens: { type: "number", description: "From the skill's usage.mjs (this session's transcript, since the run started)" },
+        claude_input_tokens: { type: "number" },
         claude_output_tokens: { type: "number" },
         claude_cache_read_tokens: { type: "number" },
         claude_cache_write_tokens: { type: "number" },
-        model: { type: "string", description: "Model you ran on" },
-        notes: { type: "string", description: "Yield report: what was worth it, what wasn't and why" },
+        model: { type: "string" },
+        notes: { type: "string", description: "Yield report: what was worth it, what wasn't and why (a rule to change?)" },
       },
       required: ["run_id"],
     },
   },
-  { name: "get_run", title: "Cost log so far", description: "The run's counters, kept places and pass test so far.", inputSchema: { type: "object", properties: { run_id: runId }, required: ["run_id"] }, annotations: { readOnlyHint: true } },
+  { name: "get_run", title: "Cost log so far", description: "A pull's counters, kept places and pass test so far.", inputSchema: { type: "object", properties: { run_id: runId }, required: ["run_id"] }, annotations: { readOnlyHint: true } },
+  { name: "get_rules", title: "Read the rules", description: "Without slug: every layer (charter, output-format, usecase:<name>) with its current version and hash. With slug: its full text and, for a use case, its rules as JSON (select / drop / score …).", inputSchema: { type: "object", properties: { slug: { type: "string" } } }, annotations: { readOnlyHint: true } },
+  { name: "rule_history", title: "Rule versions", description: "Every version of one layer: number, hash, who, when, why.", inputSchema: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] }, annotations: { readOnlyHint: true } },
+  {
+    name: "update_rule",
+    title: "Change a rule (new version)",
+    description: "Saves a new version of a layer — body (the text) and, for a use case, config (the JSON rules, the whole object; see get_rules for the current one and its format). A new slug usecase:<name> adds a use case. note (why) is required. Takes effect for the next preview; the owner can restore any version.",
+    inputSchema: { type: "object", properties: { slug: { type: "string" }, body: { type: "string" }, config: z.toJSONSchema(profileSchema) as Record<string, unknown>, title: { type: "string" }, note: { type: "string" } }, required: ["slug", "note"] },
+  },
+  { name: "restore_rule", title: "Restore a rule version", description: "Makes an earlier version current again (saved as a new version).", inputSchema: { type: "object", properties: { slug: { type: "string" }, version: { type: "number" } }, required: ["slug", "version"] } },
 ];
 
-interface Ctx {
+export interface AgentCtx {
   agent: string;
   baseUrl: string;
 }
@@ -95,7 +90,16 @@ function toResult(r: AgentReply): McpResult {
   return { content, isError: false };
 }
 
-async function call(name: string, args: Record<string, unknown>, ctx: Ctx): Promise<McpResult> {
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const briefArgs = (a: Record<string, unknown>): BriefArgs => ({
+  lat: num(a.lat),
+  lng: num(a.lng),
+  label: typeof a.label === "string" ? a.label : undefined,
+  use_cases: Array.isArray(a.use_cases) ? a.use_cases.filter((x): x is string => typeof x === "string") : undefined,
+  page_size: num(a.page_size),
+});
+
+export async function callAgentTool(name: string, args: Record<string, unknown>, ctx: AgentCtx): Promise<McpResult> {
   try {
     switch (name) {
       case "get_travel_state":
@@ -114,24 +118,22 @@ async function call(name: string, args: Record<string, unknown>, ctx: Ctx): Prom
         const id = newCorrelationId();
         const p = await indexArea({ lat, lng }, radius, id, 90_000, args.refresh === true);
         return textResult(
-          `Index ${radius} km around ${lat.toFixed(4)},${lng.toFixed(4)} (job ${id}): ${p.cells} cells — ${p.fresh.length} already fresh, ${p.fetched.length} fetched now (${p.fetched.reduce((s, r) => s + r.count, 0)} places), ${p.failed.length} failed${p.failed.length ? ` (${p.failed.map((f) => `${f.cell}: ${f.error}`).join("; ")})` : ""}, ${p.missing.length} still missing${p.missing.length ? " — call index_area again" : ""}.\nDebug: ${ctx.baseUrl}/agent/debug?job=${id}`,
-          { job: id, ...p, fetched: p.fetched.map((f) => ({ cell: f.cell, count: f.count })) },
+          `Index ${radius} km around ${lat.toFixed(4)},${lng.toFixed(4)} (job ${id}): ${p.cells} cells — ${p.fresh.length} already fresh, ${p.fetched.length} fetched now (${p.fetched.reduce((s, r) => s + r.count, 0)} places), ${p.failed.length} failed${p.failed.length ? ` (${p.failed.map((f) => `${f.cell}: ${f.error}`).join("; ")})` : ""}, ${p.missing.length} still missing${p.missing.length ? " — call index_area again" : ""}.`,
+          { job: id, cells: p.cells, fresh: p.fresh.length, fetched: p.fetched.length, failed: p.failed.length, missing: p.missing.length },
         );
       }
-      case "plan_run": {
-        const { run, text } = await planRun(ctx.agent, { lat: num(args.lat), lng: num(args.lng), label: typeof args.label === "string" ? args.label : undefined });
-        return textResult(`${text}\nRun page (with the debug map): ${ctx.baseUrl}/agent/runs/${run.id}`, { run_id: run.id });
+      case "preview_briefs": {
+        const r = await previewBriefs(briefArgs(args));
+        return textResult(r.text, { preview: r.runId });
       }
-      case "start_run":
-        return toResult(await startRun(args.run_id, args.owner_approved));
-      case "next_batch":
-        return toResult(await nextBatch(args.run_id, args.category));
+      case "get_briefs":
+        return toResult(await pullBriefs({ ...briefArgs(args), owner_approved: args.owner_approved }, ctx.agent, ctx.baseUrl));
+      case "submit_results":
+        return toResult(await submitResults(args.brief_id, args.results, ctx.agent));
       case "fetch_page":
         return toResult(await fetchPageForAgent(args.run_id, args.url));
       case "fetch_image":
         return toResult(await fetchImageForAgent(args.run_id, args.url));
-      case "submit_reviews":
-        return toResult(await submitReviews(args.run_id, args.reviews, ctx.agent));
       case "finish_run": {
         const r = await finishRun(args, ctx.baseUrl);
         return textResult(r.text, r.log);
@@ -140,23 +142,58 @@ async function call(name: string, args: Record<string, unknown>, ctx: Ctx): Prom
         const r = await runStatus(args.run_id, ctx.baseUrl);
         return textResult(r.text, r.log);
       }
+      case "get_rules": {
+        if (typeof args.slug === "string" && args.slug) {
+          const r = await currentRule(args.slug);
+          return textResult(`${r.slug} v${r.version} · ${r.hash} (by ${r.createdBy}, ${r.createdAt.slice(0, 16)}${r.note ? `: ${r.note}` : ""})\n\n${r.body}${r.config ? `\n\nconfig:\n${JSON.stringify(r.config, null, 1)}` : ""}`, r);
+        }
+        const all = await listRules();
+        return textResult(all.map((r) => `${r.slug} — ${r.title} — v${r.version} · ${r.hash} (by ${r.createdBy})`).join("\n"), { rules: all.map((r) => ({ slug: r.slug, layer: r.layer, title: r.title, version: r.version, hash: r.hash, createdBy: r.createdBy, note: r.note, createdAt: r.createdAt })) });
+      }
+      case "rule_history": {
+        const h = await ruleHistory(String(args.slug ?? ""));
+        return textResult(h.versions.map((v) => `${v.version === h.current ? "→" : " "} v${v.version} · ${v.hash} · ${v.createdBy} · ${v.createdAt.slice(0, 16)} · ${v.note ?? ""}`).join("\n"), h);
+      }
+      case "update_rule": {
+        const r = await saveRule(String(args.slug ?? ""), { body: typeof args.body === "string" ? args.body : undefined, config: args.config, title: typeof args.title === "string" ? args.title : undefined }, `agent:${ctx.agent}`, String(args.note ?? ""));
+        return textResult(`Saved ${r.slug} v${r.version} · ${r.hash}. It applies from the next preview_briefs.`, { slug: r.slug, version: r.version, hash: r.hash });
+      }
+      case "restore_rule": {
+        const r = await restoreRule(String(args.slug ?? ""), Number(args.version), `agent:${ctx.agent}`);
+        return textResult(`${r.slug} is now v${r.version} (a copy of v${args.version}) · ${r.hash}.`);
+      }
     }
     return textResult(`Unknown tool ${name}`, undefined, true);
   } catch (err) {
-    if (err instanceof RunError) return textResult(err.message, undefined, true);
+    if (err instanceof RunError || err instanceof RuleError) return textResult(err.message, undefined, true);
     throw err;
   }
 }
 
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const DEF: McpServerDef<AgentCtx> = { info: INFO, instructions: INSTRUCTIONS, tools: TOOLS, call: callAgentTool };
 
-const DEF: McpServerDef<Ctx> = { info: INFO, instructions: INSTRUCTIONS, tools: TOOLS, call };
+export function baseUrlOf(req: Request) {
+  const url = new URL(req.url);
+  return `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host}`;
+}
 
 export async function agentMcpHandler(req: Request, token: string | undefined): Promise<Response> {
   const agent = await agentFromToken(token);
-  const url = new URL(req.url);
-  const baseUrl = `${req.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "")}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? url.host}`;
-  return serveMcp(req, DEF, agent ? { agent, baseUrl } : null);
+  return serveMcp(req, DEF, agent ? { agent, baseUrl: baseUrlOf(req) } : null);
+}
+
+/** REST twin: POST /api/agent/v1/<tool> with the tool's arguments as JSON; Authorization: Bearer <token>. */
+export async function agentRestHandler(req: Request, tool: string): Promise<Response> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? undefined;
+  const agent = await agentFromToken(token);
+  if (!agent) return Response.json({ error: "Unauthorized: Authorization: Bearer <agent token>" }, { status: 401 });
+  if (!TOOLS.some((t) => t.name === tool)) return Response.json({ error: `Unknown tool ${tool}`, tools: TOOLS.map((t) => t.name) }, { status: 404 });
+  const args = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  try {
+    return Response.json(await callAgentTool(tool, args, { agent, baseUrl: baseUrlOf(req) }), { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
 }
 
 export const AGENT_TOOLS = TOOLS;

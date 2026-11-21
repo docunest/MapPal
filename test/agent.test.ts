@@ -8,14 +8,15 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_CAPS, capsFromEnv, estimate, imageTokens, textTokens, wouldBreak } from "../lib/agent/domain/caps";
-import { cafeRules } from "../lib/agent/domain/cafeRules";
 import { digestText } from "../lib/agent/domain/digest";
-import { exploreRules } from "../lib/agent/domain/exploreRules";
 import { geohash, tilesForCircle } from "../lib/agent/domain/geohash";
 import { pageText } from "../lib/agent/domain/html";
 import { imageSize } from "../lib/agent/domain/image";
 import { toThings } from "../lib/agent/domain/osm";
-import { buildPlan, planText, spread } from "../lib/agent/domain/plan";
+import { spread } from "../lib/agent/domain/plan";
+import { CAFES, EXPLORATION } from "../lib/agent/domain/defaults";
+import { condHolds, profileSchema, runProfile, type Profile } from "../lib/agent/domain/profile";
+import { knownLayer, locationLayer, usecaseLayer } from "../lib/agent/domain/brief";
 import { reviewsSchema } from "../lib/agent/domain/review";
 import { coordsInLogLine, isHereLink, travelState, type Fix } from "../lib/agent/domain/travelState";
 import { emptyCounters, type Candidate, type OsmThing } from "../lib/agent/domain/types";
@@ -26,12 +27,20 @@ import { serveMcp, textResult, type McpServerDef } from "../lib/mcp/server";
 
 const fixture = (name: string, kind: string) => JSON.parse(readFileSync(path.join(__dirname, "fixtures/agent", `${name}--${kind}.json`), "utf8"));
 
-function planFor(name: string, google = true) {
+// What get_briefs does before enrichment, on the captured data: zone → rules → negative list → page.
+function planFor(name: string, known = new Set<string>()) {
   const z = fixture(name, "zone");
   const zone = pickZone({ ...z.arg, label: name, source: "fixture" }, toThings(z.elements));
   const cafes = toThings(fixture(name, "cafes").elements);
   const exploration = toThings(fixture(name, "explore").elements);
-  return { zone, cafes, exploration, plan: buildPlan(zone, { cafes: { things: cafes }, exploration: { things: exploration } }, new Set(), DEFAULT_CAPS, google) };
+  const parkings = exploration.filter((t) => t.tags.amenity === "parking");
+  const run = (p: Profile, things: typeof cafes) => {
+    const r = runProfile(profileSchema.parse(p), things, zone, parkings);
+    const fresh = r.candidates.filter((c) => !known.has(c.osmRef));
+    const page = (p.spreadByTown ? spread(fresh, p.pageSize) : fresh.slice(0, p.pageSize)).map((c, i) => ({ ...c, id: `${p.idPrefix}${i + 1}` }));
+    return { ...r, page, rest: fresh.length - page.length };
+  };
+  return { zone, cafes, exploration, c: run(CAFES, cafes), e: run(EXPLORATION, exploration) };
 }
 
 test("geohash matches the reference encoding", () => {
@@ -64,12 +73,11 @@ test("no campsite nearby → the zone centres on the target and says so", () => 
   assert.equal(zone.cafeCircles.length, 1);
 });
 
-test("cafe rules drop fast food, chains, fancy and unnamed places, with the reason", () => {
-  const { zone, cafes } = planFor("peniche");
-  const r = cafeRules(cafes, zone);
-  assert.ok(r.dropped.some((d) => d.reason === "fast food"));
-  assert.ok(r.dropped.every((d) => d.reason));
-  assert.ok(!r.candidates.some((c) => c.kind === "fast_food"));
+test("cafe rules (as data) drop fast food, chains, fancy and unnamed places, with the reason", () => {
+  const { zone, c } = planFor("peniche");
+  assert.ok(c.dropped.some((d) => d.reason === "fast food"));
+  assert.ok(c.dropped.every((d) => d.reason));
+  assert.ok(!c.candidates.some((x) => x.kind === "fast_food"));
   const fake: OsmThing[] = [
     { ref: "node/1", lat: 39.357, lng: -9.379, tags: { amenity: "cafe", name: "Starbucks", brand: "Starbucks" } },
     { ref: "node/2", lat: 39.357, lng: -9.379, tags: { amenity: "restaurant", name: "Restaurante Gastronómico Mar" } },
@@ -77,49 +85,70 @@ test("cafe rules drop fast food, chains, fancy and unnamed places, with the reas
     { ref: "node/4", lat: 39.357, lng: -9.379, tags: { amenity: "bar", name: "Tasca do Zé", opening_hours: "Mo-Su 08:00-24:00" } },
     { ref: "node/5", lat: 39.357, lng: -9.379, tags: { "disused:amenity": "cafe", amenity: "cafe", name: "Old" } },
   ];
-  const f = cafeRules(fake, zone);
-  assert.deepEqual(f.candidates.map((c) => c.name), ["Tasca do Zé"]);
+  const f = runProfile(CAFES, fake, zone);
+  assert.deepEqual(f.candidates.map((x) => x.name), ["Tasca do Zé"]);
   assert.deepEqual(f.dropped.map((d) => d.reason.split(" (")[0]), ["chain", "fancy", "no name on the map", "marked closed on the map"]);
+  assert.equal(f.dropped[0].reason, "chain (Starbucks)");
 });
 
-test("Peniche dry run: 25 cafes spread over every town, 15 exploration spots, nothing spent", () => {
-  const { plan } = planFor("peniche");
-  const c = plan.categories.cafes;
+test("Peniche page 1: 25 cafes spread over every town, 15 exploration spots", () => {
+  const { c, e } = planFor("peniche");
   assert.equal(c.found, 128);
-  assert.equal(c.candidates.length, 25);
-  for (const town of ["Peniche", "Ferrel", "Serra d'El-Rei"]) assert.ok(c.candidates.some((x) => x.circle === town), town);
-  assert.deepEqual(c.candidates.map((x) => x.id).slice(0, 3), ["c1", "c2", "c3"]);
-  const e = plan.categories.exploration;
-  assert.equal(e.candidates.length, 15);
-  assert.equal(e.candidates[0].name, "Gruta da Furninha");
-  assert.ok(e.candidates.some((x) => /Forte|Fortaleza/.test(x.name)));
+  assert.equal(c.page.length, 25);
+  for (const town of ["Peniche", "Ferrel", "Serra d'El-Rei"]) assert.ok(c.page.some((x) => x.circle === town), town);
+  assert.deepEqual(c.page.map((x) => x.id).slice(0, 3), ["c1", "c2", "c3"]);
+  assert.equal(e.page.length, 15);
+  assert.equal(e.page[0].name, "Gruta da Furninha");
+  assert.ok(e.page.some((x) => /Forte|Fortaleza/.test(x.name)));
   assert.ok(e.dropped.some((d) => /access=private/.test(d.reason)));
-  assert.ok(plan.estimate.servedTokens <= DEFAULT_CAPS.tokens);
-  const text = planText("run1", plan, DEFAULT_CAPS);
-  assert.match(text, /DRY RUN, nothing spent yet/);
-  assert.match(text, /wait for a yes/);
+  assert.ok(e.page[0].parking && e.page[0].parking.distanceM < 300);
+});
+
+test("deterministic: same rules + same places → same page in the same order, whatever the input order", () => {
+  const a = planFor("peniche");
+  const z = fixture("peniche", "zone");
+  const zone = pickZone({ ...z.arg, label: "peniche", source: "fixture" }, toThings(z.elements));
+  const shuffled = [...toThings(fixture("peniche", "cafes").elements)].reverse();
+  const r = runProfile(CAFES, shuffled, zone);
+  assert.deepEqual(r.candidates.map((x) => x.osmRef), a.c.candidates.map((x) => x.osmRef));
 });
 
 test("Arenas de Cabrales: caves near the village; exploration stays inside 15 km", () => {
-  const { plan, zone } = planFor("arenas-de-cabrales", false);
-  const e = plan.categories.exploration.candidates;
-  assert.ok(e.filter((x) => x.kind === "cave").length >= 5);
-  for (const x of e) assert.ok(Math.hypot((x.lat - zone.explore.lat) * 111, (x.lng - zone.explore.lng) * 81) < 15.5);
-  assert.match(plan.notes.join(" "), /No Google key/);
+  const { e, zone } = planFor("arenas-de-cabrales");
+  assert.ok(e.page.filter((x) => x.kind === "cave").length >= 5);
+  for (const x of e.page) assert.ok(Math.hypot((x.lat - zone.explore.lat) * 111, (x.lng - zone.explore.lng) * 81) < 15.5);
+  assert.ok(e.dropped.some((d) => d.reason === "long-distance trail, not a spot"));
 });
 
-test("places reviewed in the last 30 days are not checked again (cache)", () => {
-  const { zone, cafes, exploration, plan } = planFor("peniche");
-  const first = plan.categories.cafes.candidates[0];
-  const again = buildPlan(zone, { cafes: { things: cafes }, exploration: { things: exploration } }, new Set([first.osmRef]), DEFAULT_CAPS, true);
-  assert.ok(again.categories.cafes.cached.includes(first.name));
-  assert.ok(!again.categories.cafes.candidates.some((c) => c.osmRef === first.osmRef));
+test("negative list: known places never come back; 'more' = the next places", () => {
+  const first = planFor("peniche");
+  const known = new Set(first.c.page.map((x) => x.osmRef));
+  const second = planFor("peniche", known);
+  assert.ok(!second.c.page.some((x) => known.has(x.osmRef)));
+  assert.equal(second.c.page.length, 25);
+  assert.equal(second.c.rest, first.c.rest - 25);
 });
 
-test("a failed OSM query is reported, not shown as an empty area", () => {
+test("brief layers: text and hashes depend only on their inputs", () => {
   const { zone } = planFor("peniche");
-  const p = buildPlan(zone, { cafes: { things: [], failed: "Overpass 504" }, exploration: { things: [] } }, new Set(), DEFAULT_CAPS, true);
-  assert.match(p.notes.join(" "), /cafes: OpenStreetMap query failed \(Overpass 504\)/);
+  const l1 = locationLayer(zone, "x ±1 km");
+  assert.equal(locationLayer(zone, "x ±1 km").hash, l1.hash);
+  assert.notEqual(locationLayer(zone, "y ±1 km").hash, l1.hash);
+  const k1 = knownLayer([{ name: "A", osmRef: "node/2" }, { name: "B", osmRef: "node/1" }]);
+  assert.equal(knownLayer([{ name: "B", osmRef: "node/1" }, { name: "A", osmRef: "node/2" }]).hash, k1.hash);
+  assert.match(k1.text, /never return these \(2/);
+  assert.match(usecaseLayer(CAFES, CAFES.criteria, { version: 3, hash: "abc" }, { found: 10, dropped: { "fast food": 2 } }), /rules v3 · abc[\s\S]*2 fast food/);
+});
+
+test("rule conditions: match / hasAny / missingAll / regex / kinds", () => {
+  assert.ok(condHolds({ match: { amenity: ["cafe", "bar"] } }, { amenity: "bar" }));
+  assert.ok(condHolds({ match: { name: "~^tasca" } }, { name: "Tasca do Zé" }));
+  assert.ok(!condHolds({ hasAny: ["brand"] }, { name: "x" }));
+  assert.ok(condHolds({ missingAll: ["wikidata"], noName: true }, { natural: "cave_entrance" }));
+  assert.ok(!condHolds({ kinds: ["cave"] }, {}, "mine"));
+  assert.ok(condHolds({ regex: { keys: ["cuisine"], pattern: "\\bfish\\b" } }, { cuisine: "fish;regional" }));
+  assert.ok(profileSchema.safeParse(CAFES).success && profileSchema.safeParse(EXPLORATION).success);
+  assert.ok(!profileSchema.safeParse({ ...CAFES, idPrefix: "Cafe1" }).success);
 });
 
 test("spread keeps every town's best three before filling by score", () => {
@@ -146,12 +175,11 @@ test("caps: a spend that would pass a cap names the cap", () => {
   assert.equal(capsFromEnv({ MAPPAL_AGENT_CAP_GOOGLE_DETAILS: "10" }).googleDetails, 10);
 });
 
-test("estimate stays within the token cap and counts no Google without a key", () => {
-  const e = estimate({ cafes: 25, exploration: 15 }, false, DEFAULT_CAPS);
+test("preview estimate stays within the token cap and counts no Google without a key", () => {
+  const e = estimate(40, 2, false, DEFAULT_CAPS);
   assert.equal(e.googleDetails, 0);
   assert.ok(e.servedTokens <= DEFAULT_CAPS.tokens);
-  const small = estimate({ cafes: 25, exploration: 15 }, true, { ...DEFAULT_CAPS, tokens: 10_000 });
-  assert.equal(small.servedTokens, 10_000);
+  assert.equal(estimate(40, 2, true, { ...DEFAULT_CAPS, tokens: 10_000 }).servedTokens, 10_000);
 });
 
 const at = (h: number) => new Date(Date.UTC(2026, 10, 21, h));
@@ -183,8 +211,8 @@ test("head-unit GPS log lines and 'here I am' links are recognised", () => {
 });
 
 test("digest: every line says its source; Google lines only when Google answered", () => {
-  const { plan } = planFor("peniche");
-  const c = { ...plan.categories.cafes.candidates[0] };
+  const { c: cafesPage } = planFor("peniche");
+  const c = { ...cafesPage.page[0] };
   const plain = digestText(c, { notes: ["website failed: HTTP 404"] });
   assert.match(plain, /^### c1 · /);
   assert.match(plain, /OSM: /);
@@ -282,14 +310,14 @@ test("exploration rules: spots ranked, private/unnamed/long-distance dropped, pa
     { ref: "node/2", ...p, tags: { historic: "ruins", name: "Molino", access: "private" } },
     { ref: "relation/3", ...p, tags: { route: "hiking", name: "European long distance path E9", wikidata: "Q2" } },
     { ref: "node/4", ...p, tags: { tourism: "viewpoint" } },
-    { ref: "node/5", lat: p.lat + 0.001, lng: p.lng, tags: { amenity: "parking", name: "Aparcamiento", fee: "no" } },
     { ref: "node/6", lat: zone.explore.lat + 0.5, lng: zone.explore.lng, tags: { natural: "cave_entrance", name: "Far away" } },
   ];
-  const r = exploreRules(things, zone);
+  const parking: OsmThing[] = [{ ref: "node/5", lat: p.lat + 0.001, lng: p.lng, tags: { amenity: "parking", name: "Aparcamiento", fee: "no" } }];
+  const r = runProfile(EXPLORATION, things, zone, parking);
   assert.deepEqual(r.candidates.map((c) => c.name), ["Cueva Test"]);
   assert.equal(r.candidates[0].parking?.name, "Aparcamiento");
   assert.ok(r.candidates[0].parking!.distanceM < 150);
-  assert.deepEqual(r.dropped.map((d) => d.reason), ["access=private on the map", "long-distance trail, not a spot", "no name on the map"]);
+  assert.deepEqual(r.dropped.map((d) => d.reason).sort(), ["access=private on the map", "long-distance trail, not a spot", "no name on the map"]);
 });
 
 // --- Location estimate, place-index cells (2026-11-21 evening) ---

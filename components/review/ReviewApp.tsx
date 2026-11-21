@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLocation } from "@/components/nearby/useLocation";
+import { BrowsePanel } from "./BrowsePanel";
+import { ConfigPanel } from "./ConfigPanel";
 import { PlaceCard } from "./PlaceCard";
 import { DEFAULT_SCOPE, ScopePanel, type ScopeUi } from "./ScopePanel";
 import { SwipeDeck } from "./SwipeDeck";
@@ -79,7 +81,13 @@ export function ReviewApp() {
   const [mapPlaces, setMapPlaces] = useState<ReviewPlace[]>([]);
   const [index, setIndex] = useState(0);
   const [history, setHistory] = useState<Array<{ place: ReviewPlace; prev: VoteValue | null }>>([]);
-  const [mode, setMode] = useState<"cards" | "map">("cards");
+  // Three modes: swipe (the cards), browse (map + list + index control), config (rules, tokens).
+  const [mode, setModeState] = useState<"swipe" | "browse" | "config">("swipe");
+  const setMode = (m: "swipe" | "browse" | "config") => {
+    setModeState(m);
+    save("review.mode", m);
+  };
+  const [useCases, setUseCases] = useState<Array<{ key: string; title: string }>>([]);
   const [panel, setPanel] = useState(false);
   const [picking, setPicking] = useState(false);
   const [selected, setSelected] = useState<ReviewPlace | null>(null);
@@ -97,12 +105,16 @@ export function ReviewApp() {
     setScopeState({ ...DEFAULT_SCOPE, ...store<Partial<ScopeUi>>("review.scope", {}) });
     setShow((s) => ({ ...s, ...store<Partial<MapShow>>("review.show", {}) }));
     setPending(store<QueuedVote[]>(QUEUE, []).length);
+    setModeState(store<"swipe" | "browse" | "config">("review.mode", "swipe"));
     if (v) setVoter(v);
     else setAskName(true);
     /* eslint-enable react-hooks/set-state-in-effect */
     loaded.current = true;
     fetch("/api/review/voters").then((r) => r.json()).then((d) => setVoters(d.voters ?? [])).catch(() => undefined);
-    fetch("/api/review/layers").then((r) => r.json()).then((d) => !d.error && setLayers(d)).catch(() => undefined);
+    fetch("/api/agent/rules")
+      .then((r) => r.json())
+      .then((d) => setUseCases((d.rules ?? []).filter((r: { layer: string }) => r.layer === "usecase").map((r: { config: { useCase: string }; title: string }) => ({ key: r.config.useCase, title: r.title }))))
+      .catch(() => undefined);
     flushQueue().then(setPending);
     const online = () => flushQueue().then(setPending);
     window.addEventListener("online", online);
@@ -122,6 +134,15 @@ export function ReviewApp() {
     if (car) return { lat: car.lat, lng: car.lng, label: `best guess: ${car.label} (no GPS on this device)` };
     return { ...LISBON, label: "Lisbon (no location yet)" };
   }, [scope.center, scope.pin, car, me]);
+
+  // Sent-to-car links, the place-index cells around the area, the travel best guess.
+  const [layersTick, setLayersTick] = useState(0);
+  useEffect(() => {
+    fetch(`/api/review/layers?lat=${center.lat}&lng=${center.lng}&r=${scope.radiusKm ?? 50}`)
+      .then((r) => r.json())
+      .then((d) => !d.error && setLayers(d))
+      .catch(() => undefined);
+  }, [center.lat, center.lng, scope.radiusKm, layersTick]);
 
   const query = useCallback(
     (mine: string) => {
@@ -202,7 +223,7 @@ export function ReviewApp() {
       const res = await fetch("/api/dock/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: p.name, lat: p.lat, lng: p.lng, from: `review (${voter})` }) });
       const d = await res.json().catch(() => ({}));
       setToast(res.ok && !d.error ? `🚐 ${p.name} sent to the car` : `Couldn't send: ${d.error ? JSON.stringify(d.error) : res.status}`);
-      fetch("/api/review/layers").then((r) => r.json()).then((x) => !x.error && setLayers(x)).catch(() => undefined);
+      setLayersTick((t) => t + 1);
     } catch {
       setToast("Couldn't send — no connection?");
     } finally {
@@ -252,7 +273,6 @@ export function ReviewApp() {
         setScope({ ...scope, center: "pin", pin: c });
         if (picking) {
           setPicking(false);
-          setMode("cards");
           setPanel(true);
         }
       }}
@@ -266,7 +286,7 @@ export function ReviewApp() {
           ["nope", `${VOTE_UI.nope.icon} Disliked`],
           ["never", `${VOTE_UI.never.icon} Never`],
           ["sent", "🚐 Sent to car"],
-          ["tiles", "▦ Agent tiles"],
+          ["tiles", "▦ Index cells"],
         ] as Array<[keyof MapShow, string]>
       ).map(([k, label]) => (
         <button
@@ -314,16 +334,24 @@ export function ReviewApp() {
         </button>
         <span className="ml-auto hidden text-xs text-neutral-500 sm:inline">{pending ? `${pending} vote${pending > 1 ? "s" : ""} waiting for signal` : ""}</span>
         {pending > 0 && <span className="ml-auto text-xs text-amber-700 sm:hidden" title="votes waiting for signal">⏳{pending}</span>}
-        <button type="button" onClick={() => setPanel((p) => !p)} className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${pending ? "" : "ml-auto sm:ml-0"} ${panel ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
-          ⚙︎ {left}
-        </button>
-        <div className="flex overflow-hidden rounded-full border border-neutral-300 text-sm lg:hidden">
-          <button type="button" onClick={() => setMode("cards")} aria-label="Cards" className={`px-3 py-1 ${mode === "cards" ? "bg-neutral-900 text-white" : "bg-white"}`}>
-            🃏
+        {mode !== "config" && (
+          <button type="button" onClick={() => setPanel((p) => !p)} aria-label="Filter" className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${pending ? "" : "ml-auto sm:ml-0"} ${panel ? "bg-neutral-900 text-white" : "bg-neutral-100"}`}>
+            ⚲ {mode === "swipe" ? left : mapPlaces.length}
           </button>
-          <button type="button" onClick={() => setMode("map")} aria-label="Map" className={`px-3 py-1 ${mode === "map" ? "bg-neutral-900 text-white" : "bg-white"}`}>
-            🗺️
-          </button>
+        )}
+        <div className={`flex overflow-hidden rounded-full border border-neutral-300 text-sm ${mode === "config" && !pending ? "ml-auto sm:ml-0" : ""}`}>
+          {(
+            [
+              ["swipe", "🃏", "Swipe"],
+              ["browse", "🗺️", "Browse"],
+              ["config", "⚙️", "Config"],
+            ] as const
+          ).map(([m, icon, label]) => (
+            <button key={m} type="button" onClick={() => setMode(m)} aria-label={label} className={`px-3 py-1 ${mode === m ? "bg-neutral-900 text-white" : "bg-white"}`}>
+              {icon}
+              <span className="hidden sm:inline"> {label}</span>
+            </button>
+          ))}
         </div>
       </header>
 
@@ -335,9 +363,10 @@ export function ReviewApp() {
             voters={voters}
             voter={voter}
             status={status}
+            useCases={useCases}
             onPickPin={() => {
               setPicking(true);
-              setMode("map");
+              setMode("browse");
               setPanel(false);
             }}
           />
@@ -346,14 +375,19 @@ export function ReviewApp() {
               Agent runs →
             </Link>
             <button type="button" onClick={() => setPanel(false)} className="rounded-full bg-neutral-900 px-4 py-1 text-sm text-white">
-              Swipe {left}
+              {mode === "swipe" ? `Swipe ${left}` : `Show ${mapPlaces.length}`}
             </button>
           </div>
         </div>
       )}
 
-      <main className="relative min-h-0 flex-1 lg:grid lg:grid-cols-[1fr_440px]">
-        <section className={`relative h-full ${mode === "map" ? "block" : "hidden"} lg:block`}>
+      {mode === "config" ? (
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <ConfigPanel voter={voter} />
+        </main>
+      ) : (
+      <main className={`relative min-h-0 flex-1 ${mode === "browse" ? "flex flex-col" : ""} lg:grid lg:grid-cols-[1fr_440px]`}>
+        <section className={`relative ${mode === "browse" ? "h-[50%] lg:h-full" : "hidden h-full lg:block"}`}>
           {map}
           <div className="absolute left-2 top-2 z-10 max-w-[70%]">{toggles}</div>
           {picking && <div className="absolute left-1/2 top-12 z-10 -translate-x-1/2 rounded-full bg-neutral-900 px-3 py-1 text-xs text-white">Move the map, then tap “Search here”</div>}
@@ -388,8 +422,15 @@ export function ReviewApp() {
             </div>
           )}
         </section>
-        <section className={`h-full ${mode === "cards" ? "block" : "hidden"} lg:block lg:border-l lg:border-neutral-200 lg:bg-white`}>{cards}</section>
+        {mode === "swipe" ? (
+          <section className="h-full lg:border-l lg:border-neutral-200 lg:bg-white">{cards}</section>
+        ) : (
+          <section className="min-h-0 flex-1 border-t border-neutral-200 bg-white lg:h-full lg:border-l lg:border-t-0">
+            <BrowsePanel places={mapPlaces} voter={voter} center={center} radiusKm={scope.radiusKm} onSelect={setSelected} onIndexed={() => setLayersTick((t) => t + 1)} />
+          </section>
+        )}
       </main>
+      )}
 
       {toast && <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-sm text-white shadow">{toast}</div>}
 

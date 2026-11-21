@@ -18,38 +18,34 @@ claude mcp add --transport http mappal-agent https://<MapPal host>/api/agent/mcp
 ## Steps
 
 1. **Usage before.** Ask the owner to type `/usage` and tell you the weekly %
-   ("Current week (all models)"). One number. Write it down.
+   ("Current week (all models)"). One number. Note the time now (ISO).
 2. `get_travel_state` — every location hint with its weight, and the best
-   guess. Say in one line where they are and which stop the run will use. If
-   the owner says otherwise, `set_location` (or `plan_run` with lat/lng).
-   Note the time now (ISO) — the start for step 7.
-3. `plan_run` — the dry run, free. It reads the place index and fetches any
-   missing cell around the target first; for a bigger area (a week's route),
-   call `index_area` with a radius until it says 0 missing. Show the owner, short: the zone and why,
-   how many cafes and exploration spots will be checked, the estimate, any
-   notes (a failed OSM query → offer to re-plan in a minute).
-   **Ask: "Start? (yes/no)" and wait.**
-4. On yes: `start_run(run_id, owner_approved=true)`.
-5. Loop `next_batch(run_id, "cafes")` → judge → `submit_reviews`, until it
-   says all were sent. Then the same for `"exploration"`.
-   - Judge from the facts and the photo. Keep only what the family wants
-     (the batch header repeats the criteria).
-   - `fetch_page` / `fetch_image` only for a place you keep, for its menu and
-     prices, or when one check changes the verdict. Each costs.
+   guess. Say in one line where they are. If the owner says otherwise,
+   `set_location` (or pass lat/lng to the briefs).
+3. `preview_briefs` (free) — zone, per use case: found in the index, dropped
+   by the rules, already known (negative list), on this page, left for later;
+   layer versions. Show the owner, short. **Ask: "Pull? (yes/no)" and wait.**
+   Missing index cells → offer `index_area` first.
+4. On yes: `get_briefs(owner_approved=true)` with the same arguments — every
+   brief at once: charter, output format, location once; then per use case
+   its rules, the known places (never return those) and the places to judge.
+5. Judge each brief; `submit_results(brief_id, results)` (≤ 20 per call).
+   - `fetch_page` / `fetch_image` only for a place you keep (menu, prices) or
+     when one check changes the verdict. Each costs.
    - Summaries in your own words; don't copy review text.
-6. **CAP HIT** in any reply: stop at once. Submit reviews for what you saw,
-   then go to step 7. Never work around a cap.
-7. **Usage after.** Ask the owner for `/usage` again, and read your own token
-   use from this session's transcript:
-   `node <this skill's folder>/usage.mjs --since <the time from step 2>`
-   (prints claude_input_tokens, claude_output_tokens, claude_cache_read_tokens,
-   claude_cache_write_tokens).
-8. `finish_run(run_id, usage_before_pct, usage_after_pct, claude_* numbers, model, notes)` —
-   in `notes` put a short yield report: what was worth it, what produced
-   little and why (bad rule, sparse area, missing source).
+6. **CAP HIT** in any reply: stop at once, submit what you have, go to step 7.
+7. **Usage after.** Ask for `/usage` again, and read your own token use:
+   `node <this skill's folder>/usage.mjs --since <the time from step 1>`.
+8. `finish_run(run_id, usage_before_pct, usage_after_pct, claude_* numbers,
+   model, notes)` — notes = a short yield report: what was worth it, what
+   produced little and why. If a rule should change (a chain the rules let
+   through, a kind that's always junk), say so — or `update_rule` with a note,
+   after asking the owner.
 9. Tell the owner in 2–3 lines: kept places, % of the week used (pass < 5 %),
-   and the run page link (its "Under the hood" map shows every step and cost). Ask them to tap 👍/👎 on the kept places there; that
-   is the "real and relevant" half of the test (pass ≥ 70 % 👍).
+   and the pull page link (its "Under the hood" map shows every step and cost).
+
+"More places here" = run steps 3–8 again: everything already judged is in the
+negative list, so the next page comes up.
 
 ## Keep it cheap
 

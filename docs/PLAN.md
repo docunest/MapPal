@@ -118,6 +118,14 @@ context each turn).
 **Pass:** < 5 % weekly measured, ≥ 70 % of kept places 👍. Proven first on fixtures at Peniche (cafes) and
 Arenas de Cabrales / Poncebos (exploration), then one live run at the owner's real location.
 
+## Brief pipeline (owner 2026-11-21: "Build pipeline")
+
+Agent work = briefs built from versioned layers: charter → output format → location → use-case rules →
+known places (negative list) → places to judge. Each layer deterministic and hashed; the agent pulls every
+brief at once and can read and change the rules (new version each time, owner can restore). One web app
+`/review` with three modes: Config (all layers, versions, tokens), Browse (map + list of what's indexed and
+judged, votes, reindex when the owner says so), Swipe. Details: `lib/agent/README.md`.
+
 ## Review app `/review` (owner 2026-11-21: "build this, start with the phone version")
 
 Swipe through the agent's places per person (name handles, own votes), or see them on a map; phone first,

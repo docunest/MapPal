@@ -1,12 +1,11 @@
 // Hard budget caps per run (design doc, Phase 0 step 2) and the token
 // arithmetic behind them. The server counts everything it hands the agent;
 // that is the part of the agent's spend the server can actually see.
-import type { AgentCategory, Caps, Counters, Estimate } from "./types";
+import type { Caps, Counters, Estimate } from "./types";
 
 export const DEFAULT_CAPS: Caps = {
   tokens: 150_000,
-  cafes: 25,
-  exploration: 15,
+  places: 60,
   pages: 15,
   images: 60,
   googleDetails: 40,
@@ -50,7 +49,7 @@ export function imageTokens(width?: number, height?: number): number {
   return Math.min(1600, Math.ceil((w * h) / 750));
 }
 
-export type CapName = "tokens" | "pages" | "images" | "googleDetails" | "googlePhotos" | AgentCategory;
+export type CapName = "tokens" | "pages" | "images" | "googleDetails" | "googlePhotos" | "places";
 
 /** Which cap a further spend would break, or null if it fits. */
 export function wouldBreak(c: Counters, caps: Caps, spend: Partial<Record<"tokens" | "pages" | "images" | "googleDetails" | "googlePhotos", number>>): CapName | null {
@@ -67,47 +66,22 @@ export const CAP_LABEL: Record<CapName, string> = {
   images: "images",
   googleDetails: "Google place details",
   googlePhotos: "Google photos",
-  cafes: "cafes to check",
-  exploration: "exploration spots to check",
+  places: "places per pull",
 };
 
-// Per-place guesses for the dry run, from the digest format (domain/digest.ts):
-// text with Google ≈ 450 tokens (facts + 3 short reviews), without ≈ 180;
-// a 480 px photo ≈ 230–310 tokens; a menu page ≈ 2,500.
-const PER_PLACE = {
-  cafes: { google: 450, plain: 180 },
-  exploration: { google: 420, plain: 300 }, // Wikipedia lead when there is one
-};
+// Per-place guesses for the preview (from the brief format): facts ≈ 180–450
+// tokens, a 480–640 px photo ≈ 230–410; the shared layers (charter, format,
+// location) ≈ 1,500 once per pull, the use-case layer ≈ 400 per brief.
+const PER_PLACE_TEXT = { google: 450, plain: 250 };
 const PHOTO = 300;
-const MENU_PAGE = 2500;
-// Claude Code re-reads its whole context on every turn (from cache): system
-// prompt, tools and skill ≈ 25 k, plus what the run has added so far.
-const BASE_CONTEXT = 25_000;
-const OUTPUT_PER_PLACE = 250;
+const SHARED = 1500;
+const PER_BRIEF = 400;
 
-export function estimate(counts: Record<AgentCategory, number>, google: boolean, caps: Caps, menuPages = 8): Estimate {
-  const cafes = Math.min(counts.cafes, caps.cafes);
-  const explore = Math.min(counts.exploration, caps.exploration);
-  const withPhoto = cafes + explore; // one photo each where one exists
-  const pages = Math.min(caps.pages, google ? menuPages : menuPages + Math.min(cafes, 7));
-  const raw =
-    cafes * (google ? PER_PLACE.cafes.google : PER_PLACE.cafes.plain) +
-    explore * (google ? PER_PLACE.exploration.google : PER_PLACE.exploration.plain) +
-    withPhoto * PHOTO +
-    pages * MENU_PAGE +
-    3000; // plan + small replies
+export function estimate(places: number, briefs: number, google: boolean, caps: Caps): Estimate {
+  const n = Math.min(places, caps.places);
+  const raw = SHARED + briefs * PER_BRIEF + n * ((google ? PER_PLACE_TEXT.google : PER_PLACE_TEXT.plain) + PHOTO);
   const servedTokens = Math.min(caps.tokens, raw);
-  const batches = Math.ceil(cafes / caps.batchSize) + Math.ceil(explore / caps.batchSize);
-  const agentTurns = batches * 2 + pages + 6; // fetch + submit per batch, pages, plan/start/finish
-  const outputTokens = (cafes + explore) * OUTPUT_PER_PLACE;
-  // Context grows roughly linearly from BASE to BASE + served over the run.
-  const cachedRereadTokens = Math.round(agentTurns * (BASE_CONTEXT + servedTokens / 2));
-  const googleDetails = google ? Math.min(caps.googleDetails, cafes + explore) : 0;
-  const googlePhotos = google ? Math.min(caps.googlePhotos, cafes + explore) : 0;
-  const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)} k` : String(n));
-  const text =
-    `About ${k(servedTokens)} tokens of material (cap ${k(caps.tokens)}), ${pages} web pages, ${withPhoto} photos` +
-    (google ? `, ${googleDetails} Google details + ${googlePhotos} Google photos (free tier)` : ", no Google (no key)") +
-    `; the agent writes ~${k(outputTokens)} tokens and re-reads ~${k(cachedRereadTokens)} from cache over ~${agentTurns} turns.`;
-  return { servedTokens, pages, images: withPhoto, googleDetails, googlePhotos, agentTurns, outputTokens, cachedRereadTokens, text };
+  const k = (x: number) => (x >= 1000 ? `${Math.round(x / 1000)} k` : String(x));
+  const text = `about ${k(servedTokens)} tokens of material for ${n} places in ${briefs} brief${briefs === 1 ? "" : "s"} (cap ${k(caps.tokens)})${google ? `, up to ${Math.min(caps.googleDetails, n)} Google details + photos (free tier)` : ", no Google (no key)"}. Claude's own use is measured, not guessed: see the budget log after the run.`;
+  return { servedTokens, pages: 0, images: n, googleDetails: google ? Math.min(caps.googleDetails, n) : 0, googlePhotos: google ? Math.min(caps.googlePhotos, n) : 0, agentTurns: 0, outputTokens: 0, cachedRereadTokens: 0, text };
 }

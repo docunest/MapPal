@@ -88,7 +88,7 @@ export function ReviewMap({
       m.addSource("tiles", { type: "geojson", data: empty });
       m.addSource("sent", { type: "geojson", data: empty });
       m.addSource("places", { type: "geojson", data: empty });
-      m.addLayer({ id: "tiles", type: "fill", source: "tiles", paint: { "fill-color": ["match", ["get", "status"], "indexed", "#16a34a", "#f59e0b"], "fill-opacity": 0.12, "fill-outline-color": "#166534" } });
+      m.addLayer({ id: "tiles", type: "fill", source: "tiles", paint: { "fill-color": ["match", ["get", "status"], "ok", "#16a34a", "indexed", "#16a34a", "stale", "#f59e0b", "failed", "#dc2626", "#9ca3af"], "fill-opacity": 0.12, "fill-outline-color": "#374151" } });
       m.addLayer({ id: "scope", type: "line", source: "scope", paint: { "line-color": "#2563eb", "line-width": 2, "line-dasharray": [2, 2] } });
       m.addLayer({ id: "sent", type: "circle", source: "sent", paint: { "circle-radius": 7, "circle-color": "#7c3aed", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
       m.addLayer({ id: "sent-label", type: "symbol", source: "sent", layout: { "text-field": "🚐", "text-size": 10, "text-allow-overlap": true } });
@@ -138,7 +138,7 @@ export function ReviewMap({
         type: "FeatureCollection",
         features: show.tiles
           ? (layers?.tiles ?? [])
-              .filter((t) => !categories.length || categories.includes(t.category))
+              .filter((t) => !t.category || !categories.length || categories.includes(t.category))
               .map((t) => ({
                 type: "Feature",
                 properties: { status: t.status },
@@ -178,7 +178,7 @@ export function ReviewMap({
           const c = map.current?.getCenter();
           if (c) centerCb.current({ lat: c.lat, lng: c.lng });
         }}
-        className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-medium shadow"
+        className="absolute bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-medium shadow"
       >
         📍 Search here
       </button>

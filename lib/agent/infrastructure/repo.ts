@@ -70,14 +70,15 @@ export interface ReviewToSave {
   name: string;
   lat: number;
   lng: number;
-  photo?: { source: string; page?: string; credit?: string };
+  photo?: { source: string; page?: string; credit?: string; url?: string };
+  briefId?: string;
 }
 
 export async function saveReviews(runId: string, agent: string, rows: ReviewToSave[]) {
   for (const r of rows) {
     const { candidate, verdict, confidence, relevant, keep, summary, evidence, ...rest } = r.review;
     const data = json({ ...rest, ...(r.photo ? { photo: r.photo } : {}) });
-    const base = { category: r.category, osmRef: r.osmRef, googlePlaceId: r.googlePlaceId ?? null, name: r.name, lat: r.lat, lng: r.lng, verdict, confidence, relevant, keep, summary, data, evidence: json(evidence), agent };
+    const base = { briefId: r.briefId ?? null, category: r.category, osmRef: r.osmRef, googlePlaceId: r.googlePlaceId ?? null, name: r.name, lat: r.lat, lng: r.lng, verdict, confidence, relevant, keep, summary, data, evidence: json(evidence), agent };
     await prisma.agentReview.upsert({
       where: { runId_candidate: { runId, candidate } },
       create: { runId, candidate, ...base },
