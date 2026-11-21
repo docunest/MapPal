@@ -72,6 +72,48 @@ A very simple map UI answering repeat questions about nearby places, better than
 7. Offline packs and device sync.
 8. Extra sources.
 
+## Hybrid agent backend — Phase 0: cost test (proposed 2026-11-21, waiting for the owner's go)
+
+Design: owner's doc "MapPal Hybrid Agent Backend — Design" (claude.ai artifact). Phase 0 proves that one
+stop zone, two categories (cafes, exploration), costs **under 5 % of the owner's weekly Claude allowance**
+and that most kept places are real and relevant. Nothing else from the design is built until this passes.
+
+**Who does what**
+- Server (MapPal on Vercel, no LLM): reads the latest known location, picks the stop zone, pulls candidates
+  from OSM (+ Google Places free tier if the key is set), drops obvious misses by rules, builds compact
+  per-place digests (facts + 1 photo), fetches web pages as plain text, caches everything, counts everything.
+- Agent (Claude Code with the MapPal MCP connector, on the PC or a cloud session): reads the digests in
+  batches, judges vibe / access / real-fake-stale, reads photos and menus, submits verdicts with evidence.
+
+**Steps**
+1. `get_travel_state()`: newest position from any source (head-unit GPS log, head-unit bookmark, link shared
+   from a phone, CURRENT stop) + destinations (FUTURE stops, newer shared links).
+2. `plan_run()` = dry run: chosen zone and why (campsite + 2–3 nearest towns), tiles (geohash-5), candidate
+   counts after the rule filter, estimated tokens / pages / Google calls, the caps. Stops for the owner's yes.
+3. `next_batch(run, category)`: 5 digests at a time, cheapest first; refuses once a cap is hit.
+4. `fetch_page(url)`: server-side text fetch (website, menu page), counted as a browser page, capped.
+5. `submit_reviews(run, reviews[])`: verdict real/fake/stale + confidence + evidence, vibe label, access status,
+   food tags, price samples. Always labelled AI.
+6. `finish_run(run, usage_before_pct, usage_after_pct)`: the owner's `/usage` numbers before and after.
+7. `/agent/runs/<id>`: cost log + kept places with photos, 👍/👎 per place for the "real and relevant" score.
+
+**Hard caps (defaults, per run):** 150 k tokens of content served, 1 zone (≤ 6 tiles), 25 cafes + 15
+exploration spots deep-checked, 15 pages, 40 Google details + 40 photos (inside the free month). The server
+enforces them; the agent stops and reports.
+
+**Data (additive, `mappal_` prefix, RLS on):** `mappal_agent_run` (plan, caps, counters, usage %, report),
+`mappal_agent_review` (place, verdict, confidence, evidence, agent, run); places reuse `mappal_poi` (new
+fields in `data` with per-field `fetchedAt`, 30-day freshness). Code in `domains/mappal/agent/` (DDD),
+thin routes `app/api/agent/…`, MCP at `/api/agent/mcp/<token>` (token per agent, SHA-256 in env).
+Skill `recheck-location` in `.claude/skills/`.
+
+**Estimate per location (Claude side):** ~105 k fresh input (dry run 5 k, cafes 25 × 1.6 k, menus 8 × 2.5 k,
+exploration 15 × 1.8 k, 6 recency checks × 2 k) + ~25 k output + ~0.5 M cached re-reads. Google ≈ 4 % of the
+free month per location, $0. DeepSeek not used. The weekly % is measured (Anthropic shows it only as a %).
+
+**Pass:** < 5 % weekly measured, ≥ 70 % of kept places 👍. Proven first on fixtures at Peniche (cafes) and
+Arenas de Cabrales / Poncebos (exploration), then one live run at the owner's real location.
+
 ## Acceptance points and criteria
 
 Points: Puerto de Sagunto, Avilés, Matosinhos, Pinhão, Garganta del Cares / Poncebos, Arenas de Cabrales, Mértola, Peniche, one Lisbon point, one Madrid point.

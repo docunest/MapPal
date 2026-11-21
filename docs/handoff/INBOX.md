@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-21 — Hybrid agent Phase 0: cost test (cafes + exploration at the latest known location) — open
+
+Owner: "build Phase 0 … keeping one location under 5% of my weekly allowance. Show me your plan and cost estimate before you write any code." Plan: docs/PLAN.md → "Hybrid agent backend — Phase 0". Waiting for the owner's go.
+
 ## 2026-11-20 — Family grocery list (G6) — done
 
 Owner in chat: a shared grocery list for the family's phones — frequent items without retyping, autocomplete, dictation in Lithuanian + English parsed by DeepSeek with the known taxonomy, supermarket-aisle grouping, live crossing-out between phones, long-term purchases that roll over, a skill + basic MCP for Claude/ChatGPT, one token link (no login screen), a removable module with its own table prefix. Decisions from the owner's answers: one editable aisle order, iPhone keyboard dictation, suggestions added with one tap, **same Vercel project as MapPal**. Then: "Do security updates". Report: STATUS.md, same date.
