@@ -153,7 +153,9 @@ export async function previewBriefs(args: BriefArgs) {
     p.indexNote,
     ...p.useCases.map(
       (u) =>
-        `${u.chain.map((c) => c.title).join(" › ")} (rules ${u.chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ")}), page ${u.pageNo}: ${u.found} in the index → ${u.dropped.length} dropped by rules, ${u.known.size} already known, ${u.page.length} to judge now, ${u.rest.length} left for later pages. First: ${u.page.slice(0, 6).map((c) => c.name).join(" · ") || "—"}`,
+        u.profile.discover && !u.profile.select.length
+          ? `${u.chain.map((c) => c.title).join(" › ")} (rules ${u.chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ")}): agents find these themselves — use preview_discover / discover (Manual run → Discover).`
+          : `${u.chain.map((c) => c.title).join(" › ")} (rules ${u.chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ")}), page ${u.pageNo}: ${u.found} in the index → ${u.dropped.length} dropped by rules, ${u.known.size} already known, ${u.page.length} to judge now, ${u.rest.length} left for later pages. First: ${u.page.slice(0, 6).map((c) => c.name).join(" · ") || "—"}`,
     ),
     `A pull would send ${Math.min(total, caps.places)} places (cap ${caps.places}); server caps: ${caps.tokens} tokens, ${caps.images} images, ${caps.pages} pages, ${caps.googleDetails} Google details.`,
     "Show this to the owner and wait for a yes. Then call get_briefs with the same arguments and owner_approved=true.",
