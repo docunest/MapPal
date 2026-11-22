@@ -178,3 +178,13 @@ Every agent session:
 3. End: mark INBOX items, add a STATUS entry, log any decisions the owner made, commit and push with message "handoff: <summary>".
 
 Chat Claude: when the owner pastes STATUS.md or shares the repo, read it and draft the next INBOX entry as paste-ready text.
+
+
+## Discover mode (owner-approved 2026-11-22)
+Two modes side by side. *Judge a list*: the server picks from the OSM index by the rules, the agent
+judges. *Discover*: the agent names the top N within K km from what it knows and can check (Google
+Maps, Instagram, websites); the prompt passes the rules, likes/dislikes/never, known places and strict
+no-mistakes rules (a checked link per place). The server matches each answer to the OSM index;
+unmatched places are kept as `ext/<hash>` ("not on the map — check the link"). Connector:
+preview_discover / discover / submit_discoveries; Manual run has the same switch. Evidence:
+docs/evidence/discover/.

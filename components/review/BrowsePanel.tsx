@@ -161,6 +161,7 @@ export function BrowsePanel({
                         <span className="text-neutral-500">{km(p.distanceM)}</span>
                         <span className="text-neutral-500">{kindTitle(p.category)}</span>
                         <span className={`rounded px-1 ${f.c}`}>{f.t}</span>
+                        {p.agent?.onMap === false && <span className="rounded bg-amber-100 px-1 text-amber-900" title="Found by the agent, not on OpenStreetMap">not on map</span>}
                         {typeof p.agent?.score === "number" && <span className={`rounded px-1 ${scoreClass(p.agent.score)}`}>{p.agent.score}/100</span>}
                         {p.agent?.complications?.map((c, i) => (
                           <span key={`${c.flag}${i}`} className="rounded bg-amber-100 px-1 text-amber-900" title={c.note}>

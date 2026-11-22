@@ -1,5 +1,5 @@
 // Use cases for the review app.
-import { cellsAround, condHolds, expand, loadFixes, placesNear, rootOf, runProfile, selectsBelow, travelState, loadUseCaseTree, type UseCaseTree, type Zone } from "@/lib/agent";
+import { cellsAround, isPlaceKey, condHolds, expand, loadFixes, placesNear, rootOf, runProfile, selectsBelow, travelState, loadUseCaseTree, type UseCaseTree, type Zone } from "@/lib/agent";
 import { applyScope, markTravel } from "../domain/filter";
 import { VOTES, type MineFilter, type PoolScope, type ReviewPlace, type Scope, type VoteValue } from "../domain/types";
 import { addVoter, listVoters, loadIndex, loadPlaces, loadTravel, loadVotes, setVote } from "../infrastructure/repo";
@@ -146,7 +146,7 @@ export async function vote(body: unknown) {
   const v = b.vote === null ? null : (b.vote as VoteValue);
   if (!voter) throw new BadInput("voter required");
   if (v !== null && !VOTES.includes(v)) throw new BadInput(`vote must be one of ${VOTES.join(", ")} or null`);
-  if (typeof b.placeKey !== "string" || !/^(node|way|relation)\/\d+$/.test(b.placeKey)) throw new BadInput("placeKey like node/123 required");
+  if (typeof b.placeKey !== "string" || !isPlaceKey(b.placeKey)) throw new BadInput("placeKey like node/123 (or ext/… for a place not on the map) required");
   const lat = Number(b.lat);
   const lng = Number(b.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new BadInput("lat/lng required");

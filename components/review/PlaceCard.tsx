@@ -60,6 +60,7 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
         ) : (
           <Chip className="bg-neutral-100 text-neutral-600">not checked by the agent yet</Chip>
         )}
+        {a?.onMap === false && <Chip className="bg-amber-100 text-amber-900">⚠ not on the map — found by the agent{a.listedOn?.length ? ` (${a.listedOn.join(", ")})` : ""}, check the link</Chip>}
         {p.visitedAt && <Chip className="bg-blue-100 text-blue-800">✓ been here {ago(p.visitedAt)}</Chip>}
         {p.sentAt && <Chip className="bg-indigo-100 text-indigo-800">🚐 sent to car {ago(p.sentAt)}</Chip>}
         {mine && <Chip className="bg-neutral-800 text-white">you: {VOTE_UI[mine].icon} {VOTE_UI[mine].label}</Chip>}
@@ -101,7 +102,10 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
             {actions.sending ? "Sending…" : "🚐 Send to car"}
           </button>
         )}
-        <a href={`https://www.openstreetmap.org/${p.key}`} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-2 py-1">OSM</a>
+        {!p.key.startsWith("ext/") && <a href={`https://www.openstreetmap.org/${p.key}`} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-2 py-1">OSM</a>}
+        {a?.links?.google && <a href={a.links.google} target="_blank" rel="noreferrer" className="rounded-full bg-amber-50 px-2 py-1 text-amber-900">Google listing</a>}
+        {a?.links?.instagram && <a href={a.links.instagram} target="_blank" rel="noreferrer" className="rounded-full bg-pink-50 px-2 py-1 text-pink-800">Instagram</a>}
+        {a?.links?.website && !p.tags.website && <a href={a.links.website} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-2 py-1">Website</a>}
         {p.tags.website && <a href={p.tags.website} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-2 py-1">Website</a>}
         {a?.evidence?.filter((e) => e.url).slice(0, 2).map((e, i) => (
           <a key={i} href={e.url} target="_blank" rel="noreferrer" className="rounded-full bg-neutral-100 px-2 py-1">{e.kind}</a>

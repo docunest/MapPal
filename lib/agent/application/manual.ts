@@ -5,13 +5,22 @@ import { textTokens } from "../domain/caps";
 import { briefsOfRun, getBrief } from "../infrastructure/briefs";
 import { logEvent } from "../infrastructure/events";
 import { type BriefArgs, previewBriefs, pullBriefs, submitResults } from "./briefs";
+import { discoverPrompt, discoveriesIn, submitDiscoveries, type DiscoverArgs } from "./discover";
 import { finishRun } from "./finish";
-import { RunError } from "./guard";
+import { loadRun, RunError } from "./guard";
 
 const who = (by: string) => `manual:${by.trim().slice(0, 30) || "app"}`;
 
-export async function manualPreview(args: BriefArgs) {
+export async function manualPreview(args: BriefArgs, mode: "judge" | "discover" = "judge", discover: Pick<DiscoverArgs, "count" | "radius_km"> = {}) {
+  if (mode === "discover") return discoverPrompt({ ...args, ...discover }, "manual", "", { preview: true, manual: true });
   return previewBriefs(args);
+}
+
+/** Discover mode as a manual run: the prompt to paste; the answer comes back through manualImport. */
+export async function manualDiscover(args: DiscoverArgs, by: string, baseUrl: string) {
+  const r = await discoverPrompt({ ...args, owner_approved: true }, who(by), baseUrl, { manual: true });
+  await logEvent(r.runId, { kind: "manual.payload", summary: `manual discover prompt built for ${by || "app"}: ${r.useCases.join(", ")}, ~${r.tokens.toLocaleString()} tokens`, data: { useCases: r.useCases, chars: r.text.length } });
+  return { runId: r.runId, briefIds: r.useCases, text: r.text, tokens: r.tokens, chars: r.text.length, mode: "discover" as const };
 }
 
 export async function manualPayload(args: BriefArgs, by: string, baseUrl: string) {
@@ -64,6 +73,10 @@ export async function manualImport(input: { text?: unknown; run_id?: unknown; by
     if (ids) runId = (await getBrief(ids[0]))?.runId ?? "";
   }
   if (!runId) throw new RunError("Which pull is this? The answer has no run_id — build the payload here first, or paste an answer that includes it.");
+  const by0 = typeof input.by === "string" ? input.by : "app";
+  const model0 = typeof input.model === "string" && input.model.trim() ? input.model.trim().slice(0, 40) : "";
+  const run = await loadRun(runId);
+  if (run.plan.mode === "discover") return importDiscoveries(run.id, Object.keys(run.plan.discover ?? {}), json, by0, model0, baseUrl);
   const briefs = await briefsOfRun(runId);
   if (!briefs.length) throw new RunError(`No briefs in ${runId}.`);
   const briefOf = new Map<string, string>();
@@ -98,5 +111,30 @@ export async function manualImport(input: { text?: unknown; run_id?: unknown; by
   const sent = briefs.reduce((s, b) => s + (b.candidates as unknown[]).length, 0);
   if (saved) await finishRun({ run_id: runId, model: typeof input.model === "string" && input.model.trim() ? `manual: ${input.model.trim().slice(0, 40)}` : "manual", notes: `Pasted by ${by}: ${saved} of ${sent} places judged.${lines.length ? ` Problems: ${lines.join(" | ")}` : ""}` }, baseUrl).catch((e) => lines.push(`finish: ${e instanceof Error ? e.message : String(e)}`));
   await logEvent(runId, { kind: "manual.import", summary: `manual answer pasted by ${by}: ${saved} of ${sent} saved${lines.length ? `, ${lines.length} problem(s)` : ""}`, data: { saved, sent, problems: lines } });
-  return { runId, saved, sent, problems: lines, page: `${baseUrl}/agent/runs/${runId}` };
+  return { runId, saved, sent, problems: lines, report: [] as string[], page: `${baseUrl}/agent/runs/${runId}` };
+}
+
+async function importDiscoveries(runId: string, useCases: string[], json: unknown, by: string, model: string, baseUrl: string) {
+  const found = discoveriesIn(json, useCases);
+  if (!found.size) throw new RunError('No places found — each needs "name", "lat" and "lng", under its use case ("discoveries": {"cafes": [ … ]}).');
+  const agent = `${who(by)}${model ? ` (${model})` : ""}`;
+  const lines: string[] = [];
+  const report: string[] = [];
+  let saved = 0;
+  let sent = 0;
+  for (const [uc, list] of found) {
+    sent += list.length;
+    for (let i = 0; i < list.length; i += 30) {
+      try {
+        const r = await submitDiscoveries(runId, uc, list.slice(i, i + 30), agent);
+        saved += r.saved;
+        report.push(r.text);
+      } catch (e) {
+        lines.push(`${uc}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+  if (saved) await finishRun({ run_id: runId, model: model ? `manual: ${model}` : "manual", notes: `Discover answer pasted by ${by}: ${saved} of ${sent} places saved.` }, baseUrl).catch((e) => lines.push(`finish: ${e instanceof Error ? e.message : String(e)}`));
+  await logEvent(runId, { kind: "manual.import", summary: `manual discover answer pasted by ${by}: ${saved} of ${sent} saved`, data: { saved, sent } });
+  return { runId, saved, sent, problems: lines, report, page: `${baseUrl}/agent/runs/${runId}` };
 }

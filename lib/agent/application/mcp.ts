@@ -14,6 +14,8 @@ import { indexArea } from "../infrastructure/osmIndex";
 import { loadPayload } from "../infrastructure/repo";
 import { currentRule, listRules, restoreRule, ruleHistory, RuleError, saveRule } from "../infrastructure/rules";
 import { previewBriefs, pullBriefs, submitResults, type BriefArgs } from "./briefs";
+import { discoverPrompt, submitDiscoveries } from "./discover";
+import { discoveriesSchema } from "../domain/discover";
 import { finishRun, runStatus } from "./finish";
 import { RunError } from "./guard";
 import { fetchImageForAgent, fetchPageForAgent, type AgentReply } from "./runFlow";
@@ -24,7 +26,7 @@ const INFO = { name: "mappal-agent", title: "MapPal place agent", version: "0.3.
 const INSTRUCTIONS = `MapPal checks places for a family living in a camper van in Spain and Portugal. You judge; the server does the free work (place index, rules, location) and counts what you cost.
 Flow: 1) ask the owner for their Claude weekly usage % (/usage); note the time. 2) get_travel_state — check the location hints; set_location if the owner says otherwise. 3) preview_briefs (free) — show it to the owner, WAIT for a yes. 4) get_briefs(owner_approved=true) — every brief at once: charter, output format, location, then per use case its rules, the known places (never return those) and the places to judge. If your call times out, the pull was still built: get_pull (no arguments) returns it. 5) submit_results per brief. 6) ask for /usage again; run the skill's usage.mjs --since <time>; finish_run with both. Tell the owner the cost line and the pull page.
 "More" in the same area = just call preview_briefs/get_briefs again: places already judged are excluded automatically.
-Rules: get_rules, rule_history, update_rule (stored as a new version with your note; the owner can restore any version), restore_rule.
+Discover mode (you name the places instead of judging a list): preview_discover (free) → owner yes → discover → search and check each place → submit_discoveries per use case → finish_run. Rules: get_rules, rule_history, update_rule (stored as a new version with your note; the owner can restore any version), restore_rule.
 The server stops you at caps ("CAP HIT"): stop, submit what you have, finish_run. Your verdicts are AI output and are shown as such.`;
 
 const runId = { type: "string", description: "Pull id (run_…) from get_briefs" };
@@ -42,6 +44,9 @@ const TOOLS: McpTool[] = [
   { name: "index_area", title: "Fill the place index", description: "Reads OpenStreetMap for missing or stale (> 30 days) cells (≈ 30 × 20 km) within radius_km, nearest first, ~45 s per call (one or two cells). Free. Call again until 0 missing. refresh=true re-reads fresh cells too.", inputSchema: { type: "object", properties: { lat: { type: "number" }, lng: { type: "number" }, radius_km: { type: "number" }, refresh: { type: "boolean" } } } },
   { name: "preview_briefs", title: "Preview (free)", description: "What a pull would contain: zone, per use case how many places are in the index, dropped by the rules, already known, on this page, left for later; layer versions and hashes. Nothing is spent. Show to the owner and wait for a yes.", inputSchema: { type: "object", properties: where } },
   { name: "get_briefs", title: "Get every brief at once", description: "After the owner's yes: the full tasks — shared layers once (charter, output format, location), then per use case: its rules, the known places (negative list), the places to judge with facts and one photo each. Counted against the caps. Same arguments as preview_briefs.", inputSchema: { type: "object", properties: { ...where, owner_approved: { type: "boolean" } }, required: ["owner_approved"] } },
+  { name: "preview_discover", title: "Discover: preview the search (free)", description: "Discover mode: instead of judging a list, YOU name the best places (top `count` within `radius_km`) from what you know and can check (Google Maps, Instagram, websites). Returns the exact prompt: rules, the family's likes and blacklist, the known places to skip. Nothing is opened. Show the owner and wait for a yes.", inputSchema: { type: "object", properties: { ...where, count: { type: "number", description: "Places per use case (default 25, ≤ 30)" }, radius_km: { type: "number", description: "Default: the use case's radius, or 10 km" } } }, annotations: { readOnlyHint: true } },
+  { name: "discover", title: "Discover: start (after the owner's yes)", description: "Opens a discover pull and returns the prompt (same as preview_discover) with its run_id. Then search, check every place, and answer with submit_discoveries per use case. The server cross-checks OpenStreetMap; places only on Google Maps or Instagram are kept, marked 'not on the map'.", inputSchema: { type: "object", properties: { ...where, count: { type: "number" }, radius_km: { type: "number" }, owner_approved: { type: "boolean" } }, required: ["owner_approved"] } },
+  { name: "submit_discoveries", title: "Discover: submit what you found", description: "Your places for one use case of a discover pull (≤ 30 per call), in layer 2's format. Each is matched to OpenStreetMap; the reply says which matched, which aren't on the map, and which were skipped (already known).", inputSchema: { type: "object", properties: { run_id: runId, use_case: { type: "string" }, places: z.toJSONSchema(discoveriesSchema, { io: "input" }) as Record<string, unknown> }, required: ["run_id", "use_case", "places"] } },
   { name: "get_pull", title: "Read a pull again", description: "The full text get_briefs returned for run_id (photos as links). Use it when get_briefs timed out on your side: the pull was still built. Without run_id: your newest pull. Free; nothing is counted again.", inputSchema: { type: "object", properties: { run_id: runId } }, annotations: { readOnlyHint: true } },
   { name: "submit_results", title: "Submit verdicts for a brief", description: "Results for places of one brief (ids like c3, e2), in the output-format layer's shape, ≤ 20 per call. Re-submitting an id replaces it.", inputSchema: { type: "object", properties: { brief_id: { type: "string" }, results: z.toJSONSchema(reviewsSchema) as Record<string, unknown> }, required: ["brief_id", "results"] } },
   { name: "fetch_page", title: "Read a web page (counted)", description: "A page as plain text (≤ 8,000 characters) plus menu links and images. Counts as one page and its tokens.", inputSchema: { type: "object", properties: { run_id: runId, url: { type: "string" } }, required: ["run_id", "url"] } },
@@ -140,6 +145,15 @@ export async function callAgentTool(name: string, args: Record<string, unknown>,
       case "finish_run": {
         const r = await finishRun(args, ctx.baseUrl);
         return textResult(r.text, r.log);
+      }
+      case "preview_discover":
+      case "discover": {
+        const r = await discoverPrompt({ ...briefArgs(args), count: num(args.count), radius_km: num(args.radius_km), owner_approved: args.owner_approved }, ctx.agent, ctx.baseUrl, { preview: name === "preview_discover" });
+        return textResult(r.text, name === "discover" ? { run_id: r.runId, use_cases: r.useCases } : undefined);
+      }
+      case "submit_discoveries": {
+        const r = await submitDiscoveries(args.run_id, args.use_case, args.places, ctx.agent);
+        return textResult(r.text, { saved: r.saved, on_map: r.onMap, not_on_map: r.offMap, skipped: r.skipped });
       }
       case "get_pull": {
         const r = await loadPayload(typeof args.run_id === "string" && args.run_id ? args.run_id : null, ctx.agent);

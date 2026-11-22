@@ -6,6 +6,7 @@ import { KindPicker, useKindTitle, type KindNode } from "./KindPicker";
 import { save, store } from "./shared";
 
 interface Built {
+  mode?: "judge" | "discover";
   runId: string;
   briefIds: string[];
   text: string;
@@ -19,6 +20,7 @@ interface Imported {
   saved: number;
   sent: number;
   problems: string[];
+  report?: string[];
   page: string;
 }
 
@@ -32,6 +34,9 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
   const kindTitle = useKindTitle();
   const [pick, setPick] = useState<string[]>(kindFilter);
   const [pageSize, setPageSize] = useState<number | null>(10);
+  const [mode, setMode] = useState<"judge" | "discover">("judge");
+  const [count, setCount] = useState(25);
+  const [radius, setRadius] = useState<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [built, setBuilt] = useState<Built | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -51,7 +56,7 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  const args = () => ({ lat: center.lat, lng: center.lng, label: center.label, use_cases: pick.length ? pick : undefined, page_size: pageSize ?? undefined, by: voter });
+  const args = () => ({ lat: center.lat, lng: center.lng, label: center.label, use_cases: pick.length ? pick : undefined, page_size: pageSize ?? undefined, by: voter, ...(mode === "discover" ? { mode, count, radius_km: radius ?? undefined } : {}) });
   const call = async (url: string, body: unknown) => {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -74,7 +79,7 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
   const doBuild = () =>
     run("build", async () => {
       const d = await call("/api/agent/manual", args());
-      const b: Built = { runId: d.runId, briefIds: d.briefIds, text: d.text, tokens: d.tokens, at: new Date().toISOString(), where: center.label, kinds: pick };
+      const b: Built = { mode, runId: d.runId, briefIds: d.briefIds, text: d.text, tokens: d.tokens, at: new Date().toISOString(), where: center.label, kinds: pick };
       setBuilt(b);
       save(KEY, b);
       setResult(null);
@@ -108,16 +113,47 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
     <div className="space-y-4 text-neutral-900">
       <section className="space-y-2">
         <h3 className="font-semibold">1 · What to check</h3>
-        <p className="text-xs text-neutral-600">Around {center.label}. Pick a group (Food = all its sub-types) or narrow down.</p>
-        <KindPicker tree={kinds} value={pick} onChange={setPick} compact />
-        <div className="flex flex-wrap items-center gap-1 text-xs">
-          <span className="text-neutral-600">Places per use case:</span>
-          {[5, 10, 15, null].map((n) => (
-            <button key={String(n)} type="button" onClick={() => setPageSize(n)} className={`rounded-full border px-2 py-0.5 ${pageSize === n ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
-              {n ?? "rules' default"}
+        <div className="flex gap-1 text-xs">
+          {([
+            ["judge", "Judge a list", "MapPal picks places from the map by your rules; the agent judges them"],
+            ["discover", "Discover", "The agent names the best places itself (Google Maps, Instagram, web); MapPal cross-checks the map"],
+          ] as const).map(([k, label, hint]) => (
+            <button key={k} type="button" title={hint} onClick={() => setMode(k)} className={`flex-1 rounded-lg border px-2 py-1 text-left ${mode === k ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
+              <span className="block font-semibold">{label}</span>
+              <span className={`block text-[11px] ${mode === k ? "text-neutral-200" : "text-neutral-500"}`}>{hint}</span>
             </button>
           ))}
         </div>
+        <p className="text-xs text-neutral-600">Around {center.label}. Pick a group (Food = all its sub-types) or narrow down.</p>
+        <KindPicker tree={kinds} value={pick} onChange={setPick} compact />
+        {mode === "judge" ? (
+          <div className="flex flex-wrap items-center gap-1 text-xs">
+            <span className="text-neutral-600">Places per use case:</span>
+            {[5, 10, 15, null].map((n) => (
+              <button key={String(n)} type="button" onClick={() => setPageSize(n)} className={`rounded-full border px-2 py-0.5 ${pageSize === n ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
+                {n ?? "rules' default"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1 text-xs">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-neutral-600">Top</span>
+              {[10, 15, 25].map((n) => (
+                <button key={n} type="button" onClick={() => setCount(n)} className={`rounded-full border px-2 py-0.5 ${count === n ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
+                  {n}
+                </button>
+              ))}
+              <span className="pl-2 text-neutral-600">within</span>
+              {[5, 10, 20, null].map((n) => (
+                <button key={String(n)} type="button" onClick={() => setRadius(n)} className={`rounded-full border px-2 py-0.5 ${radius === n ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white"}`}>
+                  {n ? `${n} km` : "rules' default"}
+                </button>
+              ))}
+            </div>
+            <p className="text-neutral-500">Sent along: your rules, what the family liked and blacklisted, and the places already known (so it finds new ones). Use an agent that can browse (ChatGPT/Claude with web search) — it must give a link for every place.</p>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!!busy} onClick={doPreview} className={`${btn} bg-neutral-100`}>
             {busy === "preview" ? "Checking…" : "Preview (free)"}
@@ -131,9 +167,9 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
 
       {built && (
         <section className="space-y-2">
-          <h3 className="font-semibold">2 · Paste this into any agent</h3>
+          <h3 className="font-semibold">2 · Paste this into any agent{built.mode === "discover" ? " (discover)" : ""}</h3>
           <p className="text-xs text-neutral-600">
-            {built.runId} · {built.briefIds.length} brief{built.briefIds.length === 1 ? "" : "s"} · {built.kinds.length ? built.kinds.map(kindTitle).join(", ") : "all kinds"} · {built.where} · ~{built.tokens.toLocaleString()} tokens · built {built.at.slice(11, 16)}. Photos are links. Works in ChatGPT, Claude.ai, Gemini…
+            {built.runId} · {built.mode === "discover" ? `discover: ${built.briefIds.length} use case${built.briefIds.length === 1 ? "" : "s"}` : `${built.briefIds.length} brief${built.briefIds.length === 1 ? "" : "s"}`} · {built.kinds.length ? built.kinds.map(kindTitle).join(", ") : "all kinds"} · {built.where} · ~{built.tokens.toLocaleString()} tokens · built {built.at.slice(11, 16)}. Photos are links. Works in ChatGPT, Claude.ai, Gemini…
           </p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={copy} className={`${btn} bg-neutral-900 text-white`}>
@@ -151,7 +187,7 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
           {showAll && <textarea readOnly value={built.text} rows={12} className="w-full rounded-lg border border-neutral-300 p-2 font-mono text-[11px]" onFocus={(e) => e.currentTarget.select()} />}
 
           <h3 className="pt-2 font-semibold">3 · Paste the agent&apos;s answer</h3>
-          <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={6} placeholder='{"run_id": "…", "briefs": {"brf_…": [ … ]}}' className="w-full rounded-lg border border-neutral-300 p-2 font-mono text-xs" />
+          <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={6} placeholder={built.mode === "discover" ? '{"run_id": "…", "discoveries": {"cafes": [ … ]}}' : '{"run_id": "…", "briefs": {"brf_…": [ … ]}}'} className="w-full rounded-lg border border-neutral-300 p-2 font-mono text-xs" />
           <div className="flex flex-wrap gap-2">
             <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Which agent? (e.g. ChatGPT)" className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-1 text-sm" />
             <button type="button" disabled={!!busy || !reply.trim()} onClick={doImport} className={`${btn} bg-green-700 text-white`}>
@@ -164,6 +200,11 @@ export function ManualRun({ kinds, kindFilter, center, voter, onSaved }: { kinds
               <Link href={`/agent/runs/${result.runId}`} className="underline">
                 Open the pull →
               </Link>
+              {result.report?.map((p) => (
+                <div key={p} className="mt-1 whitespace-pre-wrap text-xs">
+                  {p}
+                </div>
+              ))}
               {result.problems.map((p) => (
                 <div key={p} className="mt-1 text-xs">
                   ⚠ {p}

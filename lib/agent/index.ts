@@ -1,7 +1,9 @@
 // MapPal hybrid agent, Phase 0 cost test — the public surface for routes and
 // pages (docs/PLAN.md → "Hybrid agent backend — Phase 0").
 export { agentMcpHandler, agentRestHandler, AGENT_TOOLS, baseUrlOf } from "./application/mcp";
-export { manualPayload, manualPreview, manualImport, parseReply, resultsIn } from "./application/manual";
+export { manualPayload, manualPreview, manualImport, manualDiscover, parseReply, resultsIn } from "./application/manual";
+export { discoverPrompt, submitDiscoveries, discoveriesIn } from "./application/discover";
+export { isPlaceKey } from "./domain/discover";
 export { RunError } from "./application/guard";
 export { costLog, costText, PASS_THUMBS, PASS_WEEKLY_PCT, type CostLog } from "./application/finish";
 export { getRun, listRuns, rateReview, reviewsOf } from "./infrastructure/repo";

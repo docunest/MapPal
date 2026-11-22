@@ -118,6 +118,9 @@ export interface Plan {
   country?: string; // ISO code from Nominatim
   lang: string; // language for Google answers: "pt" in Portugal, else "es"
   notes: string[];
+  /** "discover": the agent named the places itself (no list sent); per use case where it looked. */
+  mode?: "briefs" | "discover";
+  discover?: Record<string, { count: number; radiusKm: number; center: { lat: number; lng: number; label: string }; layers: string[]; known: string[]; family: string }>;
 }
 
 export interface Estimate {

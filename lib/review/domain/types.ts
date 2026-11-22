@@ -30,6 +30,10 @@ export interface AgentView {
   parking?: string;
   safety?: string;
   evidence: Array<{ kind: string; url?: string; note: string }>;
+  /** Discover mode: false = the agent found it but it isn't on OpenStreetMap (check its link). */
+  onMap?: boolean;
+  links?: { google?: string; instagram?: string; website?: string };
+  listedOn?: string[];
   reviewedAt: string;
   runId: string;
 }

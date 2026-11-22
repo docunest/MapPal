@@ -65,6 +65,7 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       price_samples?: AgentView["prices"]; access?: string; how_to_get_there?: string; parking?: string; safety_notes?: string;
       photo?: { source: string; page?: string; credit?: string; url?: string };
       complications?: AgentView["complications"];
+      on_map?: boolean; google_maps_url?: string; instagram_url?: string; website?: string; listed_on?: string[];
     };
     const place: ReviewPlace = c
       ? base(c, true)
@@ -90,6 +91,9 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       parking: d.parking,
       safety: d.safety_notes,
       evidence: (r.evidence as AgentView["evidence"]) ?? [],
+      onMap: d.on_map,
+      links: d.google_maps_url || d.instagram_url || d.website ? { google: d.google_maps_url, instagram: d.instagram_url, website: d.website } : undefined,
+      listedOn: d.listed_on,
       reviewedAt: r.createdAt.toISOString(),
       runId: r.runId,
     };

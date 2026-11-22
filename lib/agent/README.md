@@ -130,3 +130,10 @@ Google content goes to the agent live and is never stored here.
   → 14 tools; a wrong token → 401.
 - `/agent/debug` shows the index cells and the location hints.
 - Tests: `node --import tsx --test test/agent.test.ts`.
+
+
+## Discover mode
+`application/discover.ts`, `domain/discover.ts`. The agent names places itself; `submit_discoveries`
+matches each to the OSM index (`matchToIndex`: osm_ref, or a similar name near the pin) or keeps it as
+`ext/<hash>` with its link (`on_map: false` in the review data). Pull text is stored on the run
+(`payload`), so `get_pull` re-reads a pull whose call timed out.

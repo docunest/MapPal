@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { baseUrlOf, manualPayload, manualPreview, RunError } from "@/lib/agent";
+import { baseUrlOf, manualDiscover, manualPayload, manualPreview, RunError } from "@/lib/agent";
 
-// Manual run (family login): POST {lat, lng, label?, use_cases?, page_size?, by, preview?}
+// Manual run (family login): POST {lat, lng, label?, use_cases?, page_size?, by, preview?, mode?: "discover", count?, radius_km?}
 // → preview text (free), or the full payload to paste into any chat agent.
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
-  const b = (await req.json().catch(() => ({}))) as { lat?: unknown; lng?: unknown; label?: unknown; use_cases?: unknown; page_size?: unknown; by?: unknown; preview?: unknown };
+  const b = (await req.json().catch(() => ({}))) as { lat?: unknown; lng?: unknown; label?: unknown; use_cases?: unknown; page_size?: unknown; by?: unknown; preview?: unknown; mode?: unknown; count?: unknown; radius_km?: unknown };
   const lat = Number(b.lat);
   const lng = Number(b.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return NextResponse.json({ error: "lat/lng required" }, { status: 400 });
@@ -18,6 +18,11 @@ export async function POST(req: Request) {
     page_size: typeof b.page_size === "number" ? b.page_size : undefined,
   };
   try {
+    const discover = { count: typeof b.count === "number" ? b.count : undefined, radius_km: typeof b.radius_km === "number" ? b.radius_km : undefined };
+    if (b.mode === "discover") {
+      if (b.preview === true) return NextResponse.json(await manualPreview(args, "discover", discover));
+      return NextResponse.json(await manualDiscover({ ...args, ...discover }, typeof b.by === "string" ? b.by : "app", baseUrlOf(req)));
+    }
     if (b.preview === true) return NextResponse.json(await manualPreview(args));
     return NextResponse.json(await manualPayload(args, typeof b.by === "string" ? b.by : "app", baseUrlOf(req)));
   } catch (e) {

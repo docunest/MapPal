@@ -49,9 +49,9 @@ interface Prepared {
   titles: Record<string, string>; // use case → "Food › Cool bars"
 }
 
-const newId = (p: string) => `${p}_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}_${randomBytes(4).toString("hex")}`;
+export const newId = (p: string) => `${p}_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}_${randomBytes(4).toString("hex")}`;
 
-async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): Promise<Prepared> {
+export async function prepare(args: BriefArgs, runId: string, indexBudgetMs: number): Promise<Prepared> {
   const state = travelState(await loadFixes());
   let target: Zone["target"];
   if (typeof args.lat === "number" && typeof args.lng === "number") {
