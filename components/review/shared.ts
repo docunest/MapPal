@@ -74,3 +74,18 @@ export function save(key: string, value: unknown) {
     /* private mode */
   }
 }
+
+/** "€€ ~€90 ●●○": family price tier, the estimate, and how sure (●●● published price · ●●○ similar/range · ●○○ guess). */
+export function priceLabel(p?: { familyEur?: number; tier?: string; confidence?: "high" | "medium" | "low" }): string | null {
+  if (!p || (p.familyEur === undefined && !p.tier)) return null;
+  const tier = p.tier === "free" || p.familyEur === 0 ? "Free" : (p.tier ?? "");
+  const eur = p.familyEur && p.familyEur > 0 ? ` ~€${Math.round(p.familyEur)}` : "";
+  const sure = p.confidence === "high" ? " ●●●" : p.confidence === "medium" ? " ●●○" : p.confidence === "low" ? " ●○○" : "";
+  return `${tier}${eur}${sure}`.trim();
+}
+export const PRICE_SURE: Record<string, string> = { high: "published price", medium: "similar prices or a range", low: "a guess" };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const day = (d: string) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]}`;
+/** "📅 27 Nov – 3 Jan" or "📅 6 Dec". */
+export const datesLabel = (start?: string, end?: string) => (start ? `📅 ${day(start)}${end && end !== start ? ` – ${day(end)}` : ""}` : null);

@@ -116,7 +116,7 @@ export function ReviewApp() {
     fetch("/api/review/voters").then((r) => r.json()).then((d) => setVoters(d.voters ?? [])).catch(() => undefined);
     fetch("/api/agent/rules")
       .then((r) => r.json())
-      .then((d) => setKinds(buildUseCaseTree((d.rules ?? []).filter((r: { layer: string }) => r.layer === "usecase")).map(({ key, title, parent, depth, children, runs }) => ({ key, title, parent, depth, children, runs }))))
+      .then((d) => setKinds(buildUseCaseTree((d.rules ?? []).filter((r: { layer: string }) => r.layer === "usecase")).map(({ key, title, parent, depth, children, runs, item }) => ({ key, title, parent, depth, children, runs, off: (item.config as { offByDefault?: boolean } | null)?.offByDefault === true }))))
       .catch(() => undefined);
     flushQueue().then(setPending);
     const online = () => flushQueue().then(setPending);
@@ -150,6 +150,8 @@ export function ReviewApp() {
   const query = useCallback(
     (mine: string) => {
       const q = new URLSearchParams({ lat: String(center.lat), lng: String(center.lng), r: scope.radiusKm ? String(scope.radiusKm) : "all", cat: scope.categories.join(","), pool: scope.pool, voter, mine });
+      if (scope.priceMax !== null && scope.priceMax !== undefined) q.set("price", String(scope.priceMax));
+      if (scope.within !== null && scope.within !== undefined) q.set("within", String(scope.within));
       if (scope.other) {
         q.set("other", scope.other);
         q.set("otherStatus", scope.otherStatus);

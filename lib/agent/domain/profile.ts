@@ -54,6 +54,14 @@ export const nodeSchema = z.object({
   parkingWithinM: z.number().min(0).optional(),
   spreadByTown: z.boolean().optional(),
   pageSize: z.number().int().min(1).max(50).optional(),
+  /** Runs without a map list: agents find the places themselves (Discover). A node with neither select nor discover is a group. */
+  discover: z.boolean().optional(),
+  /** Left out unless asked for by name (Food: the family wants activities first). Inherited by children. */
+  offByDefault: z.boolean().optional(),
+  /** Look this many days ahead (events, seasonal openings); 0 = not date-bound. */
+  windowDays: z.number().int().min(0).max(180).optional(),
+  /** Farthest one-way drive for a must-do (area is the normal distance). */
+  mustDoKm: z.number().positive().max(300).optional(),
   criteria: z.string().default(""),
 });
 export type UseCaseNode = z.input<typeof nodeSchema>;
@@ -65,7 +73,7 @@ export const profileSchema = z.object({
   idPrefix: z.string().regex(/^[a-z]{1,3}$/),
   layers: layerList,
   area: areaShape,
-  select: z.array(selectCond).min(1),
+  select: z.array(selectCond),
   drop: z.array(dropCond),
   score: z.array(scoreCond),
   distancePenaltyPerKm: z.number().min(0).default(0),
@@ -74,6 +82,10 @@ export const profileSchema = z.object({
   parkingWithinM: z.number().min(0).default(0),
   spreadByTown: z.boolean().default(false),
   pageSize: z.number().int().min(1).max(50),
+  discover: z.boolean().default(false),
+  offByDefault: z.boolean().default(false),
+  windowDays: z.number().int().min(0).max(180).default(0),
+  mustDoKm: z.number().positive().max(300).optional(),
   criteria: z.string(), // what the family wants — for the agent, in words
 });
 export type Profile = z.infer<typeof profileSchema>;

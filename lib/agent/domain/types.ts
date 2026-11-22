@@ -120,7 +120,7 @@ export interface Plan {
   notes: string[];
   /** "discover": the agent named the places itself (no list sent); per use case where it looked. */
   mode?: "briefs" | "discover";
-  discover?: Record<string, { count: number; radiusKm: number; center: { lat: number; lng: number; label: string }; layers: string[]; known: string[]; family: string }>;
+  discover?: Record<string, { count: number; radiusKm: number; center: { lat: number; lng: number; label: string }; layers: string[]; known: string[]; family: string; mustDoKm?: number; window?: { from: string; to: string } | null }>;
 }
 
 export interface Estimate {

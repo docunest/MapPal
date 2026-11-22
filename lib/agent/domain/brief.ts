@@ -31,6 +31,8 @@ export function usecaseLayer(p: Profile, chain: Array<{ title: string; body: str
   const head = chain.map((c) => c.title).join(" › ");
   const versions = chain.map((c) => `v${c.version} · ${c.hash}`).join(" › ");
   const text = chain.length > 1 ? chain.map((c) => `${c.title}: ${c.body}`).join("\n") : (chain[0]?.body ?? "");
+  if (!p.select.length) return `## 4. Use case: ${head} (rules ${versions})
+${text}`;
   return `## 4. Use case: ${head} (rules ${versions})
 ${text}
 How these places were picked (deterministic rules, no AI): ${stats.found} matching places in the place index around the zone; dropped by the rules: ${reasons}. The rest are ranked by the rules' points (${p.select.map((s) => `${s.kind} ${s.points}`).filter((x, i, a) => a.indexOf(x) === i).slice(0, 8).join(", ")}…) and shown best first.`;

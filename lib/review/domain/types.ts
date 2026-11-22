@@ -30,6 +30,13 @@ export interface AgentView {
   parking?: string;
   safety?: string;
   evidence: Array<{ kind: string; url?: string; note: string }>;
+  /** Contract v3: whole-family price with how sure it is; season; event dates; dogs; why a far one is worth it. */
+  price?: { familyEur?: number; tier?: string; confidence?: "high" | "medium" | "low"; note?: string };
+  seasonNote?: string;
+  eventStart?: string;
+  eventEnd?: string;
+  dogs?: "yes" | "no" | "unknown";
+  mustDoReason?: string;
   /** Discover mode: false = the agent found it but it isn't on OpenStreetMap (check its link). */
   onMap?: boolean;
   links?: { google?: string; instagram?: string; website?: string };
@@ -72,4 +79,12 @@ export interface Scope {
   voter: string;
   mine: MineFilter;
   other?: { voter: string; status: "voted" | "like" | "unvoted" };
+  /** Highest family price tier to show (0 free … 4 €€€€); places without a price always show. */
+  priceMax?: number;
+  /** Events: only those on dates from today to today + this many days. Places without dates always show; past events never. */
+  withinDays?: number;
+  /** Today where the family is (YYYY-MM-DD), for the date filter. */
+  today?: string;
+  /** Use cases left out when no kind is picked (Food is off by default). */
+  exclude?: string[];
 }

@@ -95,8 +95,11 @@ export async function prepare(args: BriefArgs, runId: string, indexBudgetMs: num
       continue;
     }
     const p = resolved.profile;
+    // Off by default (Food): only when asked for by name or by its group.
+    if (!asked && p.offByDefault) continue;
     let things: OsmThing[];
-    if (p.area.kind === "towns") {
+    if (!p.select.length) things = []; // discover-only: agents find the places, no map list
+    else if (p.area.kind === "towns") {
       const m = new Map<string, OsmThing>();
       for (const c of zone.cafeCircles) for (const t of await placesNear(c, p.layers)) m.set(t.ref, t);
       things = [...m.values()];

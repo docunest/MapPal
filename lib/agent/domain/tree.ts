@@ -14,7 +14,7 @@ export interface TreeEntry<T extends HasNode = HasNode> {
   parent: string | null;
   depth: number;
   children: string[];
-  /** Has its own "select": runs briefs and owns places. Groups only pass text and rules down. */
+  /** Has its own "select" (map list) or "discover" (agents find places): runs and owns places. Groups only pass text and rules down. */
   runs: boolean;
   item: T;
 }
@@ -53,7 +53,7 @@ export function buildUseCaseTree<T extends HasNode>(items: T[]): TreeEntry<T>[] 
   const walk = (parent: string | null, depth: number) => {
     for (const k of [...(kids.get(parent) ?? [])].sort(byTitle)) {
       const { node, item } = nodes.get(k)!;
-      out.push({ key: k, title: node.title, parent, depth, children: [...(kids.get(k) ?? [])].sort(byTitle), runs: (node.select?.length ?? 0) > 0, item });
+      out.push({ key: k, title: node.title, parent, depth, children: [...(kids.get(k) ?? [])].sort(byTitle), runs: (node.select?.length ?? 0) > 0 || node.discover === true, item });
       walk(k, depth + 1);
     }
   };

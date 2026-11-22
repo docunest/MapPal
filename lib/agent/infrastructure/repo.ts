@@ -2,7 +2,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { AgentCategory, Caps, Counters, Plan, RunStatus } from "../domain/types";
-import type { ReviewInput } from "../domain/review";
+import { tierOf, type ReviewInput } from "../domain/review";
 
 export const FRESH_DAYS = 30;
 
@@ -87,6 +87,8 @@ export interface ReviewToSave {
 export async function saveReviews(runId: string, agent: string, rows: ReviewToSave[]) {
   for (const r of rows) {
     const { candidate, verdict, confidence, relevant, keep, score, summary, evidence, ...rest } = r.review;
+    // The tier follows the family price when one is given, so filters agree with the number.
+    if (typeof rest.price_family_eur === "number") rest.price_tier = tierOf(rest.price_family_eur);
     const data = json({ ...rest, ...(r.photo ? { photo: r.photo } : {}) });
     const base = { briefId: r.briefId ?? null, category: r.category, osmRef: r.osmRef, googlePlaceId: r.googlePlaceId ?? null, name: r.name, lat: r.lat, lng: r.lng, verdict, confidence, relevant, keep, score: score === undefined ? null : Math.round(score), summary, data, evidence: json(evidence), agent };
     await prisma.agentReview.upsert({

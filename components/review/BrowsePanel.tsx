@@ -5,7 +5,7 @@ import Link from "next/link";
 import { MAX_CARDS } from "@/lib/review/domain/filter";
 import { KindPicker, useKindTitle, type KindNode } from "./KindPicker";
 import { ManualRun } from "./ManualRun";
-import { COMPLICATION_UI, ago, iconFor, km, scoreClass, VOTE_UI, type ReviewPlace } from "./shared";
+import { COMPLICATION_UI, ago, datesLabel, iconFor, km, priceLabel, scoreClass, VOTE_UI, type ReviewPlace } from "./shared";
 
 interface Cell {
   geohash: string;
@@ -161,6 +161,9 @@ export function BrowsePanel({
                         <span className="text-neutral-500">{km(p.distanceM)}</span>
                         <span className="text-neutral-500">{kindTitle(p.category)}</span>
                         <span className={`rounded px-1 ${f.c}`}>{f.t}</span>
+                        {priceLabel(p.agent?.price) && <span className="rounded bg-emerald-100 px-1 text-emerald-900">{priceLabel(p.agent?.price)}</span>}
+                        {datesLabel(p.agent?.eventStart, p.agent?.eventEnd) && <span className="rounded bg-sky-100 px-1 text-sky-900">{datesLabel(p.agent?.eventStart, p.agent?.eventEnd)}</span>}
+                        {p.agent?.dogs === "no" && <span className="rounded bg-rose-100 px-1 text-rose-900">🐕✕</span>}
                         {p.agent?.onMap === false && <span className="rounded bg-amber-100 px-1 text-amber-900" title="Found by the agent, not on OpenStreetMap">not on map</span>}
                         {typeof p.agent?.score === "number" && <span className={`rounded px-1 ${scoreClass(p.agent.score)}`}>{p.agent.score}/100</span>}
                         {p.agent?.complications?.map((c, i) => (

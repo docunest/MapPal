@@ -10,6 +10,8 @@ export interface KindNode {
   depth: number;
   children: string[];
   runs: boolean;
+  /** Left out of "All" (Food): shown only when picked. */
+  off?: boolean;
 }
 
 /** Use case → "Food › Cool bars", for cards and lists. */
@@ -75,7 +77,7 @@ export function KindPicker({ tree, value, onChange, counts, compact }: { tree: K
         <div key={i} className={`flex gap-1 ${compact ? "overflow-x-auto pb-0.5" : "flex-wrap"}`}>
           {i === 0 ? (
             <button type="button" onClick={() => onChange([])} className={chip(!value.length, false)}>
-              All
+              All{tree.some((n) => n.off && !n.parent) ? ` (no ${tree.filter((n) => n.off && !n.parent).map((n) => n.title.toLowerCase()).join(", ")})` : ""}
             </button>
           ) : (
             <span className="shrink-0 self-center pl-1 text-xs text-neutral-500">{"›".repeat(i)}</span>

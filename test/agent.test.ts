@@ -401,14 +401,34 @@ test("place-index layers", () => {
 });
 
 // --- Nested use cases (2026-11-21 night) ---
-test("use-case tree: Food is a group with four sub-types; Exploration stands alone", () => {
-  // Depth first, siblings by title (Cafes, Cool bars, Fast food, Restaurants); * = group.
-  assert.deepEqual(TREE.map((e) => `${e.depth}:${e.key}${e.runs ? "" : "*"}`), ["0:exploration", "0:food*", "1:cafes", "1:bars", "1:fast-food", "1:restaurants"]);
-  assert.deepEqual(TREE.filter((e) => e.depth === 0).map((e) => e.key), ["exploration", "food"]);
+test("use-case tree: Activities (6 discover kinds + Exploration) and Food (4 sub-types)", () => {
+  // Depth first, siblings by title; * = group.
+  assert.deepEqual(TREE.map((e) => `${e.depth}:${e.key}${e.runs ? "" : "*"}`), [
+    "0:activities*", "1:exploration", "1:act-kids", "1:act-events", "1:act-motors", "1:act-water", "1:act-outdoors", "1:act-wow",
+    "0:food*", "1:cafes", "1:bars", "1:fast-food", "1:restaurants",
+  ]);
+  assert.deepEqual(TREE.filter((e) => e.depth === 0).map((e) => e.key), ["activities", "food"]);
   assert.deepEqual([...TREE.find((e) => e.key === "food")!.children].sort(), FOOD_KIDS);
   assert.deepEqual([...expand(TREE, ["food"])].sort(), ["food", ...FOOD_KIDS].sort());
   assert.deepEqual([...expand(TREE, ["bars", "old-thing"])], ["bars", "old-thing"]);
   assert.equal(rootOf(TREE, "bars"), "food");
+  assert.equal(rootOf(TREE, "exploration"), "activities");
+  assert.deepEqual(treeProblems(DEFAULT_RULES.filter((r) => r.layer === "usecase").map((r) => ({ config: r.config ?? null }))), []);
+});
+
+test("activities: discover-only kinds inherit 40 km, 120 km must-do, 60 days, 25 per run; food is off by default", () => {
+  const ev = rules("act-events");
+  assert.equal(ev.discover, true);
+  assert.equal(ev.select.length, 0);
+  assert.deepEqual(ev.area, { kind: "radius", km: 40 });
+  assert.equal(ev.mustDoKm, 120);
+  assert.equal(ev.windowDays, 60);
+  assert.equal(ev.pageSize, 25);
+  assert.equal(ev.offByDefault, false);
+  assert.match(ev.criteria, /price_family_eur/);
+  assert.match(ev.criteria, /event_start/);
+  assert.equal(rules("cafes").offByDefault, true);
+  assert.equal(rules("exploration").select.length > 0, true); // still has its map list
 });
 
 test("a sub-type inherits what it leaves out; parent drop/score rules come first", () => {

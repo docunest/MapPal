@@ -189,7 +189,7 @@ unmatched places are kept as `ext/<hash>` ("not on the map — check the link").
 preview_discover / discover / submit_discoveries; Manual run has the same switch. Evidence:
 docs/evidence/discover/.
 
-## Activities: requirements first (draft for the owner's yes, 2026-11-22)
+## Activities: requirements first (owner-approved 2026-11-22: "Start the build")
 Source: the owner's survey (artifact "MapPal Activity Survey", answers 2026-11-22 10:05 UTC).
 Principle: the *requirements* are the product. Any agent and any model (Claude, ChatGPT, Gemini…)
 gets the same requirements and returns the same answer format; each may use whatever tools it has
@@ -228,9 +228,10 @@ gets the same requirements and returns the same answer format; each may use what
 - **Distance (one way, by road):** normal up to 40 km; a must-do up to 120 km, with the reason it's worth it.
 - **Season:** check that it runs *in this season and on the dates* (not only today's hours). Closed for the
   season → leave it out.
-- **Events:** happening from today to 1 month ahead (survey) — dates, place, and whether it recurs.
-- **Price:** an estimate per person and for the family (2 adults, teen, 6-year-old), the tier, and how sure:
-  Free · € under €10 · €€ €10–30 · €€€ €30–60 · €€€€ €60+ (per person). Expensive is allowed (e.g. a €300
+- **Window:** scan today → 2 months ahead (owner: "we stay a different amount of time at each place and plan up to 2 months"); filter by date in Swipe. Events: dates, place, whether it recurs.
+- **Price:** for the whole family (owner: "price per family with some marker how confident"), the tier and how
+  sure (●●● published · ●●○ similar/range · ●○○ guess): Free · € <€40 · €€ <€120 · €€€ <€240 · €€€€ €240+
+  (the survey's per-person bands × 4). Expensive is allowed (e.g. a €300
   boat rental); it must just be visible. A guess is required even when exact prices aren't published.
 - **Per run:** up to 25 per category.
 - **No mistakes:** only real, currently operating places/events, each with a link the agent checked;

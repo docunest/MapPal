@@ -2,7 +2,7 @@
 
 import { MiniMap } from "./MiniMap";
 import { useKindTitle } from "./KindPicker";
-import { COMPLICATION_UI, scoreClass, ago, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace } from "./shared";
+import { COMPLICATION_UI, scoreClass, ago, compass, gmaps, iconFor, km, VOTE_UI, waze, type ReviewPlace, priceLabel, PRICE_SURE, datesLabel } from "./shared";
 
 export interface CardActions {
   onSendToCar?: (p: ReviewPlace) => void;
@@ -60,6 +60,9 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
         ) : (
           <Chip className="bg-neutral-100 text-neutral-600">not checked by the agent yet</Chip>
         )}
+        {priceLabel(a?.price) && <Chip className="bg-emerald-100 text-emerald-900">{priceLabel(a?.price)} family{a?.price?.confidence ? ` (${PRICE_SURE[a.price.confidence]})` : ""}</Chip>}
+        {datesLabel(a?.eventStart, a?.eventEnd) && <Chip className="bg-sky-100 text-sky-900">{datesLabel(a?.eventStart, a?.eventEnd)}</Chip>}
+        {a?.dogs === "no" && <Chip className="bg-rose-100 text-rose-900">🐕 no dogs</Chip>}
         {a?.onMap === false && <Chip className="bg-amber-100 text-amber-900">⚠ not on the map — found by the agent{a.listedOn?.length ? ` (${a.listedOn.join(", ")})` : ""}, check the link</Chip>}
         {p.visitedAt && <Chip className="bg-blue-100 text-blue-800">✓ been here {ago(p.visitedAt)}</Chip>}
         {p.sentAt && <Chip className="bg-indigo-100 text-indigo-800">🚐 sent to car {ago(p.sentAt)}</Chip>}
@@ -88,6 +91,9 @@ export function PlaceCard({ place: p, me, voter, actions, compact = false }: { p
           </li>
         ))}
         {a?.risks?.map((r, i) => <li key={i}>⚠️ {r.flag}: {r.note}</li>)}
+        {a?.seasonNote && <li>🗓️ {a.seasonNote}</li>}
+        {a?.price?.note && <li>💶 {a.price.note}</li>}
+        {a?.mustDoReason && <li>⭐ Worth the drive: {a.mustDoReason}</li>}
         {a?.howToGetThere && <li>🧭 {a.howToGetThere}</li>}
         {(a?.parking || p.parking) && <li>🅿️ {a?.parking ?? `${p.parking!.name ?? "Parking"} ${km(p.parking!.distanceM)} away (OSM)`}</li>}
         {a?.safety && <li>🦺 {a.safety}</li>}

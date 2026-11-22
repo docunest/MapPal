@@ -39,6 +39,8 @@ At most 20 per call. The server checks this format (code: lib/agent/domain/revie
 export const FOOD: UseCaseNode = {
   useCase: "food",
   title: "Food",
+  // Owner, 2026-11-22: "suppress cafés by default — there are too many and less of a problem". Run food only when asked.
+  offByDefault: true,
   layers: ["food"],
   area: { kind: "towns" },
   select: [],
@@ -130,9 +132,10 @@ export const FAST_FOOD: UseCaseNode = {
 
 const kind = (k: string, points: number, c: Omit<Profile["select"][number], "kind" | "points">) => ({ kind: k, points, ...c });
 
-export const EXPLORATION: Profile = {
+export const EXPLORATION: UseCaseNode = {
   useCase: "exploration",
   title: "Exploration and adventure",
+  parent: "activities",
   idPrefix: "e",
   layers: ["explore"],
   area: { kind: "radius", km: 15 },
@@ -184,13 +187,51 @@ export const EXPLORATION: Profile = {
     "Want: caves, mines, abandoned buildings, gorges, waterfalls and other spots that make a real adventure or great photos — hidden ones over famous ones. Check it still exists and is reachable (recent photos, posts, reviews), whether access is open or restricted (private, gated, closed to tourists), where to leave a camper, and safety or legal notes. Drop islands without a road and anything that needs a boat.",
 };
 
+// Activities (owner's survey, 2026-11-22). Requirements first: any agent and any
+// model gets the same text; agents find the places themselves (discover), the
+// map index is one of their tools. Love = always look for it; Maybe = only when
+// it's really good; No = never suggest.
+export const ACTIVITIES: UseCaseNode = {
+  useCase: "activities",
+  title: "Activities",
+  layers: ["explore"],
+  area: { kind: "radius", km: 40 },
+  mustDoKm: 120,
+  windowDays: 60,
+  pageSize: 25,
+  criteria: `Things to do for the whole family (2 adults, a teenage son, a 6-year-old, a dog), living in a camper van and staying a different number of days at each stop.
+- Distance: normally within the radius given (one way, by road). A must-do may be up to the must-do distance: say why it's worth the drive in must_do_reason.
+- Season and dates: it must run in this season and on dates inside the search window — not only "open at 3 pm". Closed for the season or only outside the window → leave it out. Give season_note (e.g. "boats May–September", "weekends only in winter").
+- Price for the whole family (2 adults, teen, 6-year-old), in euros: price_family_eur, price_tier and price_confidence (high = a published price you saw; medium = similar prices or a range; low = your guess). A guess is required even when no price is published; say what it's based on in price_note. Expensive is fine (they happily pay ~€300 for a boat rental): it just has to be visible. Tiers for the family: free · € under €40 · €€ €40–120 · €€€ €120–240 · €€€€ €240+.
+- Dog: dogs yes / no / unknown. Don't drop a place because dogs aren't allowed; say so.
+- Don't rank for the family: return what fits; they filter and sort in the app.`,
+};
+const act = (useCase: string, title: string, idPrefix: string, criteria: string): UseCaseNode => ({ useCase, title, parent: "activities", idPrefix, discover: true, criteria });
+export const ACT_OUTDOORS = act("act-outdoors", "Outdoors with the family", "ao", `Love: easy loop hikes (1–3 h, fine for a 6-year-old), hikes to a big view, gorges and canyon walkways, waterfalls, hidden coves and wild beaches, show caves, wild hot springs.
+Maybe (only when really good): long day hikes, river beaches, sea beaches, viewpoints, dinosaur tracks and fossils, islands and reserves, wildlife and birdwatching, thermal spas.`);
+export const ACT_WATER = act("act-water", "On the water", "aw", `Love: speedboat/RIB trips along the coast (sea caves, cliffs), renting a boat ourselves, watching big waves (e.g. Nazaré in autumn–winter), snorkelling.
+Maybe: scheduled boat trips, dolphin and whale watching, kayak/SUP, coasteering, rafting, sailing, fishing trips, jet ski, kitesurf, wakeboard cable parks.
+No: surf lessons.`);
+export const ACT_MOTORS = act("act-motors", "Motors and adrenaline", "am", `Mostly for dad and the teenage son.
+Love: karting, buggy and quad tours, motocross or dirt-bike lessons, drift and driving experiences, mountain biking / e-bike tours, canyoning, caving with a guide.
+Maybe: zip lines, tree-top adventure parks, via ferrata, outdoor rock climbing, climbing gyms, bungee or bridge swing, laser tag, trampoline parks, archery or shooting, pump tracks.
+No: paintball, escape rooms, VR arenas, skydiving, paragliding, cliff jumping.`);
+export const ACT_KIDS = act("act-kids", "For the 6-year-old", "ak", `Love: zoos and aquariums, farms with animals, pony and horse riding, great playgrounds, science centres (e.g. Ciência Viva), little trains and heritage railways.
+Maybe: theme parks, water parks, mini golf.`);
+export const ACT_WOW = act("act-wow", "Places with a wow", "ax", `Love: castles and walled towns, abandoned places (legal to visit), mines and industrial sites with tours, factory and workshop tours (ceramics, cheese, chocolate, cork…), Roman ruins, monasteries, hands-on museums, unusual photo spots that not everyone has a photo of.
+Maybe: lighthouses and forts.`);
+export const ACT_EVENTS = act("act-events", "Local events", "ae", `Events on dates inside the search window, near the location (a town or venue).
+Love: Christmas villages and markets, New Year's Eve, Carnival, Halloween, village festas and romarias, big markets (flea, farmers'), medieval fairs, rallies and motorsport (rally stages, karting and drift races), surf contests (e.g. Nazaré big-wave), corridas of every kind (bulls, running races, car or motorbike races, horse races), concerts and light shows, fireworks, air shows.
+Maybe: food festivals, football matches.
+For every event: event_start and event_end (YYYY-MM-DD; the same day for one-day events), where exactly, and the official page you checked. Recurring weekly events: the next date inside the window, and say it repeats.`);
+
 /**
  * Code defaults. A rule nobody has changed (its current version is by
  * "default") moves to a newer default automatically, as a new version with
  * DEFAULTS_NOTE; a rule a person or an agent edited is left alone.
  * Parents come before their children.
  */
-export const DEFAULTS_NOTE = "defaults updated in the code: use cases nest (Food → Cafes, Cool bars, Restaurants, Fast food); answers carry a 0–100 score against the like/dislike hints and complication flags (in a supermarket, car-free old town, no dogs…)";
+export const DEFAULTS_NOTE = "defaults updated in the code: Activities from the owner's survey (outdoors, water, motors, kids, wow places, events; 40 km normal / 120 km must-do; 60 days ahead; price per family with confidence); food off by default; Exploration moved under Activities";
 
 const uc = (n: UseCaseNode) => ({ slug: `usecase:${n.useCase}`, layer: "usecase" as const, title: n.title, body: n.criteria ?? "", config: n });
 
@@ -202,5 +243,12 @@ export const DEFAULT_RULES: Array<{ slug: string; layer: "charter" | "format" | 
   uc(BARS),
   uc(RESTAURANTS),
   uc(FAST_FOOD),
+  uc(ACTIVITIES),
   uc(EXPLORATION),
+  uc(ACT_OUTDOORS),
+  uc(ACT_WATER),
+  uc(ACT_MOTORS),
+  uc(ACT_KIDS),
+  uc(ACT_WOW),
+  uc(ACT_EVENTS),
 ];

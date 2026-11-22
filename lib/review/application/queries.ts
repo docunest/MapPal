@@ -31,6 +31,9 @@ export function scopeFrom(q: URLSearchParams): Scope {
     voter,
     mine: MINE.includes(mine) ? mine : "unvoted",
     other: otherVoter && (otherStatus === "voted" || otherStatus === "like" || otherStatus === "unvoted") ? { voter: otherVoter, status: otherStatus } : undefined,
+    priceMax: /^[0-4]$/.test(q.get("price") ?? "") ? Number(q.get("price")) : undefined,
+    withinDays: /^\d{1,3}$/.test(q.get("within") ?? "") ? Number(q.get("within")) : undefined,
+    today: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Lisbon" }),
   };
 }
 
@@ -99,7 +102,9 @@ export async function placesFor(scope: Scope) {
   const uc = await loadUseCaseTree();
   // Food = Food and everything under it.
   const wanted = scope.categories.length ? [...expand(uc.tree, scope.categories)] : [];
-  const s2: Scope = { ...scope, categories: wanted };
+  // Nothing picked = everything except what's off by default (Food).
+  const offRoots = uc.tree.filter((e) => !e.parent && (e.item.config as { offByDefault?: boolean } | null)?.offByDefault).map((e) => e.key);
+  const s2: Scope = { ...scope, categories: wanted, exclude: offRoots.length ? [...expand(uc.tree, offRoots)] : undefined };
   const [loaded, votes, travel, fromIndex] = await Promise.all([loadPlaces(), loadVotes(), loadTravel(), scope.pool === "everything" ? indexPlaces(s2, uc) : Promise.resolve([] as ReviewPlace[])]);
   classify(loaded, uc, new Map(loaded.map((p) => [p.key, p.rawTags ?? {}])));
   for (const p of loaded) delete p.rawTags;

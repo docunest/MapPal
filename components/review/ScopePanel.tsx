@@ -14,9 +14,13 @@ export interface ScopeUi {
   mine: "unvoted" | VoteValue | "any";
   other: string;
   otherStatus: "voted" | "like" | "unvoted";
+  /** Highest family price tier (0 free … 4 €€€€); null = any. */
+  priceMax?: number | null;
+  /** Events from today to this many days ahead; null = any date. */
+  within?: number | null;
 }
 
-export const DEFAULT_SCOPE: ScopeUi = { center: "me", pin: null, radiusKm: 20, categories: [], pool: "checked", mine: "unvoted", other: "", otherStatus: "voted" };
+export const DEFAULT_SCOPE: ScopeUi = { center: "me", pin: null, radiusKm: 20, categories: [], pool: "checked", mine: "unvoted", other: "", otherStatus: "voted", priceMax: null, within: null };
 
 const RADII: Array<number | null> = [5, 20, 50, 100, null];
 
@@ -68,6 +72,13 @@ export function ScopePanel({
         <div className="mb-1 text-xs font-medium text-neutral-500">Kind {scope.categories.length ? "" : "— all kinds"}</div>
         <KindPicker tree={kinds} value={scope.categories} onChange={(categories) => set({ categories })} />
       </div>
+      <Chips
+        label="Price for the family"
+        value={scope.priceMax ?? null}
+        onChange={(v) => set({ priceMax: v })}
+        options={[[null, "Any"], [0, "Free"], [1, "€ <40"], [2, "€€ <120"], [3, "€€€ <240"]]}
+      />
+      <Chips label="Events" value={scope.within ?? null} onChange={(v) => set({ within: v })} options={[[null, "Any date"], [7, "Next 7 days"], [14, "2 weeks"], [30, "Month"], [60, "2 months"]]} />
       <Chips
         label="Which places"
         value={scope.pool}

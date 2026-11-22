@@ -44,7 +44,7 @@ claude mcp add --transport http mappal-agent https://<MapPal host>/api/agent/mcp
 9. Tell the owner in 2–3 lines: kept places, % of the week used (pass < 5 %),
    and the pull page link (its "Under the hood" map shows every step and cost).
 
-**Discover mode** (the owner asks you to find places rather than judge a list):
+**Discover mode** (the owner asks you to find places rather than judge a list; the default for Activities — food is off unless asked):
 `preview_discover` → owner's yes → `discover` → search and check every place
 (a real link each; leave out what you can't verify) → `submit_discoveries`
 per use case → steps 7–9.

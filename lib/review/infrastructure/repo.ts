@@ -66,6 +66,8 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       photo?: { source: string; page?: string; credit?: string; url?: string };
       complications?: AgentView["complications"];
       on_map?: boolean; google_maps_url?: string; instagram_url?: string; website?: string; listed_on?: string[];
+      price_family_eur?: number; price_tier?: string; price_confidence?: "high" | "medium" | "low"; price_note?: string;
+      season_note?: string; event_start?: string; event_end?: string; dogs?: "yes" | "no" | "unknown"; must_do_reason?: string;
     };
     const place: ReviewPlace = c
       ? base(c, true)
@@ -92,6 +94,12 @@ export async function loadPlaces(): Promise<ReviewPlace[]> {
       safety: d.safety_notes,
       evidence: (r.evidence as AgentView["evidence"]) ?? [],
       onMap: d.on_map,
+      price: d.price_family_eur !== undefined || d.price_tier ? { familyEur: d.price_family_eur, tier: d.price_tier, confidence: d.price_confidence, note: d.price_note } : undefined,
+      seasonNote: d.season_note,
+      eventStart: d.event_start,
+      eventEnd: d.event_end,
+      dogs: d.dogs,
+      mustDoReason: d.must_do_reason,
       links: d.google_maps_url || d.instagram_url || d.website ? { google: d.google_maps_url, instagram: d.instagram_url, website: d.website } : undefined,
       listedOn: d.listed_on,
       reviewedAt: r.createdAt.toISOString(),

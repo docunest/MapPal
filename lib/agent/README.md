@@ -137,3 +137,10 @@ Google content goes to the agent live and is never stored here.
 matches each to the OSM index (`matchToIndex`: osm_ref, or a similar name near the pin) or keeps it as
 `ext/<hash>` with its link (`on_map: false` in the review data). Pull text is stored on the run
 (`payload`), so `get_pull` re-reads a pull whose call timed out.
+
+
+## Activities (contract v3)
+Use cases can be `discover: true` (no map list; agents find places) and `offByDefault` (Food: run and listed only
+when picked). `windowDays` puts real dates into the prompt; `mustDoKm` the far limit. Answers carry
+price_family_eur / price_tier / price_confidence, season_note, event_start/end, dogs, must_do_reason; the server
+derives the tier from the euros. Events are never matched against the map. Browse/Swipe filter by price and date.

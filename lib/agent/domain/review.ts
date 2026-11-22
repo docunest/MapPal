@@ -38,6 +38,12 @@ const complication = z.object({
   note: z.string().max(200).default(""),
 });
 
+export const PRICE_TIERS = ["free", "€", "€€", "€€€", "€€€€"] as const;
+export type PriceTier = (typeof PRICE_TIERS)[number];
+/** Family price → tier (2 adults, teen, 6-year-old): the survey's per-person bands × 4. */
+export const tierOf = (eur: number): PriceTier => (eur <= 0 ? "free" : eur < 40 ? "€" : eur < 120 ? "€€" : eur < 240 ? "€€€" : "€€€€");
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
+
 export const reviewSchema = z.object({
   candidate: z.string().regex(/^[a-z]{1,3}\d+$/, "candidate id like c3, b2 or e5 (the id shown in the brief)"),
   verdict: z.enum(["real", "fake", "stale"]),
@@ -67,13 +73,24 @@ export const reviewSchema = z.object({
   how_to_get_there: z.string().max(300).optional(),
   parking: z.string().max(200).optional(),
   safety_notes: z.string().max(300).optional(),
+  // Contract v3 (owner 2026-11-22, activities): price for the whole family with how sure it is, season,
+  // event dates, dogs, why a far one is worth it. Optional so food answers and older answers still save.
+  price_family_eur: z.number().min(0).max(100000).optional().describe("whole family (2 adults, teen, 6-year-old), euros"),
+  price_tier: z.enum(PRICE_TIERS).optional().describe("family: free · € <40 · €€ 40–120 · €€€ 120–240 · €€€€ 240+"),
+  price_confidence: z.enum(["high", "medium", "low"]).optional().describe("high = published price seen; medium = similar prices or a range; low = guess"),
+  price_note: z.string().max(200).optional(),
+  season_note: z.string().max(200).optional().describe("when it runs: season, days, closures in the window"),
+  event_start: isoDate.optional(),
+  event_end: isoDate.optional(),
+  dogs: z.enum(["yes", "no", "unknown"]).optional(),
+  must_do_reason: z.string().max(200).optional().describe("only for places beyond the normal distance"),
   evidence: z.array(evidence).max(8),
 });
 
 export type ReviewInput = z.infer<typeof reviewSchema>;
 
 /** Bump when the accepted fields change; every brief states it (layer 2), so an edited output-format text can't drift from what the server accepts. */
-export const CONTRACT_VERSION = 2;
+export const CONTRACT_VERSION = 3;
 export const CONTRACT_LINE = `Server contract v${CONTRACT_VERSION} (generated from the code that checks answers): per place candidate, verdict real|stale|fake, confidence 0–1, relevant, keep, score 0–100 (0 = no-go, 50 = undecided, 100 = a must — judged against layer 6, the like/dislike hints), summary ≤ 400 chars, complications (list, [] when none: {flag, severity minor|major|blocker, note}; flags: ${Object.keys(COMPLICATIONS).join(", ")}), evidence ≤ 8; optional ${Object.keys(reviewSchema.shape)
   .filter((k) => !["candidate", "verdict", "confidence", "relevant", "keep", "score", "summary", "complications", "evidence"].includes(k))
   .join(", ")}. Unknown fields are ignored.`;

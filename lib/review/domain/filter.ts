@@ -3,11 +3,23 @@ import { bearingDegrees, distanceMeters } from "@/lib/geo";
 import type { ReviewPlace, Scope } from "./types";
 
 export const MAX_CARDS = 300;
+export const TIER_ORDER = ["free", "€", "€€", "€€€", "€€€€"];
+export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 export function applyScope(places: ReviewPlace[], scope: Scope): ReviewPlace[] {
   const out: ReviewPlace[] = [];
   for (const p of places) {
     if (scope.categories.length && !scope.categories.includes(p.category)) continue;
+    if (!scope.categories.length && scope.exclude?.includes(p.category)) continue;
+    if (scope.priceMax !== undefined && p.agent?.price?.tier) {
+      const t = TIER_ORDER.indexOf(p.agent.price.tier);
+      if (t > scope.priceMax) continue;
+    }
+    if (p.agent?.eventStart && scope.today) {
+      const end = p.agent.eventEnd ?? p.agent.eventStart;
+      if (end < scope.today) continue; // over
+      if (scope.withinDays !== undefined && p.agent.eventStart > addDays(scope.today, scope.withinDays)) continue;
+    }
     if (scope.pool === "checked" && !(p.checked && p.agent?.keep)) continue;
     if (scope.pool === "checked-all" && !p.checked) continue;
     const d = distanceMeters(scope, p);
