@@ -188,3 +188,50 @@ no-mistakes rules (a checked link per place). The server matches each answer to 
 unmatched places are kept as `ext/<hash>` ("not on the map — check the link"). Connector:
 preview_discover / discover / submit_discoveries; Manual run has the same switch. Evidence:
 docs/evidence/discover/.
+
+## Activities: requirements first (draft for the owner's yes, 2026-11-22)
+Source: the owner's survey (artifact "MapPal Activity Survey", answers 2026-11-22 10:05 UTC).
+Principle: the *requirements* are the product. Any agent and any model (Claude, ChatGPT, Gemini…)
+gets the same requirements and returns the same answer format; each may use whatever tools it has
+(web search, the OSM index, later Instagram). OpenStreetMap is one tool, not the pipeline.
+
+### Pipeline
+1. **Requirements** (versioned rules per category, below) + location + dates.
+2. **Suggest**: several agents/models independently propose places and events in one format.
+3. **Merge**: same place from several agents = one record, listing who suggested it (agreement is a signal).
+4. **Verify**: exists, open in this season, price estimate, dog rule; anything unverifiable is marked so.
+5. **Store with attributes**; **ranking and filtering happen in Swipe/Browse** (owner: "prioritisation is
+   something to filter in tinder mode, not indexing"), never by dropping at suggestion time.
+
+### Category tree (Love = always look for it · Maybe = only when it's really good · No = never)
+- **Outdoors with the family.** Love: easy loop hikes, hikes to a big view, gorges, waterfalls, hidden coves,
+  show caves, wild hot springs. Maybe: long hikes, river beaches, sea beaches, viewpoints, dinosaur tracks,
+  islands, wildlife, thermal spas.
+- **On the water.** Love: speedboat/RIB along the coast, renting a boat, big-wave watching, snorkelling.
+  Maybe: boat trips, dolphins, kayak/SUP, coasteering, rafting, sailing, fishing trips, jet ski, kitesurf,
+  wakeboard. No: surf lessons.
+- **Motors and adrenaline (dad and son).** Love: karting, buggy/quad tours, motocross, drift/driving
+  experiences, mountain biking, canyoning, caving. Maybe: zip lines, tree-top parks, via ferrata, rock
+  climbing, climbing gym, bungee, laser tag, trampoline parks, shooting/archery, pump tracks.
+  No: paintball, escape rooms, VR, skydiving, paragliding, cliff jumping.
+- **For the 6-year-old.** Love: zoos/aquariums, farms, horse riding, playgrounds, science centres,
+  little trains. Maybe: theme parks, water parks, mini golf.
+- **Places with a wow.** Love: castles, abandoned places, mines, factory tours, Roman ruins, monasteries,
+  interactive museums, unusual photo spots. Maybe: lighthouses and forts.
+- **Events.** Love: Christmas villages/markets, New Year, Carnival, Halloween, festas, big markets, medieval
+  fairs, rallies/motorsport, surf contests, corridas (all kinds: bulls, running, cars/motorbikes, horses),
+  concerts and light shows, fireworks, air shows. Maybe: food festivals, football.
+- **Food.** Cafés, restaurants, bars, fast food: No (off by default; kept only for when asked).
+
+### Requirements every suggestion must meet
+- **Who:** the whole family with the dog by default. Dog: don't hide, flag "no dogs".
+- **Distance (one way, by road):** normal up to 40 km; a must-do up to 120 km, with the reason it's worth it.
+- **Season:** check that it runs *in this season and on the dates* (not only today's hours). Closed for the
+  season → leave it out.
+- **Events:** happening from today to 1 month ahead (survey) — dates, place, and whether it recurs.
+- **Price:** an estimate per person and for the family (2 adults, teen, 6-year-old), the tier, and how sure:
+  Free · € under €10 · €€ €10–30 · €€€ €30–60 · €€€€ €60+ (per person). Expensive is allowed (e.g. a €300
+  boat rental); it must just be visible. A guess is required even when exact prices aren't published.
+- **Per run:** up to 25 per category.
+- **No mistakes:** only real, currently operating places/events, each with a link the agent checked;
+  unverifiable → say so, don't pad.
