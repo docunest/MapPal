@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-25 — Reading API has no token of its own: the game posts answers openly (validated), the summary uses the MapPal login; replaces the one-token decision of 2026-11-24 — owner ("stop making fake security").
 - 2026-11-24 — Reading game: Ponas is the runner (game `skaitymas`); backend `domains/reading` in MapPal; one reading token (hash stored, created with the admin secret); API keys optional (offline voices); MapPal host allowed in Ponas; Ponas self-updates from GitHub releases (main only); levels A1–A3 + Montessori B1–B5 in one game; camera level later — owner.
 - 2026-11-21 — Answer contract v2: score 0–100 (0 = no-go — read the owner's "go-go" as no-go —, 50 undecided, 100 a must) judged against layer 6 = the family's votes (counts only, no names); complications as fixed flags + severity + note; the contract line in every brief is generated from the checking code; score and complications optional so older answers still save — owner's request + agent defaults.
 - 2026-11-21 — Use cases nest (parent field; inherit settings, parents' text and drop/score rules first; a place goes to its most specific use case); default tree Food → Cafes, Cool bars, Restaurants, Fast food + Exploration; untouched default rules follow new code defaults, edited ones never; manual run = same briefs as text (photos as links), answer pasted back; app light-only (dark mode made text unreadable) — owner's request + agent defaults.

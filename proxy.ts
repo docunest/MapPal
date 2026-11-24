@@ -26,9 +26,9 @@ export default auth((req) => {
   // (/grocery?t=<token>), its API and MCP connector check the token themselves.
   const isGrocery = req.nextUrl.pathname === "/grocery" || req.nextUrl.pathname.startsWith("/grocery/") || req.nextUrl.pathname.startsWith("/api/grocery/");
 
-  // Reading game summary (domains/reading/infrastructure/auth.ts): device token (?t= or Bearer),
-  // checked by the API itself against reading_device.
-  const isReading = req.nextUrl.pathname === "/reading" || req.nextUrl.pathname.startsWith("/api/reading/");
+  // Reading game (domains/reading): the Ponas tablet posts answers and anyone may ask if it's alive.
+  // The summary (/reading, /api/reading/summary) stays behind the normal MapPal login.
+  const isReading = req.nextUrl.pathname === "/api/reading/attempts" || req.nextUrl.pathname === "/api/reading/health";
 
   // Agent MCP connector (lib/agent/infrastructure/auth.ts): per-agent token in the URL.
   const isAgentMcp = req.nextUrl.pathname.startsWith("/api/agent/mcp/") || req.nextUrl.pathname.startsWith("/api/agent/v1/");

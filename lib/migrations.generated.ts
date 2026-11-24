@@ -103,5 +103,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261125000000_reading_letter_ok",
     "sql": "-- Per-letter result for word levels (\"11011\" = 1 right first time), as the brief asks to log.\nALTER TABLE \"reading_attempt\" ADD COLUMN \"letter_ok\" TEXT;\n"
+  },
+  {
+    "name": "20261125010000_reading_drop_device",
+    "sql": "-- The reading API no longer uses its own token (owner 2026-11-25). The table only ever held the\n-- hash of a token that was never created; it belongs to this domain (reading_ prefix).\nDROP TABLE IF EXISTS \"reading_device\";\n"
   }
 ];

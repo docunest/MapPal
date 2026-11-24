@@ -33,13 +33,6 @@ export async function attemptsSince(since: Date, level: number | null): Promise<
   return rows;
 }
 
-/** Replaces the single reading token: the old one stops working at once. */
-export async function replaceToken(tokenSha256: string): Promise<void> {
-  await prisma.$transaction([
-    prisma.readingDevice.deleteMany({}),
-    prisma.readingDevice.create({ data: { name: "family", tokenSha256 } }),
-  ]);
-}
 
 /** For the health check: does the attempts table answer? */
 export async function tableAnswers(): Promise<boolean> {

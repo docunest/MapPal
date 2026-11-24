@@ -56,14 +56,3 @@ test("summarize on no data gives nulls, not zeros", () => {
   assert.equal(s.avgMs, null);
   assert.deepEqual(s.weak, []);
 });
-
-import { newToken, tokenHash } from "../domain/device";
-
-test("device tokens are random, long and never stored as given", () => {
-  const a = newToken(), b = newToken();
-  assert.notEqual(a, b);
-  assert.ok(a.length >= 40);
-  assert.notEqual(tokenHash(a), a);
-  assert.equal(tokenHash(a), tokenHash(` ${a} `));           // whitespace around a pasted token is ignored
-  assert.match(tokenHash(a), /^[0-9a-f]{64}$/);
-});

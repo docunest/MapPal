@@ -6,9 +6,9 @@ Newest on top. Each entry: date, task, what changed (commits), evidence
 ## 2026-11-24/25 — Lithuanian reading game (Ponas) and reading backend
 
 - **Task:** owner's brief (reading/spelling game for the 6-year-old), not from INBOX.
-- **What changed:** `domains/reading` (attempts API with CORS, summary page `/reading`, one hashed
-  token via `/api/reading/admin/token`, health `/api/reading/health`, per-letter results, levels
-  1–99), proxy lets `/reading` and `/api/reading/` through. In `docunest/ANDROID-APPS`: game
+- **What changed:** `domains/reading` (attempts API with CORS and no token, summary page
+  `/reading` behind the MapPal login, health `/api/reading/health`, per-letter results, levels
+  1–99); the proxy lets only the answers endpoint and health through without login. In `docunest/ANDROID-APPS`: game
   `ponas/games/skaitymas` (levels A1–A3, B1–B5), Ponas APK with the MapPal host, self-update and
   CI version numbers.
 - **Evidence:** 181 tests, tsc and lint pass; Ponas smoke test passes in both orientations;
@@ -16,8 +16,7 @@ Newest on top. Each entry: date, task, what changed (commits), evidence
 - **Not proven:** on the tablet (needs the APK install over ADB and the token entered); audio
   quality (offline voices, not listened to by the agent); the handwriting recogniser on a child's
   writing.
-- **Questions for the owner:** create the reading token (one curl with the admin secret); camera
-  level 4 needs camera access in the APK: go?
+- **Questions for the owner:** camera level 4 needs camera access in the APK: go?
 
 ## 2026-11-21 — Contract v2 (score, like/dislike hints, complications), index cells on the map
 

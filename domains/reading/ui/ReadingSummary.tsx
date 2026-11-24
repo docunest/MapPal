@@ -14,29 +14,11 @@ type Summary = {
   level: number | null;
 };
 
-const KEY = "reading-token";
-
 // Level ids from the Ponas game (games/skaitymas/game.js): A = owner's levels, B = Montessori.
 const LEVELS: [number | null, string][] = [
   [null, "Visi"], [1, "A1 skiemenys"], [2, "A2 raidės"], [3, "A3 rašymas"],
   [11, "B1 garsai"], [12, "B2 abėcėlė"], [13, "B3 rožinė"], [14, "B4 mėlyna"], [15, "B5 žalia"],
 ];
-
-function readToken(): string {
-  const fromUrl = new URLSearchParams(window.location.search).get("t");
-  try {
-    if (fromUrl) {
-      localStorage.setItem(KEY, fromUrl);
-      // Keep the token out of the address bar and history once it is saved on this device.
-      const url = new URL(window.location.href);
-      url.searchParams.delete("t");
-      window.history.replaceState(null, "", url.toString());
-    }
-    return fromUrl || localStorage.getItem(KEY) || "";
-  } catch {
-    return fromUrl || "";   // private mode: works for this visit only
-  }
-}
 
 const pct = (v: number | null) => (v === null ? "–" : `${Math.round(v * 100)} %`);
 const secs = (ms: number | null) => (ms === null ? "–" : `${(ms / 1000).toFixed(1)} s`);
@@ -48,10 +30,10 @@ export function ReadingSummary() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = readToken();
     const q = new URLSearchParams({ days: String(days) });
     if (level) q.set("level", String(level));
-    fetch(`/api/reading/summary?${q}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" })
+    // Same site, so the MapPal login cookie goes along; no extra token.
+    fetch(`/api/reading/summary?${q}`, { cache: "no-store" })
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);

@@ -240,7 +240,7 @@ gets the same requirements and returns the same answer format; each may use what
 ## Lithuanian reading game `skaitymas` (owner: "Build already", 2026-11-24; built)
 
 Runner: **Ponas** (`docunest/ANDROID-APPS` → `ponas/games/skaitymas`). Backend: `domains/reading`
-here (tables `reading_attempt`, `reading_device`, RLS on). Details: `domains/reading/README.md`.
+here (table `reading_attempt`, RLS on). Details: `domains/reading/README.md`.
 
 Levels (one game, a menu with eight tiles; ids are what the logs and summary use):
 
@@ -262,8 +262,8 @@ soft sound and another try. No answer is shown while answering.
 
 Content: `data.js` in the game. Audio pre-generated offline (Mbrola lt1 / espeak-ng, no API key:
 owner "make API keys optional"); photos from Wikimedia Commons, bundled, credits in `img/credits.json`.
-Logs: every answer → `POST /api/reading/attempts` (one token, parent enters it in the game: hold
-the menu's bottom-right corner 3 s). Summary: `/reading`.
+Logs: every answer → `POST /api/reading/attempts` (no token: trusted devices). Summary: `/reading`,
+behind the normal MapPal login.
 
 Later: Level 4 camera, parent recordings to replace clips, better voices (Gemini/Azure) if wanted,
 MCP for the analysis agent, gamification module.
