@@ -91,5 +91,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261121240000_run_payload",
     "sql": "ALTER TABLE \"mappal_agent_run\" ADD COLUMN \"payload\" TEXT;\n"
+  },
+  {
+    "name": "20261124200000_reading_attempt",
+    "sql": "-- CreateTable: one row per answer from the reading game (domains/reading)\nCREATE TABLE \"reading_attempt\" (\n    \"id\" TEXT NOT NULL,\n    \"level\" INTEGER NOT NULL,\n    \"item\" TEXT NOT NULL,\n    \"options\" TEXT[] NOT NULL,\n    \"answer\" TEXT NOT NULL,\n    \"correct\" BOOLEAN NOT NULL,\n    \"first_try\" BOOLEAN NOT NULL,\n    \"hint_used\" BOOLEAN NOT NULL,\n    \"response_ms\" INTEGER NOT NULL,\n    \"client_at\" TIMESTAMP(3),\n    \"created_at\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\n    CONSTRAINT \"reading_attempt_pkey\" PRIMARY KEY (\"id\")\n);\n\nCREATE INDEX \"reading_attempt_created_at_idx\" ON \"reading_attempt\"(\"created_at\");\nCREATE INDEX \"reading_attempt_level_item_idx\" ON \"reading_attempt\"(\"level\", \"item\");\n\n-- Hard rule: RLS on, no policies. The public Supabase API cannot read it; the server role bypasses RLS.\nALTER TABLE \"reading_attempt\" ENABLE ROW LEVEL SECURITY;\n"
   }
 ];

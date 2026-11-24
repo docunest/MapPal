@@ -980,3 +980,23 @@ model GroceryAgentToken {
 
   @@map("grocery_agent_token")
 }
+
+// Reading game (Lithuanian, Ponas tablet): one row per answer. Written by the game
+// through /api/reading/attempts, read by the parent summary and later the analysis agent.
+model ReadingAttempt {
+  id         String    @id
+  level      Int
+  item       String
+  options    String[]
+  answer     String
+  correct    Boolean
+  firstTry   Boolean   @map("first_try")
+  hintUsed   Boolean   @map("hint_used")
+  responseMs Int       @map("response_ms")
+  clientAt   DateTime? @map("client_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([level, item])
+  @@map("reading_attempt")
+}
