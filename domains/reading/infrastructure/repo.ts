@@ -32,18 +32,10 @@ export async function attemptsSince(since: Date, level: number | null): Promise<
   return rows;
 }
 
-export async function createDevice(name: string, tokenSha256: string): Promise<void> {
-  await prisma.readingDevice.create({ data: { name, tokenSha256 } });
-}
-
-export async function listDevices() {
-  return prisma.readingDevice.findMany({
-    orderBy: { createdAt: "asc" },
-    select: { name: true, createdAt: true, lastUsedAt: true, revokedAt: true },
-  });
-}
-
-export async function revokeDevice(name: string): Promise<number> {
-  const res = await prisma.readingDevice.updateMany({ where: { name, revokedAt: null }, data: { revokedAt: new Date() } });
-  return res.count;
+/** Replaces the single reading token: the old one stops working at once. */
+export async function replaceToken(tokenSha256: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.readingDevice.deleteMany({}),
+    prisma.readingDevice.create({ data: { name: "family", tokenSha256 } }),
+  ]);
 }

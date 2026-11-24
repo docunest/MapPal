@@ -5,9 +5,9 @@ What it does: stores one row per answer from the Ponas game `skaitymas`
 (first-try accuracy per syllable, weakest first, average answer time). Analysis
 agents will read the same data later (MCP, not built yet).
 
-Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of each device token), RLS on, no policies.
+Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of the token), RLS on, no policies.
 
-## Endpoints (device token: `Authorization: Bearer <token>` or `?t=`)
+## Endpoints (one token: `Authorization: Bearer <token>` or `?t=`)
 
 - `POST /api/reading/attempts`: one attempt or `{ "attempts": [...] }` (max 50).
   Fields: `id` (8–64 chars, makes resends idempotent), `level` (1–5), `item`, `options`
@@ -15,18 +15,14 @@ Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of each device
 - `GET /api/reading/summary?days=14&level=1`: summary JSON.
 - Page: `/reading?t=<token>` (the token is kept on the device).
 
-## Setup
+## Setup and rotation
 
-- Private admin API (no database access needed). Header `x-admin-secret: <ADMIN_SEED_SECRET>`:
-  - `POST /api/reading/admin/devices` with `{"name":"phone"}`: returns the token once.
-  - `GET /api/reading/admin/devices`: device list (no tokens).
-  - `POST /api/reading/admin/devices/revoke` with `{"name":"phone"}`.
-- Alternative, run locally with `DATABASE_URL` set:
-  `npm run reading:device -- add tablet`. The token is printed once. Only its SHA-256 is stored.
-  Also: `... -- list`, `... -- revoke <name>`.
-- Tables `reading_attempt` and `reading_device` are created by the migrations in
-  `prisma/migrations/` when the app is deployed (`prisma migrate deploy` in the build).
-- Unknown, revoked or missing tokens get 401.
+- Create the token (admin secret needed, returned once):
+  `curl -X POST https://<site>/api/reading/admin/token -H "x-admin-secret: $ADMIN_SEED_SECRET"`
+- Calling it again replaces the token, and the old one stops working at once.
+- Only the SHA-256 is stored, in `reading_device` (one row).
+- Tables `reading_attempt` and `reading_device` come from the migrations in
+  `prisma/migrations/` when the app is deployed.
 
 ## Rules
 

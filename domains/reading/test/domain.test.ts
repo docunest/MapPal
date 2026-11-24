@@ -47,7 +47,7 @@ test("summarize on no data gives nulls, not zeros", () => {
   assert.deepEqual(s.weak, []);
 });
 
-import { newToken, tokenHash, validDeviceName } from "../domain/device";
+import { newToken, tokenHash } from "../domain/device";
 
 test("device tokens are random, long and never stored as given", () => {
   const a = newToken(), b = newToken();
@@ -56,12 +56,4 @@ test("device tokens are random, long and never stored as given", () => {
   assert.notEqual(tokenHash(a), a);
   assert.equal(tokenHash(a), tokenHash(` ${a} `));           // whitespace around a pasted token is ignored
   assert.match(tokenHash(a), /^[0-9a-f]{64}$/);
-});
-
-test("device names: short labels only", () => {
-  assert.equal(validDeviceName("tablet"), "tablet");
-  assert.equal(validDeviceName("analysis agent"), "analysis agent");
-  assert.equal(validDeviceName(""), null);
-  assert.equal(validDeviceName("a".repeat(41)), null);
-  assert.equal(validDeviceName("x<script>"), null);
 });

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 import { timingSafeEqual } from "node:crypto";
-import { deviceFromToken, readingTokenFrom } from "./auth";
+import { readingTokenFrom, tokenOk } from "./auth";
 
 export class BadRequest extends Error {}
 export class Unauthorized extends Error {}
@@ -13,7 +13,7 @@ export function api(fn: (req: Request) => Promise<unknown>) {
   return async (req: Request) => {
     await connection();
     try {
-      if (!(await deviceFromToken(readingTokenFrom(req)))) throw new Unauthorized("missing, unknown or revoked reading token");
+      if (!(await tokenOk(readingTokenFrom(req)))) throw new Unauthorized("missing or wrong reading token");
       const out = await fn(req);
       return out instanceof Response ? out : Response.json(out, { headers: HEADERS });
     } catch (err) {
