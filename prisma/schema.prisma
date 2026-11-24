@@ -994,6 +994,7 @@ model ReadingAttempt {
   hintUsed   Boolean   @map("hint_used")
   responseMs Int       @map("response_ms")
   clientAt   DateTime? @map("client_at")
+  letterOk   String?   @map("letter_ok")
   createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([createdAt])

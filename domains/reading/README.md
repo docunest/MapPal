@@ -9,9 +9,11 @@ Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of the token),
 
 ## Endpoints (one token: `Authorization: Bearer <token>` or `?t=`)
 
-- `POST /api/reading/attempts`: one attempt or `{ "attempts": [...] }` (max 50).
-  Fields: `id` (8–64 chars, makes resends idempotent), `level` (1–5), `item`, `options`
-  (1–9), `answer`, `correct`, `first_try`, `hint_used`, `response_ms`, `at`.
+- `POST /api/reading/attempts`: one attempt or `{ "attempts": [...] }` (max 50). CORS open (token auth).
+  Fields: `id` (8–64 chars, makes resends idempotent), `level` (1–99: A levels 1–3, Montessori 11–15),
+  `item`, `options` (0–32), `answer`, `correct`, `first_try`, `hint_used`, `response_ms`, `at`,
+  optional `letter_ok` (per-letter result for word levels, e.g. `"11011"`).
+- `GET /api/reading/health`: `{ ok, db, version }`, no token.
 - `GET /api/reading/summary?days=14&level=1`: summary JSON.
 - Page: `/reading?t=<token>` (the token is kept on the device).
 
@@ -32,5 +34,6 @@ Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of the token),
 
 ## Check it is alive
 
-Summary with no data returns `attempts: 0`, `firstTryAccuracy: null`. Tests:
+`GET /api/reading/health` returns `{"ok":true,"db":true,…}`. Summary with no data returns
+`attempts: 0`, `firstTryAccuracy: null`. Tests:
 `node --import tsx --test domains/reading/test/domain.test.ts`.

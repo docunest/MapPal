@@ -10,10 +10,20 @@ test("parseAttempt accepts a game attempt and converts to camel case", () => {
   if (typeof a === "object") { assert.equal(a.firstTry, true); assert.equal(a.clientAt, "2026-11-24T10:00:00.000Z"); }
 });
 
+test("parseAttempt takes every level the game has, word levels without options, and per-letter results", () => {
+  for (const level of [1, 2, 3, 11, 12, 13, 14, 15]) assert.equal(typeof parseAttempt({ ...good, level }), "object");
+  const w = parseAttempt({ ...good, level: 3, item: "medis", options: [], answer: "medis", letter_ok: "11011" });
+  assert.equal(typeof w, "object");
+  if (typeof w === "object") { assert.deepEqual(w.options, []); assert.equal(w.letterOk, "11011"); }
+  const plain = parseAttempt(good);
+  if (typeof plain === "object") assert.equal(plain.letterOk, null);
+});
+
 test("parseAttempt rejects bad fields with a clear message", () => {
-  assert.match(parseAttempt({ ...good, level: 9 }) as string, /level/);
-  assert.match(parseAttempt({ ...good, options: [] }) as string, /options/);
-  assert.match(parseAttempt({ ...good, options: Array(10).fill("x") }) as string, /options/);
+  assert.match(parseAttempt({ ...good, level: 0 }) as string, /level/);
+  assert.match(parseAttempt({ ...good, level: 100 }) as string, /level/);
+  assert.match(parseAttempt({ ...good, options: Array(33).fill("x") }) as string, /options/);
+  assert.match(parseAttempt({ ...good, letter_ok: "12" }) as string, /letter_ok/);
   assert.match(parseAttempt({ ...good, response_ms: -1 }) as string, /response_ms/);
   assert.match(parseAttempt({ ...good, correct: "yes" }) as string, /true or false/);
   assert.match(parseAttempt({ ...good, id: "x" }) as string, /id/);

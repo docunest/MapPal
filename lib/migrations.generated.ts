@@ -99,5 +99,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261124210000_reading_device",
     "sql": "-- CreateTable: devices and agents allowed to call the reading API (hashed tokens only)\nCREATE TABLE \"reading_device\" (\n    \"id\" TEXT NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"token_sha256\" TEXT NOT NULL,\n    \"created_at\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"last_used_at\" TIMESTAMP(3),\n    \"revoked_at\" TIMESTAMP(3),\n\n    CONSTRAINT \"reading_device_pkey\" PRIMARY KEY (\"id\")\n);\n\nCREATE UNIQUE INDEX \"reading_device_token_sha256_key\" ON \"reading_device\"(\"token_sha256\");\n\n-- Hard rule: RLS on, no policies.\nALTER TABLE \"reading_device\" ENABLE ROW LEVEL SECURITY;\n"
+  },
+  {
+    "name": "20261125000000_reading_letter_ok",
+    "sql": "-- Per-letter result for word levels (\"11011\" = 1 right first time), as the brief asks to log.\nALTER TABLE \"reading_attempt\" ADD COLUMN \"letter_ok\" TEXT;\n"
   }
 ];

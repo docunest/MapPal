@@ -12,6 +12,8 @@ export type AttemptInput = {
   hintUsed: boolean;
   responseMs: number;
   clientAt: string | null;
+  /** Per-letter result for word levels, e.g. "11011" (1 = right first time). */
+  letterOk: string | null;
 };
 
 const str = (v: unknown, max: number) => (typeof v === "string" && v.length >= 1 && v.length <= max ? v : null);
@@ -23,13 +25,15 @@ export function parseAttempt(raw: unknown): AttemptInput | string {
   const r = raw as Record<string, unknown>;
   const id = typeof r.id === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(r.id) ? r.id : null;
   if (!id) return "id must be 8 to 64 letters, digits, - or _";
-  const level = Number.isInteger(r.level) && (r.level as number) >= 1 && (r.level as number) <= 5 ? (r.level as number) : null;
-  if (level === null) return "level must be 1 to 5";
+  // Branch A (owner's levels) is 1-9, branch B (Montessori) 11-19; room for more up to 99.
+  const level = Number.isInteger(r.level) && (r.level as number) >= 1 && (r.level as number) <= 99 ? (r.level as number) : null;
+  if (level === null) return "level must be 1 to 99";
   const item = str(r.item, 16);
   if (!item) return "item is required";
   const answer = str(r.answer, 16);
   if (!answer) return "answer is required";
-  if (!Array.isArray(r.options) || r.options.length < 1 || r.options.length > 9) return "options must be 1 to 9 items";
+  // Writing levels show no options (0); the moveable alphabet can show up to the whole alphabet (32).
+  if (!Array.isArray(r.options) || r.options.length > 32) return "options must be 0 to 32 items";
   const options: string[] = [];
   for (const o of r.options) {
     const s = str(o, 16);
@@ -41,7 +45,12 @@ export function parseAttempt(raw: unknown): AttemptInput | string {
   const responseMs = Number.isInteger(r.response_ms) && (r.response_ms as number) >= 0 && (r.response_ms as number) <= 600000 ? (r.response_ms as number) : null;
   if (responseMs === null) return "response_ms must be 0 to 600000";
   const clientAt = typeof r.at === "string" && !Number.isNaN(Date.parse(r.at)) ? new Date(r.at).toISOString() : null;
-  return { id, level, item, options, answer, correct, firstTry, hintUsed, responseMs, clientAt };
+  let letterOk: string | null = null;
+  if (r.letter_ok !== undefined && r.letter_ok !== null) {
+    if (typeof r.letter_ok !== "string" || !/^[01]{1,16}$/.test(r.letter_ok)) return "letter_ok must be 1 to 16 characters of 0 and 1";
+    letterOk = r.letter_ok;
+  }
+  return { id, level, item, options, answer, correct, firstTry, hintUsed, responseMs, clientAt, letterOk };
 }
 
 export type SummaryRow = { item: string; level: number; correct: boolean; firstTry: boolean; responseMs: number };

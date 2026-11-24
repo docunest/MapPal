@@ -16,10 +16,22 @@ type Summary = {
 
 const KEY = "reading-token";
 
+// Level ids from the Ponas game (games/skaitymas/game.js): A = owner's levels, B = Montessori.
+const LEVELS: [number | null, string][] = [
+  [null, "Visi"], [1, "A1 skiemenys"], [2, "A2 raidės"], [3, "A3 rašymas"],
+  [11, "B1 garsai"], [12, "B2 abėcėlė"], [13, "B3 rožinė"], [14, "B4 mėlyna"], [15, "B5 žalia"],
+];
+
 function readToken(): string {
   const fromUrl = new URLSearchParams(window.location.search).get("t");
   try {
-    if (fromUrl) localStorage.setItem(KEY, fromUrl);
+    if (fromUrl) {
+      localStorage.setItem(KEY, fromUrl);
+      // Keep the token out of the address bar and history once it is saved on this device.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("t");
+      window.history.replaceState(null, "", url.toString());
+    }
     return fromUrl || localStorage.getItem(KEY) || "";
   } catch {
     return fromUrl || "";   // private mode: works for this visit only
@@ -57,9 +69,9 @@ export function ReadingSummary() {
         {[7, 14, 30].map((d) => (
           <button key={d} onClick={() => setDays(d)} style={chip(days === d)}>{d} d.</button>
         ))}
-        {[null, 1, 2, 3, 4, 5].map((l) => (
+        {LEVELS.map(([l, label]) => (
           <button key={String(l)} onClick={() => setLevel(l)} style={chip(level === l)}>
-            {l === null ? "Visi lygiai" : `${l} lygis`}
+            {label}
           </button>
         ))}
       </div>
@@ -77,7 +89,7 @@ export function ReadingSummary() {
 
           <h2 style={{ fontSize: 20, marginTop: 20 }}>Silpniausi</h2>
           {data.weak.length === 0 ? (
-            <p style={{ fontSize: 17 }}>Kol kas nėra aiškių silpnų vietų (reikia bent 3 bandymų raidei ar skiemeniui).</p>
+            <p style={{ fontSize: 17 }}>Kol kas nėra aiškių silpnų vietų (reikia bent 3 bandymų vienai užduočiai).</p>
           ) : (
             <ul style={{ fontSize: 18, paddingLeft: 20 }}>
               {data.weak.map((w) => (
@@ -86,14 +98,14 @@ export function ReadingSummary() {
             </ul>
           )}
 
-          <h2 style={{ fontSize: 20, marginTop: 20 }}>Visi skiemenys</h2>
+          <h2 style={{ fontSize: 20, marginTop: 20 }}>Visos užduotys</h2>
           {data.items.length === 0 ? (
             <p style={{ fontSize: 17 }}>Dar nėra duomenų per pasirinktą laikotarpį.</p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 17 }}>
               <thead>
                 <tr style={{ textAlign: "left", borderBottom: "2px solid #CFD8DC" }}>
-                  <th style={{ padding: 6 }}>Skiemuo</th><th>Kartų</th><th>Iš karto teisingai</th><th>Laikas</th>
+                  <th style={{ padding: 6 }}>Užduotis</th><th>Kartų</th><th>Iš karto teisingai</th><th>Laikas</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,7 +121,7 @@ export function ReadingSummary() {
             </table>
           )}
           <p style={{ fontSize: 14, color: "#607D8B", marginTop: 16 }}>
-            Skaičiuojami tik pirmi bandymai: ar vaikas iš karto pasirinko teisingą skiemenį.
+            Skaičiuojami tik pirmi bandymai: ar vaikas iš karto atsakė teisingai (žodžiuose: visos raidės iš karto).
           </p>
         </>
       )}

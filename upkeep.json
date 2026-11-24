@@ -1,1 +1,1 @@
-{"lastAudit": "2026-11-24T19:44:25Z", "result": "npm audit 0 (lockfile); npm test all pass; eslint and tsc clean on reading"}
+{"lastAudit": "2026-11-24T22:08:11Z", "result": "npm audit 0 (all deps); 181 tests, tsc, lint ok"}

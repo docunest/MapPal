@@ -237,24 +237,33 @@ gets the same requirements and returns the same answer format; each may use what
 - **No mistakes:** only real, currently operating places/events, each with a link the agent checked;
   unverifiable → say so, don't pad.
 
-## Lithuanian reading game `skaitymas` (proposed 2026-11-24, waiting for owner "go")
+## Lithuanian reading game `skaitymas` (owner: "Build already", 2026-11-24; built)
 
-Runner: **Ponas** (`docunest/ANDROID-APPS/ponas`), new game folder `games/skaitymas`.
-Content, logs and audio come from MapPal, under `domains/reading` with tables `reading_*`
-(prefix to register in `shared-supabase`). Owner answers 2026-11-24: Ponas is the runner;
-audio pre-generated at build time for Gemini and Azure lt-LT and compared; DeepSeek vision
-for level 4; **one MapPal host allowed in Ponas** (one APK rebuild + ADB install).
+Runner: **Ponas** (`docunest/ANDROID-APPS` → `ponas/games/skaitymas`). Backend: `domains/reading`
+here (tables `reading_attempt`, `reading_device`, RLS on). Details: `domains/reading/README.md`.
 
-Steps:
-1. Ponas: add the MapPal host to `ALLOWED_HOSTS` (GameActivity.kt, build-site.mjs), CSP and
-   `meta.json` `network`. Rebuild the APK, install over ADB (keeps progress). Ponas CI
-   publishes the game.
-2. Backend: `reading_level`, `reading_item`, `reading_audio`, `reading_attempt`, RLS on.
-   `GET /api/reading/level/:n`, `POST /api/reading/attempt`. Token per device and per agent.
-3. Audio build step: script generates every clip with Gemini and Azure lt-LT, uploads to
-   Supabase Storage, records voice + text. Owner compares voices. Parent record button later.
-4. Level 1 runner (pairs, 3 to 9 options, decoys harder over time, weak pairs return more).
-   Mistakes get a soft sound, never a penalty.
-5. Test on the tablet (owner plays it) and in-browser at both orientations. Proof = real
-   rows in `reading_attempt`.
-Later: levels 2 to 4, Montessori branch B (drafted here for review), parent mode, gamification.
+Levels (one game, a menu with eight tiles; ids are what the logs and summary use):
+
+| id | Branch | Level | What the child does |
+|---|---|---|---|
+| 1 | A owner | Syllables | Hears a pair (86: consonant+vowel, diphthongs), taps it among 3→9 tiles. Decoys: random → same consonant/vowel → reversed and sound-alike. |
+| 2 | A owner | Letter tiles | Picture + word sound; builds the 5-letter word from its letters + 2–4 decoys; each tap says the letter; instant feedback; the right letter pulses after 2 misses (hint). |
+| 3 | A owner | Writing | Writes each letter in a big area; recognised letters fill cells. JS recogniser (no Google services on the tablet), generous: top 3, accent marks forgiven. Hint sound after 3 tries, letter given after 5. |
+| 4 | A owner | Camera | **Not built**: needs camera access in the APK and a DeepSeek route here. |
+| 11 | B Montessori | Sound game | First (later also last) sound of a pictured word, among 3–4 letters. |
+| 12 | B Montessori | Moveable alphabet | Builds the word freely from red/blue letters, then checks; wrong letters go back. |
+| 13 | B Montessori | Pink series | Reads a short phonetic word (no sound), taps its picture. |
+| 14 | B Montessori | Blue series | Same with the 5-letter words. |
+| 15 | B Montessori | Green series | Hears a word, picks its letter group (uo, ie, au, ai, ei, ui, dž). |
+
+All levels: 10 rounds per visit, about 10 minutes per session, difficulty moves to keep ~80–85 %
+first-try success, words cycle as a deck with misses returning a few rounds later, mistakes get a
+soft sound and another try. No answer is shown while answering.
+
+Content: `data.js` in the game. Audio pre-generated offline (Mbrola lt1 / espeak-ng, no API key:
+owner "make API keys optional"); photos from Wikimedia Commons, bundled, credits in `img/credits.json`.
+Logs: every answer → `POST /api/reading/attempts` (one token, parent enters it in the game: hold
+the menu's bottom-right corner 3 s). Summary: `/reading`.
+
+Later: Level 4 camera, parent recordings to replace clips, better voices (Gemini/Azure) if wanted,
+MCP for the analysis agent, gamification module.

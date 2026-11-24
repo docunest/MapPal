@@ -18,6 +18,7 @@ export async function insertAttempts(rows: AttemptInput[]): Promise<number> {
       hintUsed: r.hintUsed,
       responseMs: r.responseMs,
       clientAt: r.clientAt ? new Date(r.clientAt) : null,
+      letterOk: r.letterOk,
     })),
   });
   return res.count;
@@ -38,4 +39,14 @@ export async function replaceToken(tokenSha256: string): Promise<void> {
     prisma.readingDevice.deleteMany({}),
     prisma.readingDevice.create({ data: { name: "family", tokenSha256 } }),
   ]);
+}
+
+/** For the health check: does the attempts table answer? */
+export async function tableAnswers(): Promise<boolean> {
+  try {
+    await prisma.readingAttempt.findFirst({ select: { id: true } });
+    return true;
+  } catch {
+    return false;
+  }
 }

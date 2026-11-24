@@ -6,7 +6,20 @@ import { readingTokenFrom, tokenOk } from "./auth";
 export class BadRequest extends Error {}
 export class Unauthorized extends Error {}
 
-const HEADERS = { "Cache-Control": "no-store" };
+// The Ponas game runs on its own origin (tablet: https://skaitymas.appassets.androidplatform.net,
+// browser: docunest.github.io). Auth is a bearer token, never a cookie, so any origin may call.
+export const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+const HEADERS = { "Cache-Control": "no-store", ...CORS };
+
+/** Answer for the browser's CORS preflight. */
+export function preflight() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 /** Token check and JSON errors for every reading route. */
 export function api(fn: (req: Request) => Promise<unknown>) {
@@ -18,10 +31,10 @@ export function api(fn: (req: Request) => Promise<unknown>) {
       return out instanceof Response ? out : Response.json(out, { headers: HEADERS });
     } catch (err) {
       unstable_rethrow(err);
-      if (err instanceof Unauthorized) return Response.json({ error: "Open the reading app with its token (?t=…)." }, { status: 401 });
-      if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400 });
+      if (err instanceof Unauthorized) return Response.json({ error: "Open the reading app with its token (?t=…)." }, { status: 401, headers: HEADERS });
+      if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400, headers: HEADERS });
       console.error("[reading] api error", err);
-      return Response.json({ error: "reading service error" }, { status: 500 });
+      return Response.json({ error: "reading service error" }, { status: 500, headers: HEADERS });
     }
   };
 }
