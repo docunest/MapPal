@@ -236,3 +236,25 @@ gets the same requirements and returns the same answer format; each may use what
 - **Per run:** up to 25 per category.
 - **No mistakes:** only real, currently operating places/events, each with a link the agent checked;
   unverifiable → say so, don't pad.
+
+## Lithuanian reading game `skaitymas` (proposed 2026-11-24, waiting for owner "go")
+
+Runner: **Ponas** (`docunest/ANDROID-APPS/ponas`), new game folder `games/skaitymas`.
+Content, logs and audio come from MapPal, under `domains/reading` with tables `reading_*`
+(prefix to register in `shared-supabase`). Owner answers 2026-11-24: Ponas is the runner;
+audio pre-generated at build time for Gemini and Azure lt-LT and compared; DeepSeek vision
+for level 4; **one MapPal host allowed in Ponas** (one APK rebuild + ADB install).
+
+Steps:
+1. Ponas: add the MapPal host to `ALLOWED_HOSTS` (GameActivity.kt, build-site.mjs), CSP and
+   `meta.json` `network`. Rebuild the APK, install over ADB (keeps progress). Ponas CI
+   publishes the game.
+2. Backend: `reading_level`, `reading_item`, `reading_audio`, `reading_attempt`, RLS on.
+   `GET /api/reading/level/:n`, `POST /api/reading/attempt`. Token per device and per agent.
+3. Audio build step: script generates every clip with Gemini and Azure lt-LT, uploads to
+   Supabase Storage, records voice + text. Owner compares voices. Parent record button later.
+4. Level 1 runner (pairs, 3 to 9 options, decoys harder over time, weak pairs return more).
+   Mistakes get a soft sound, never a penalty.
+5. Test on the tablet (owner plays it) and in-browser at both orientations. Proof = real
+   rows in `reading_attempt`.
+Later: levels 2 to 4, Montessori branch B (drafted here for review), parent mode, gamification.
