@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { unstable_rethrow } from "next/navigation";
+import { timingSafeEqual } from "node:crypto";
 import { deviceFromToken, readingTokenFrom } from "./auth";
 
 export class BadRequest extends Error {}
@@ -31,4 +32,30 @@ export async function jsonBody(req: Request): Promise<unknown> {
   } catch {
     throw new BadRequest("JSON body expected");
   }
+}
+
+/** Same scheme as /api/admin: x-admin-secret must equal ADMIN_SEED_SECRET. Unset secret = closed. */
+export function isAdminRequest(req: Request): boolean {
+  const expected = process.env.ADMIN_SEED_SECRET?.trim();
+  if (!expected) return false;
+  const a = Buffer.from(req.headers.get("x-admin-secret") ?? "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Private admin routes (x-admin-secret = ADMIN_SEED_SECRET, fail closed). */
+export function adminApi(fn: (req: Request) => Promise<unknown>) {
+  return async (req: Request) => {
+    await connection();
+    try {
+      if (!isAdminRequest(req)) return Response.json({ error: "admin secret required" }, { status: 401 });
+      const out = await fn(req);
+      return out instanceof Response ? out : Response.json(out, { headers: HEADERS });
+    } catch (err) {
+      unstable_rethrow(err);
+      if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400 });
+      console.error("[reading] admin error", err);
+      return Response.json({ error: "reading admin error" }, { status: 500 });
+    }
+  };
 }

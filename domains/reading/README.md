@@ -17,7 +17,11 @@ Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of each device
 
 ## Setup
 
-- Issue a device token (run locally with `DATABASE_URL` set):
+- Private admin API (no database access needed). Header `x-admin-secret: <ADMIN_SEED_SECRET>`:
+  - `POST /api/reading/admin/devices` with `{"name":"phone"}`: returns the token once.
+  - `GET /api/reading/admin/devices`: device list (no tokens).
+  - `POST /api/reading/admin/devices/revoke` with `{"name":"phone"}`.
+- Alternative, run locally with `DATABASE_URL` set:
   `npm run reading:device -- add tablet`. The token is printed once. Only its SHA-256 is stored.
   Also: `... -- list`, `... -- revoke <name>`.
 - Tables `reading_attempt` and `reading_device` are created by the migrations in
