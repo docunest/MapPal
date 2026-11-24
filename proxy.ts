@@ -26,10 +26,14 @@ export default auth((req) => {
   // (/grocery?t=<token>), its API and MCP connector check the token themselves.
   const isGrocery = req.nextUrl.pathname === "/grocery" || req.nextUrl.pathname.startsWith("/grocery/") || req.nextUrl.pathname.startsWith("/api/grocery/");
 
+  // Reading game summary (domains/reading/infrastructure/auth.ts): device token (?t= or Bearer),
+  // checked by the API itself against reading_device.
+  const isReading = req.nextUrl.pathname === "/reading" || req.nextUrl.pathname.startsWith("/api/reading/");
+
   // Agent MCP connector (lib/agent/infrastructure/auth.ts): per-agent token in the URL.
   const isAgentMcp = req.nextUrl.pathname.startsWith("/api/agent/mcp/") || req.nextUrl.pathname.startsWith("/api/agent/v1/");
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isGrocery || isAgentMcp || isLoginPage) return NextResponse.next();
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isGrocery || isReading || isAgentMcp || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
