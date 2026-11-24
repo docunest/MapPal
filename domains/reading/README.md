@@ -5,21 +5,24 @@ What it does: stores one row per answer from the Ponas game `skaitymas`
 (first-try accuracy per syllable, weakest first, average answer time). Analysis
 agents will read the same data later (MCP, not built yet).
 
-Table: `reading_attempt` (Prisma model `ReadingAttempt`), RLS on, no policies.
+Tables: `reading_attempt` (answers) and `reading_device` (SHA-256 of each device token), RLS on, no policies.
 
-## Endpoints (token: `Authorization: Bearer <READING_TOKEN>` or `?t=`)
+## Endpoints (device token: `Authorization: Bearer <token>` or `?t=`)
 
 - `POST /api/reading/attempts`: one attempt or `{ "attempts": [...] }` (max 50).
   Fields: `id` (8–64 chars, makes resends idempotent), `level` (1–5), `item`, `options`
   (1–9), `answer`, `correct`, `first_try`, `hint_used`, `response_ms`, `at`.
 - `GET /api/reading/summary?days=14&level=1`: summary JSON.
-- Page: `/reading?t=<READING_TOKEN>` (the token is kept on the device).
+- Page: `/reading?t=<token>` (the token is kept on the device).
 
 ## Setup
 
-- Set `READING_TOKEN` on Vercel. It is never committed. Without it every call is refused.
-- The table is created by the migration `prisma/migrations/20261124200000_reading_attempt`
-  when the app is deployed (`prisma migrate deploy` in the build).
+- Issue a device token (run locally with `DATABASE_URL` set):
+  `npm run reading:device -- add tablet`. The token is printed once. Only its SHA-256 is stored.
+  Also: `... -- list`, `... -- revoke <name>`.
+- Tables `reading_attempt` and `reading_device` are created by the migrations in
+  `prisma/migrations/` when the app is deployed (`prisma migrate deploy` in the build).
+- Unknown, revoked or missing tokens get 401.
 
 ## Rules
 

@@ -1,13 +1,17 @@
-// Parent/device token for the reading domain. Set READING_TOKEN on Vercel (never in git).
-// Without it the API refuses every call, so nothing is open by default.
-export function readingTokenOk(token: string | undefined | null, env: Record<string, string | undefined> = process.env): boolean {
-  const expected = env.READING_TOKEN?.trim();
-  if (!expected || !token) return false;
-  const a = Buffer.from(token.trim()), b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
+// Device check for the reading API: the token is hashed and looked up in reading_device.
+// Revoked devices and unknown tokens are refused. Issue tokens with `npm run reading:device -- add <name>`.
+import { prisma } from "@/lib/db";
+import { tokenHash } from "../domain/device";
+
+export async function deviceFromToken(token: string | undefined | null): Promise<string | null> {
+  if (!token || token.trim().length < 20) return null;
+  const device = await prisma.readingDevice.findFirst({
+    where: { tokenSha256: tokenHash(token), revokedAt: null },
+    select: { id: true, name: true },
+  });
+  if (!device) return null;
+  await prisma.readingDevice.update({ where: { id: device.id }, data: { lastUsedAt: new Date() } });
+  return device.name;
 }
 
 export function readingTokenFrom(req: Request): string | undefined {

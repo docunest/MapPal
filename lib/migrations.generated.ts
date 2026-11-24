@@ -95,5 +95,9 @@ export const MIGRATIONS: ReadonlyArray<{ name: string; sql: string }> = [
   {
     "name": "20261124200000_reading_attempt",
     "sql": "-- CreateTable: one row per answer from the reading game (domains/reading)\nCREATE TABLE \"reading_attempt\" (\n    \"id\" TEXT NOT NULL,\n    \"level\" INTEGER NOT NULL,\n    \"item\" TEXT NOT NULL,\n    \"options\" TEXT[] NOT NULL,\n    \"answer\" TEXT NOT NULL,\n    \"correct\" BOOLEAN NOT NULL,\n    \"first_try\" BOOLEAN NOT NULL,\n    \"hint_used\" BOOLEAN NOT NULL,\n    \"response_ms\" INTEGER NOT NULL,\n    \"client_at\" TIMESTAMP(3),\n    \"created_at\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\n    CONSTRAINT \"reading_attempt_pkey\" PRIMARY KEY (\"id\")\n);\n\nCREATE INDEX \"reading_attempt_created_at_idx\" ON \"reading_attempt\"(\"created_at\");\nCREATE INDEX \"reading_attempt_level_item_idx\" ON \"reading_attempt\"(\"level\", \"item\");\n\n-- Hard rule: RLS on, no policies. The public Supabase API cannot read it; the server role bypasses RLS.\nALTER TABLE \"reading_attempt\" ENABLE ROW LEVEL SECURITY;\n"
+  },
+  {
+    "name": "20261124210000_reading_device",
+    "sql": "-- CreateTable: devices and agents allowed to call the reading API (hashed tokens only)\nCREATE TABLE \"reading_device\" (\n    \"id\" TEXT NOT NULL,\n    \"name\" TEXT NOT NULL,\n    \"token_sha256\" TEXT NOT NULL,\n    \"created_at\" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"last_used_at\" TIMESTAMP(3),\n    \"revoked_at\" TIMESTAMP(3),\n\n    CONSTRAINT \"reading_device_pkey\" PRIMARY KEY (\"id\")\n);\n\nCREATE UNIQUE INDEX \"reading_device_token_sha256_key\" ON \"reading_device\"(\"token_sha256\");\n\n-- Hard rule: RLS on, no policies.\nALTER TABLE \"reading_device\" ENABLE ROW LEVEL SECURITY;\n"
   }
 ];

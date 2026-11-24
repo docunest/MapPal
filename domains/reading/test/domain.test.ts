@@ -47,11 +47,21 @@ test("summarize on no data gives nulls, not zeros", () => {
   assert.deepEqual(s.weak, []);
 });
 
-import { readingTokenOk } from "../infrastructure/auth";
+import { newToken, tokenHash, validDeviceName } from "../domain/device";
 
-test("reading API refuses everything unless READING_TOKEN is set and matches", () => {
-  assert.equal(readingTokenOk("anything", {}), false);                       // no token configured: closed
-  assert.equal(readingTokenOk(undefined, { READING_TOKEN: "s3cret-token" }), false);
-  assert.equal(readingTokenOk("wrong-token", { READING_TOKEN: "s3cret-token" }), false);
-  assert.equal(readingTokenOk("s3cret-token", { READING_TOKEN: "s3cret-token" }), true);
+test("device tokens are random, long and never stored as given", () => {
+  const a = newToken(), b = newToken();
+  assert.notEqual(a, b);
+  assert.ok(a.length >= 40);
+  assert.notEqual(tokenHash(a), a);
+  assert.equal(tokenHash(a), tokenHash(` ${a} `));           // whitespace around a pasted token is ignored
+  assert.match(tokenHash(a), /^[0-9a-f]{64}$/);
+});
+
+test("device names: short labels only", () => {
+  assert.equal(validDeviceName("tablet"), "tablet");
+  assert.equal(validDeviceName("analysis agent"), "analysis agent");
+  assert.equal(validDeviceName(""), null);
+  assert.equal(validDeviceName("a".repeat(41)), null);
+  assert.equal(validDeviceName("x<script>"), null);
 });

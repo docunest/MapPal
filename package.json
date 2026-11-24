@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate && node scripts/copy-maplibre-worker.mjs",
     "test": "node --import tsx --test test/*.test.ts domains/*/test/*.test.ts",
-    "migrations:bundle": "tsx scripts/bundle-migrations.ts"
+    "migrations:bundle": "tsx scripts/bundle-migrations.ts",
+    "reading:device": "tsx scripts/reading-device.ts"
   },
   "dependencies": {
     "@mapbox/mapbox-gl-draw": "^1.5.2",

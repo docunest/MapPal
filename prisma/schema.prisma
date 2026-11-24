@@ -1000,3 +1000,15 @@ model ReadingAttempt {
   @@index([level, item])
   @@map("reading_attempt")
 }
+
+// Devices and agents allowed to use the reading API. Only the SHA-256 of each token is stored.
+model ReadingDevice {
+  id          String    @id @default(uuid())
+  name        String
+  tokenSha256 String    @unique @map("token_sha256")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  @@map("reading_device")
+}
