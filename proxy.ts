@@ -33,7 +33,10 @@ export default auth((req) => {
   // Agent MCP connector (lib/agent/infrastructure/auth.ts): per-agent token in the URL.
   const isAgentMcp = req.nextUrl.pathname.startsWith("/api/agent/mcp/") || req.nextUrl.pathname.startsWith("/api/agent/v1/");
 
-  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isCarPage || isGrocery || isReading || isAgentMcp || isLoginPage) return NextResponse.next();
+  // Family position for the kid tablet's mock GPS (lib/position.ts): own token, checked by the route.
+  const isPosition = req.nextUrl.pathname === "/api/position";
+
+  if (isAuthApi || isAdminApi || isMagicLogin || isHealth || isDockApi || isCamper || isPosition ||isCarPage || isGrocery || isReading || isAgentMcp || isLoginPage) return NextResponse.next();
 
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
