@@ -1,4 +1,9 @@
-# Reading: word management design (proposed 2026-11-25, waiting for owner "go")
+# Reading: word management design (owner "Go, build it", 2026-11-25)
+
+Owner answers 2026-11-25: letter by letter in **both** sounds and names, sounds by default, and
+any mode can be overridden per word where text-to-speech is bad; **record which voice and mode was
+played with every answer** and show how it affects learning; status changes are **suggested, the
+parent confirms**; the Azure key goes on **Vercel**.
 
 Owner's request (2026-11-25): a parent mode to manage the words all reading games use: a
 scrollable list with photo, word, status, difficulty, grade and lesson count; review and add
@@ -28,13 +33,30 @@ backend, can be managed from any device, and the games keep a heavy offline cach
 
 ## 2. Data (backend, `reading_*` tables, RLS on)
 
+**Four kinds of item, four separate lists** (owner 2026-11-25: "similar flow for 1-2-3 letter
+combinations … with a sample word … separate lists"):
+
+| List | Kind | Examples | Clips | Picture |
+|---|---|---|---|---|
+| Žodžiai | `word` | medis, katė | word, syllables, letters (sounds / names) | its own photo |
+| Raidės | `letter` (1) | m, š, ė | sound ("mmm"), name ("em") | the sample word's photo |
+| Poros | `pair` (2) | ma, ša, ie, uo | the pair as heard ("ma") | the sample word's photo |
+| Trejetai | `triple` (3) | kra, sto, pla | the triple as heard | the sample word's photo |
+
+Every letter, pair and triple has a **sample word** (pavyzdinis žodis): a word from the word list
+that starts with or contains it (m → medis, ma → mama… only if mama is in the list, otherwise
+morka; kra → kranas once added). It is suggested automatically from the word list and can be
+changed; it gives the item a picture and a "like in…" clip in the games. All four lists share the
+same statuses, difficulty, grade, lesson count, voice choice and recording, and approve rules
+(a letter, pair or triple is approved when its clip and sample word are chosen).
+
 | Table | Holds |
 |---|---|
-| `reading_word` | `text` (medis), `accented` (mẽdis: what the voices read), `syllables` (me-dis), `status`, `difficulty`, `grade_override`, `flags` (needs_better_image, not_ok), `groups` (five / pink / green + letter group), `updated_at` |
+| `reading_item` | `kind` (word / letter / pair / triple), `text` (medis, m, ma, kra), `accented` (mẽdis: what the voices read), `syllables` (me-dis), `sample_item_id` (letters/pairs/triples → a word), `status`, `difficulty`, `grade_override`, `flags` (needs_better_image, not_ok), `groups` (five / pink / green + letter group), `updated_at` |
 | `reading_image` | candidate photos per word: source (Commons, upload, camera), media hash, licence, author, source page, `selected` |
 | `reading_audio` | clips per word × kind × voice: kind = **word** / **letters** / **syllables**; voice = azure-ona, azure-ona-hd, azure-leonas, offline, **parent**; media hash; `selected` per kind |
 | `reading_media` | the files themselves (JPEG, MP3, recorded audio) by SHA-256, with content type |
-| `reading_attempt` | exists; gains `word_id` so grades and lesson counts come from real answers |
+| `reading_attempt` | exists; gains `item_id` (grades and lesson counts from real answers) and `audio` (which voice and mode was played) |
 
 **Why files in Postgres:** a word's files are small (photo ~20 KB, clip ~5–10 KB). 100 words
 with three voices and three clip kinds is about 10 MB, well inside the free database. Using Supabase
@@ -51,7 +73,8 @@ by hash with "cache forever" headers, so every device downloads each file once.
 | **Išmokta** | known well | now and then, as review (~⅓) |
 | (not OK) | flag: the word is wrong or unusable | never shown, kept for the record |
 
-**Approve** = a photo is selected **and** a word clip is selected → status moves Naujas → Mokomės.
+**Approve** = for a word, a photo and a word clip are selected; for a letter, pair or triple, its
+clip and a sample word are selected → status moves Naujas → Mokomės.
 The parent can set any status by hand at any time.
 
 ### Difficulty (Sunkumas): Lengvas / Vidutinis / Sunkus
@@ -80,8 +103,8 @@ prize. Suns are bright. The parent can override a grade; the override shows as s
 
 **Lesson count (Pamokos)** = how many rounds the word has been shown (from `reading_attempt`).
 
-**Status suggestions:** when a word is at 3 suns for 2 sessions in a row, the list shows
-"siūlau: Išmokta"; at the bomb, "siūlau: Extra pamokos". The parent taps to accept (see questions).
+**Status suggestions** (owner: suggest, parent confirms): when a word has 3 suns over at least
+6 tries, the list shows "siūlau: Išmokta"; at the bomb, "siūlau: Extra pamokos". One tap accepts.
 
 ## 3. Voices
 
@@ -90,7 +113,8 @@ Three generated voices plus your own, for three kinds of clip per word:
 | Kind | What it says | How it's made |
 |---|---|---|
 | **Žodis** | the whole word, with stress: "mẽdis" | Azure text-to-speech from `accented` |
-| **Raidės** | letter by letter: "m – e – d – i – s" | joined from the 32 letter clips (one approved set per voice), with short pauses |
+| **Raidės (garsai)** | letter by letter, letter **sounds**: "mmm – e – d – i – sss" (default) | played as a sequence of the per-letter sound clips of the chosen voice, with short pauses |
+| **Raidės (pavadinimai)** | letter by letter, letter **names**: "em – e – dė – i – es" | the same from the per-letter name clips |
 | **Skiemenys** | by syllable: "me – dis" | Azure, syllable by syllable with pauses |
 
 - Voices: **Azure Ona, Azure Ona HD, Azure Leonas**. The old offline voice stays only as a fallback.
@@ -100,8 +124,18 @@ Three generated voices plus your own, for three kinds of clip per word:
   Games only ever play stored files.
 - **Parent recording:** a record button per clip kind (phone microphone in the browser). The
   recording becomes one more option and can be selected like the others.
+- **Per-letter clips** (32 letters × sounds and names × each voice, plus the old offline sounds)
+  have their own small screen with the same "play all, tap to choose, record" controls, because
+  text-to-speech is least reliable for single sounds.
+- **Which voice helped?** Every logged answer stores the clips that were played (kind + voice,
+  e.g. `word:azure-ona`, `letters:sounds/offline`). The summary groups first-try accuracy and
+  answer time by voice and by mode, so a voice that confuses him shows up in the numbers.
 
 ## 4. Parent screens (MapPal web app, `/reading/words`, MapPal login)
+
+Four tabs, each its own list: **Žodžiai · Raidės · Poros · Trejetai**. Letter, pair and triple
+rows show the sample word's photo and "kaip žodyje medis"; their screen has the clip choice
+(sound and name for letters) and a sample-word picker instead of the photo grid.
 
 Works on phone and desktop. Lithuanian. No emojis: icons are simple drawings.
 
@@ -174,8 +208,9 @@ agent token system so a Claude session can import or fix words)
 
 ## 8. Build steps (each proven before the next)
 
-1. Tables + migration; import the current 48 words, their stress, photos and voices (Ona as the
-   default selection) as **Mokomės**; content + media routes.
+1. Tables + migration; import the current 48 words (stress, photos, voices), the 32 letters
+   (offline sound clips + generated names), the 86 pairs from level A1, and a starter set of
+   triples (as **Naujas**, for review) with suggested sample words; content + media routes.
 2. Game reads words from the backend with the cache, auto-update and one-word fallbacks; the
    built-in starter set stays. Logs carry `word_id`.
 3. Parent list: status, difficulty, grade, lessons, filters, inline changes.

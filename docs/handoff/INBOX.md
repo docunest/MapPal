@@ -4,7 +4,7 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
-## 2026-11-25 — Reading: word management in the backend, parent mode, cached games — open (design written, waiting for "go")
+## 2026-11-25 — Reading: word management in the backend, parent mode, cached games — in progress (owner: "Go, build it")
 
 Owner: a parent mode to manage words (scrollable list with photo, word, status Naujas / Mokomės / Extra pamokos / Išmokta, difficulty Lengvas / Vidutinis / Sunkus, a grade a kid understands such as 1–3 suns or a not-too-cool bomb, lesson count); check and add words; see suggested photos, flag "needs a better photo", upload or take a photo; mark a word not OK; listen to the word, letter by letter and by syllable in all three voices played in sequence, tap to choose, replay, record your own; approve (photo + voice) → Mokomės; adjust every status and grade. Must work with one word. Any interface; stored in the backend; games cache heavily, work offline and auto-update; the same words for all games. Design: `domains/reading/DESIGN.md`.
 

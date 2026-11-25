@@ -265,7 +265,7 @@ owner "make API keys optional"); photos from Wikimedia Commons, bundled, credits
 Logs: every answer → `POST /api/reading/attempts` (no token: trusted devices). Summary: `/reading`,
 behind the normal MapPal login.
 
-### Next: word management (proposed 2026-11-25, waiting for owner "go")
+### Word management (owner "Go, build it", 2026-11-25; building)
 
 Design: `domains/reading/DESIGN.md`. In short: the words move to the backend (one list for all
 games); a parent mode in the MapPal web app (`/reading/words`) lists every word with photo,
