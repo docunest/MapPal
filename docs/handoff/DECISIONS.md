@@ -3,6 +3,7 @@
 One line per decision: `YYYY-MM-DD — decision — reason`. Newest on top.
 Never re-argue a logged decision without new facts.
 
+- 2026-11-25 — Reading voices: the child switches between all allowed voices in the game (speaker tap = next voice) and the stats record what he played; the parent only sets the default and blocks bad clips — owner.
 - 2026-11-25 — Reading word management (domains/reading/DESIGN.md): words, photos and voices in the backend for all games; parent mode in the MapPal web app; letter by letter in sounds and names (sounds default), per-word override incl. own recording; every answer logs the voice and mode played; status changes suggested, parent confirms; Azure key on Vercel; media files in Postgres by hash; games cache and auto-update — owner ("Go, build it").
 - 2026-11-25 — Reading API has no token of its own: the game posts answers openly (validated), the summary uses the MapPal login; replaces the one-token decision of 2026-11-24 — owner ("stop making fake security").
 - 2026-11-24 — Reading game: Ponas is the runner (game `skaitymas`); backend `domains/reading` in MapPal; one reading token (hash stored, created with the admin secret); API keys optional (offline voices); MapPal host allowed in Ponas; Ponas self-updates from GitHub releases (main only); levels A1–A3 + Montessori B1–B5 in one game; camera level later — owner.

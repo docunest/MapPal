@@ -14,6 +14,9 @@ export type AttemptInput = {
   clientAt: string | null;
   /** Per-letter result for word levels, e.g. "11011" (1 = right first time). */
   letterOk: string | null;
+  /** Which item (reading_item id) and which clips were played, e.g. "word:azure-ona letters:sounds/offline". */
+  itemId: string | null;
+  audio: string | null;
 };
 
 const str = (v: unknown, max: number) => (typeof v === "string" && v.length >= 1 && v.length <= max ? v : null);
@@ -50,10 +53,12 @@ export function parseAttempt(raw: unknown): AttemptInput | string {
     if (typeof r.letter_ok !== "string" || !/^[01]{1,16}$/.test(r.letter_ok)) return "letter_ok must be 1 to 16 characters of 0 and 1";
     letterOk = r.letter_ok;
   }
-  return { id, level, item, options, answer, correct, firstTry, hintUsed, responseMs, clientAt, letterOk };
+  const itemId = typeof r.item_id === "string" && /^[0-9a-f-]{36}$/.test(r.item_id) ? r.item_id : null;
+  const audio = typeof r.audio === "string" && r.audio.length <= 120 ? r.audio : null;
+  return { id, level, item, options, answer, correct, firstTry, hintUsed, responseMs, clientAt, letterOk, itemId, audio };
 }
 
-export type SummaryRow = { item: string; level: number; correct: boolean; firstTry: boolean; responseMs: number };
+export type SummaryRow = { item: string; level: number; correct: boolean; firstTry: boolean; responseMs: number; audio?: string | null };
 
 export type ItemStat = { item: string; rounds: number; firstTryCorrect: number; accuracy: number; avgMs: number };
 
@@ -64,6 +69,8 @@ export type Summary = {
   avgMs: number | null;
   items: ItemStat[];
   weak: ItemStat[];
+  /** First-try accuracy by the voice/mode that was played (owner: does a voice help or confuse?). */
+  byAudio: ItemStat[];
 };
 
 const MIN_ROUNDS_FOR_WEAK = 3;
@@ -94,5 +101,20 @@ export function summarize(rows: SummaryRow[]): Summary {
     avgMs: rounds ? Math.round(ms / rounds) : null,
     items,
     weak: items.filter((i) => i.rounds >= MIN_ROUNDS_FOR_WEAK && i.accuracy < WEAK_BELOW).slice(0, 5),
+    byAudio: byAudio(rows),
   };
+}
+
+function byAudio(rows: SummaryRow[]): ItemStat[] {
+  const m = new Map<string, { rounds: number; ok: number; ms: number }>();
+  for (const r of rows) {
+    if (!r.firstTry) continue;
+    for (const part of (r.audio || "nežinoma").split(" ")) {
+      const s = m.get(part) ?? { rounds: 0, ok: 0, ms: 0 };
+      s.rounds++; if (r.correct) s.ok++; s.ms += r.responseMs;
+      m.set(part, s);
+    }
+  }
+  return [...m.entries()].map(([item, s]) => ({ item, rounds: s.rounds, firstTryCorrect: s.ok, accuracy: s.ok / s.rounds, avgMs: Math.round(s.ms / s.rounds) }))
+    .sort((a, b) => b.rounds - a.rounds);
 }

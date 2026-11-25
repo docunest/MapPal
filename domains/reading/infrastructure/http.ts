@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { unstable_rethrow } from "next/navigation";
+import { AzureUnavailable } from "./azure";
 
 export class BadRequest extends Error {}
 
@@ -31,6 +32,7 @@ export function api(fn: (req: Request) => Promise<unknown>) {
     } catch (err) {
       unstable_rethrow(err);
       if (err instanceof BadRequest) return Response.json({ error: err.message }, { status: 400, headers: HEADERS });
+      if (err instanceof AzureUnavailable) return Response.json({ error: err.message }, { status: 503, headers: HEADERS });
       console.error("[reading] api error", err);
       return Response.json({ error: "reading service error" }, { status: 500, headers: HEADERS });
     }

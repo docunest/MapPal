@@ -21,7 +21,7 @@ backend, can be managed from any device, and the games keep a heavy offline cach
  /api/reading/media/:hash (upload)       /api/reading/media/:hash  (immutable files)
         │                                                 │
         └────────────── domains/reading (MapPal) ─────────┘
-                 Postgres: reading_word, reading_image, reading_audio,
+                 Postgres: reading_item, reading_image, reading_audio,
                            reading_media (files), reading_attempt (exists)
 ```
 
@@ -127,6 +127,9 @@ Three generated voices plus your own, for three kinds of clip per word:
 - **Per-letter clips** (32 letters × sounds and names × each voice, plus the old offline sounds)
   have their own small screen with the same "play all, tap to choose, record" controls, because
   text-to-speech is least reliable for single sounds.
+- **The child switches voices himself** (owner 2026-11-25): in the games the speaker button plays
+  the default first and each further tap the next allowed voice. The parent's review only sets the
+  default and **blocks** bad clips; blocked clips never reach the games.
 - **Which voice helped?** Every logged answer stores the clips that were played (kind + voice,
   e.g. `word:azure-ona`, `letters:sounds/offline`). The summary groups first-try accuracy and
   answer time by voice and by mode, so a voice that confuses him shows up in the numbers.

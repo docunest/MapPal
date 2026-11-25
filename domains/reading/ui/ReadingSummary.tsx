@@ -10,6 +10,7 @@ type Summary = {
   avgMs: number | null;
   items: Item[];
   weak: Item[];
+  byAudio?: Item[];
   days: number;
   level: number | null;
 };
@@ -46,6 +47,7 @@ export function ReadingSummary() {
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: 16, fontFamily: "system-ui, sans-serif", color: "#1F2A30", background: "#FFFFFF", minHeight: "100dvh" }}>
       <h1 style={{ fontSize: 26, margin: "8px 0" }}>Skaitymo suvestinė</h1>
+      <a href="/reading/words" style={{ display: "inline-block", margin: "4px 0 8px", fontSize: 17, color: "#00796B" }}>Tvarkyti žodžius ir raides →</a>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
         {[7, 14, 30].map((d) => (
@@ -101,6 +103,20 @@ export function ReadingSummary() {
                 ))}
               </tbody>
             </table>
+          )}
+          {data.byAudio && data.byAudio.length > 0 && (
+            <>
+              <h2 style={{ fontSize: 20, marginTop: 20 }}>Pagal balsą</h2>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 16 }}>
+                <tbody>
+                  {data.byAudio.map((i) => (
+                    <tr key={i.item} style={{ borderBottom: "1px solid #ECEFF1" }}>
+                      <td style={{ padding: 6 }}>{i.item}</td><td>{i.rounds}</td><td>{pct(i.accuracy)}</td><td>{secs(i.avgMs)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
           <p style={{ fontSize: 14, color: "#607D8B", marginTop: 16 }}>
             Skaičiuojami tik pirmi bandymai: ar vaikas iš karto atsakė teisingai (žodžiuose: visos raidės iš karto).

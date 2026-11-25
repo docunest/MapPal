@@ -19,6 +19,8 @@ export async function insertAttempts(rows: AttemptInput[]): Promise<number> {
       responseMs: r.responseMs,
       clientAt: r.clientAt ? new Date(r.clientAt) : null,
       letterOk: r.letterOk,
+      itemId: r.itemId,
+      audio: r.audio,
     })),
   });
   return res.count;
@@ -27,7 +29,7 @@ export async function insertAttempts(rows: AttemptInput[]): Promise<number> {
 export async function attemptsSince(since: Date, level: number | null): Promise<SummaryRow[]> {
   const rows = await prisma.readingAttempt.findMany({
     where: { createdAt: { gte: since }, ...(level ? { level } : {}) },
-    select: { item: true, level: true, correct: true, firstTry: true, responseMs: true },
+    select: { item: true, level: true, correct: true, firstTry: true, responseMs: true, audio: true },
     take: 100000,
   });
   return rows;

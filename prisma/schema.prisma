@@ -995,10 +995,78 @@ model ReadingAttempt {
   responseMs Int       @map("response_ms")
   clientAt   DateTime? @map("client_at")
   letterOk   String?   @map("letter_ok")
+  itemId     String?   @map("item_id")
+  audio      String?
   createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([createdAt])
   @@index([level, item])
+  @@index([itemId])
   @@map("reading_attempt")
+}
+
+// Words, letters, pairs and triples the reading games use (domains/reading/DESIGN.md).
+model ReadingItem {
+  id               String   @id @default(uuid())
+  kind             String
+  text             String
+  accented         String
+  accentChecked    Boolean  @default(true) @map("accent_checked")
+  syllables        String
+  status           String   @default("naujas")
+  difficulty       String   @default("vidutinis")
+  gradeOverride    String?  @map("grade_override")
+  needsBetterImage Boolean  @default(false) @map("needs_better_image")
+  notOk            Boolean  @default(false) @map("not_ok")
+  groups           String[] @default([])
+  phonogram        String?
+  lettersMode      String   @default("sounds") @map("letters_mode")
+  sampleItemId     String?  @map("sample_item_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([kind, text])
+  @@index([updatedAt])
+  @@map("reading_item")
+}
+
+model ReadingImage {
+  id        String   @id @default(uuid())
+  itemId    String   @map("item_id")
+  mediaHash String   @map("media_hash")
+  source    String
+  title     String?
+  artist    String?
+  license   String?
+  page      String?
+  sourceUrl String?  @map("source_url")
+  selected  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([itemId])
+  @@map("reading_image")
+}
+
+model ReadingAudio {
+  id        String   @id @default(uuid())
+  itemId    String   @map("item_id")
+  kind      String
+  voice     String
+  mediaHash String   @map("media_hash")
+  selected  Boolean  @default(false)
+  blocked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([itemId])
+  @@map("reading_audio")
+}
+
+model ReadingMedia {
+  hash      String   @id
+  mime      String
+  bytes     Bytes
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("reading_media")
 }
 
