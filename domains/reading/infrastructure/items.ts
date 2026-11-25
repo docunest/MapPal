@@ -1,5 +1,5 @@
 // Reads and writes of reading_item, reading_image, reading_audio and reading_media.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { Kind } from "../domain/items";
 
@@ -127,36 +127,32 @@ export function ensureSeeded(origin: string): Promise<void> {
 async function seedOnce(origin: string) {
   if ((await prisma.readingItem.count()) > 0) return;
   const seed = (await (await fetch(`${origin}/reading-seed/manifest.json`, { cache: "no-store" })).json()) as Seed;
-  const hashes = Object.keys(seed.media);
-  for (let i = 0; i < hashes.length; i += 25) {   // files first (fetched from our own static files)
-    const chunk = hashes.slice(i, i + 25);
+  // Files first, resumable: only the ones not stored yet (a timed-out first run continues here).
+  const all = Object.keys(seed.media);
+  const have = new Set((await prisma.readingMedia.findMany({ where: { hash: { in: all } }, select: { hash: true } })).map((m) => m.hash));
+  const missing = all.filter((h) => !have.has(h));
+  for (let i = 0; i < missing.length; i += 40) {
+    const chunk = missing.slice(i, i + 40);
     const rows = await Promise.all(chunk.map(async (h) => {
       const r = await fetch(`${origin}/reading-seed/${seed.media[h].file}`);
       return { hash: h, mime: seed.media[h].mime, bytes: new Uint8Array(await r.arrayBuffer()) };
     }));
     await prisma.readingMedia.createMany({ data: rows, skipDuplicates: true });
   }
+  // Items, photos and clips in three bulk inserts (ids made here, so sample words link directly).
+  const ids = new Map(seed.items.map((it) => [`${it.kind}:${it.text}`, randomUUID()]));
   await prisma.$transaction(async (tx) => {
-    // Two first visitors at once: the lock lets only one fill the tables.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(4242001)`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(4242001)`;   // two first visitors: only one fills
     if ((await tx.readingItem.count()) > 0) return;
-    const ids: Record<string, string> = {};
-    for (const it of seed.items) {
-      const row = await tx.readingItem.create({ data: {
-        kind: it.kind, text: it.text, accented: it.accented, accentChecked: it.accent_checked, syllables: it.syllables,
-        status: it.status, difficulty: it.difficulty, groups: it.groups, phonogram: it.phonogram ?? null,
-      } });
-      ids[`${it.kind}:${it.text}`] = row.id;
-      if (it.images.length) await tx.readingImage.createMany({ data: it.images.map((m) => ({
-        itemId: row.id, mediaHash: m.hash, source: "commons", title: m.title, artist: m.artist, license: m.license,
-        page: m.page, sourceUrl: m.source_url, selected: m.selected })) });
-      if (it.audio.length) await tx.readingAudio.createMany({ data: it.audio.map((a) => ({
-        itemId: row.id, kind: a.kind, voice: a.voice, mediaHash: a.hash, selected: a.selected })) });
-    }
-    for (const it of seed.items) {
-      if (it.sample && ids[`word:${it.sample}`]) {
-        await tx.readingItem.update({ where: { id: ids[`${it.kind}:${it.text}`] }, data: { sampleItemId: ids[`word:${it.sample}`] } });
-      }
-    }
-  }, { timeout: 60000, maxWait: 20000 });
+    await tx.readingItem.createMany({ data: seed.items.map((it) => ({
+      id: ids.get(`${it.kind}:${it.text}`)!, kind: it.kind, text: it.text, accented: it.accented, accentChecked: it.accent_checked,
+      syllables: it.syllables, status: it.status, difficulty: it.difficulty, groups: it.groups, phonogram: it.phonogram ?? null,
+      sampleItemId: it.sample ? ids.get(`word:${it.sample}`) ?? null : null,
+    })) });
+    await tx.readingImage.createMany({ data: seed.items.flatMap((it) => it.images.map((m) => ({
+      itemId: ids.get(`${it.kind}:${it.text}`)!, mediaHash: m.hash, source: "commons", title: m.title, artist: m.artist,
+      license: m.license, page: m.page, sourceUrl: m.source_url, selected: m.selected }))) });
+    await tx.readingAudio.createMany({ data: seed.items.flatMap((it) => it.audio.map((x) => ({
+      itemId: ids.get(`${it.kind}:${it.text}`)!, kind: x.kind, voice: x.voice, mediaHash: x.hash, selected: x.selected }))) });
+  }, { timeout: 30000, maxWait: 10000 });
 }
