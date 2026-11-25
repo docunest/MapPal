@@ -36,12 +36,12 @@ export async function attemptsSince(since: Date, level: number | null): Promise<
 }
 
 
-/** For the health check: does the attempts table answer? */
-export async function tableAnswers(): Promise<boolean> {
+/** For the health check: do the tables answer, and how much content is there (counts only, no data)? */
+export async function tableAnswers(): Promise<{ ok: boolean; items: number; media: number }> {
   try {
-    await prisma.readingAttempt.findFirst({ select: { id: true } });
-    return true;
+    const [items, media] = await Promise.all([prisma.readingItem.count(), prisma.readingMedia.count()]);
+    return { ok: true, items, media };
   } catch {
-    return false;
+    return { ok: false, items: 0, media: 0 };
   }
 }
