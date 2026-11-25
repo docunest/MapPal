@@ -265,5 +265,14 @@ owner "make API keys optional"); photos from Wikimedia Commons, bundled, credits
 Logs: every answer → `POST /api/reading/attempts` (no token: trusted devices). Summary: `/reading`,
 behind the normal MapPal login.
 
-Later: Level 4 camera, parent recordings to replace clips, better voices (Gemini/Azure) if wanted,
-MCP for the analysis agent, gamification module.
+### Next: word management (proposed 2026-11-25, waiting for owner "go")
+
+Design: `domains/reading/DESIGN.md`. In short: the words move to the backend (one list for all
+games); a parent mode in the MapPal web app (`/reading/words`) lists every word with photo,
+status (Naujas / Mokomės / Extra pamokos / Išmokta), difficulty, grade (1–3 suns or a plain grey
+bomb) and lesson count; a word screen picks the photo (or uploads/takes one) and the voice per
+clip kind (word, letter by letter, syllables) from Azure Ona, Ona HD, Leonas or the parent's
+recording, then approves the word. Games keep a heavy offline cache and auto-update; everything
+works with one word.
+
+Later: Level 4 camera, MCP for the analysis agent, gamification module.

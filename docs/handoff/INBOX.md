@@ -4,6 +4,10 @@ From the owner or chat Claude. Newest on top. Each entry is dated and has a
 status: open / in progress / done. See `.claude/skills/mappal-context/SKILL.md`
 → "Handoff protocol".
 
+## 2026-11-25 — Reading: word management in the backend, parent mode, cached games — open (design written, waiting for "go")
+
+Owner: a parent mode to manage words (scrollable list with photo, word, status Naujas / Mokomės / Extra pamokos / Išmokta, difficulty Lengvas / Vidutinis / Sunkus, a grade a kid understands such as 1–3 suns or a not-too-cool bomb, lesson count); check and add words; see suggested photos, flag "needs a better photo", upload or take a photo; mark a word not OK; listen to the word, letter by letter and by syllable in all three voices played in sequence, tap to choose, replay, record your own; approve (photo + voice) → Mokomės; adjust every status and grade. Must work with one word. Any interface; stored in the backend; games cache heavily, work offline and auto-update; the same words for all games. Design: `domains/reading/DESIGN.md`.
+
 ## 2026-11-21 — Contract v2: score + like/dislike hints, complication flags; index cells on the map — done
 
 Owner: "I added this rule. Extend contracts — 5. Evaluate location based on provided like and dislike hints. Use 0–100 score where 0 is go-go, 50 undecided and 100 is a must." Then: "Also add meta data requirement for flag complications. For example restaurant in super market is complication as its harder to reach. Restaurant in old town with banned car traffic or places that do not allow dogs." Then: "What is cell? Can you show them on map? Make them hidable." Report: STATUS.md, same date.
